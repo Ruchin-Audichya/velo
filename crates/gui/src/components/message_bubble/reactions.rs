@@ -59,7 +59,7 @@ pub fn render_reactions(
                 .when(count > 1, |el| {
                     el.child(
                         div()
-                            .font_family(cx.theme().mono_font_family.clone())
+                            .font_features(crate::components::parts::tabular())
                             .text_size(metrics.text_micro())
                             .text_color(cx.theme().muted_foreground)
                             .child(count.to_string()),

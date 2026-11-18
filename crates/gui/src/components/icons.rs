@@ -46,11 +46,21 @@ pub enum ProductIcon {
     /// The status ring: a circle drawn as segments, one per update.
     CircleDashed,
     Channels,
+    /// A pinned chat, at the end of its row.
+    Pin,
+    /// A muted chat, at the end of its row.
+    BellOff,
+    /// Velo's own mark in one colour, for the window's title strip.
+    VeloMark,
+    /// The picture of a person who has not set one.
+    AvatarPerson,
+    /// The picture of a group that has not set one.
+    AvatarGroup,
 }
 
 impl ProductIcon {
     /// Every icon, so a test can prove each one actually loads.
-    pub const ALL: [Self; 31] = [
+    pub const ALL: [Self; 36] = [
         Self::Phone,
         Self::PhoneOff,
         Self::Video,
@@ -82,6 +92,11 @@ impl ProductIcon {
         Self::MinimizeCard,
         Self::CircleDashed,
         Self::Channels,
+        Self::Pin,
+        Self::BellOff,
+        Self::VeloMark,
+        Self::AvatarPerson,
+        Self::AvatarGroup,
     ];
 
     /// Path inside the embedded asset bundle.
@@ -112,12 +127,17 @@ impl ProductIcon {
             Self::Shield => "icons/shield.svg",
             Self::Key => "icons/key.svg",
             Self::Lock => "icons/lock.svg",
+            Self::Pin => "icons/pin.svg",
+            Self::BellOff => "icons/bell-off.svg",
             Self::Grid => "icons/grid.svg",
             Self::MessageSquare => "icons/message-square.svg",
             Self::WifiOff => "icons/wifi-off.svg",
             Self::MinimizeCard => "icons/minimize-card.svg",
             Self::CircleDashed => "icons/circle-dashed.svg",
             Self::Channels => "icons/channels.svg",
+            Self::VeloMark => "icons/velo-mark.svg",
+            Self::AvatarPerson => "icons/avatar-person.svg",
+            Self::AvatarGroup => "icons/avatar-group.svg",
         }
     }
 }

@@ -21,10 +21,12 @@
 //! preset; see [`config`]. Loading cannot fail, so a hand-edited file can
 //! never leave the window unreadable.
 
+pub mod accent;
 mod apply;
 pub mod config;
 pub mod metrics;
 pub mod palette;
+pub mod wallpaper;
 
 use gpui::{App, Global, Hsla, Pixels, Size, rgb};
 
@@ -49,6 +51,8 @@ pub struct ProductTheme {
     /// scale the screen has no room for.
     fit: f32,
     pub preset: Preset,
+    /// What the conversation is drawn on.
+    pub wallpaper: wallpaper::Wallpaper,
     /// Whatever the config file asked for that could not be honoured. Empty
     /// when the file is absent or fully applied.
     pub problems: Vec<String>,
@@ -80,6 +84,7 @@ impl ProductTheme {
             fit,
             palette: settings.palette,
             preset: settings.preset,
+            wallpaper: settings.wallpaper,
             problems: settings.problems,
             location,
             loaded_at,
@@ -95,6 +100,7 @@ impl ProductTheme {
             density: self.metrics.density(),
             font_size: self.base_font_size,
             language: self.language,
+            wallpaper: self.wallpaper,
             problems: self.problems.clone(),
         }
     }

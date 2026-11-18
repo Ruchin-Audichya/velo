@@ -78,6 +78,8 @@ pub use rich_text::{
     plain_text as plain_message_text,
 };
 pub use status::{StatusAuthor, StatusFeed};
+mod call_history;
+pub use call_history::CallHistoryEntry;
 pub use system_notice::{CallOutcome, CallRecord, SystemNotice, format_duration};
 pub use video::{CallVideo, CallVideoFrame, VideoStream};
 

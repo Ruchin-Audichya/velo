@@ -41,11 +41,11 @@ pub enum BusinessAction {
 impl BusinessAction {
     pub fn unavailable_reason(self) -> &'static str {
         match self {
-            Self::Reply => "Button replies are not supported by this client.",
-            Self::OpenLink => "Opening business button links is not supported by this client.",
-            Self::Call => "Calling business button numbers is not supported by this client.",
-            Self::NativeFlow => "This interactive action must be completed on your phone.",
-            Self::Unsupported => "This button action is not supported by this client.",
+            Self::Reply => "Tap this button on your phone to reply.",
+            Self::OpenLink => "Open this button's link on your phone.",
+            Self::Call => "Place this button's call from your phone.",
+            Self::NativeFlow => "Finish this on your phone.",
+            Self::Unsupported => "This button works on your phone.",
         }
     }
 }

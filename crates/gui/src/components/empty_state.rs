@@ -172,7 +172,7 @@ impl RenderOnce for EmptyState {
                                     .rounded(metrics.radius_sm())
                                     .border_1()
                                     .border_color(cx.theme().border)
-                                    .font_family(cx.theme().mono_font_family.clone())
+                                    .font_features(crate::components::parts::tabular())
                                     .text_size(metrics.text_meta())
                                     .child(shortcut.keys),
                             )

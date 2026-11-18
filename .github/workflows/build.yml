@@ -19,6 +19,16 @@ on:
         required: false
         default: ""
         type: string
+    secrets:
+      # Authenticode signing for the Windows binaries. All optional: without
+      # them the build is unsigned, exactly as before. See
+      # packaging/windows/SIGNING.md for what each one is.
+      WINDOWS_SIGNING_PFX_BASE64:
+        required: false
+      WINDOWS_SIGNING_PFX_PASSWORD:
+        required: false
+      WINDOWS_SIGNING_THUMBPRINT:
+        required: false
 
 # Read-only, and a called workflow does not inherit the caller's permissions
 # unless they are passed: building never needs to write to the repository.
@@ -137,6 +147,42 @@ jobs:
       # undiscoverable from the releases page.
       - name: Build
         run: cargo build --release --target ${{ matrix.target }} --bin oxidezap --bin oxidezapd --bin oxidezap-cli
+
+      # Before packaging, so the archive carries signed files. Skipped, not
+      # failed, when no certificate is configured; when one is, a file that
+      # does not verify fails the job. The certificate arrives through secrets
+      # and the script never writes it anywhere but a temp file it deletes.
+      # A step's `if` cannot read secrets, nor its own `env`, so whether a
+      # certificate is configured is asked one step earlier.
+      - name: Check for a signing certificate
+        id: signing
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          PFX: ${{ secrets.WINDOWS_SIGNING_PFX_BASE64 }}
+          THUMBPRINT: ${{ secrets.WINDOWS_SIGNING_THUMBPRINT }}
+        run: |
+          if [ -n "$PFX" ] || [ -n "$THUMBPRINT" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No signing certificate configured; the Windows build is unsigned."
+          fi
+
+      - name: Sign the Windows binaries
+        if: runner.os == 'Windows' && steps.signing.outputs.enabled == 'true'
+        shell: pwsh
+        env:
+          WINDOWS_SIGNING_PFX_BASE64: ${{ secrets.WINDOWS_SIGNING_PFX_BASE64 }}
+          WINDOWS_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
+          WINDOWS_SIGNING_THUMBPRINT: ${{ secrets.WINDOWS_SIGNING_THUMBPRINT }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          ./packaging/windows/sign.ps1 -Files @(
+            "target/$env:TARGET/release/oxidezap.exe",
+            "target/$env:TARGET/release/oxidezapd.exe",
+            "target/$env:TARGET/release/oxidezap-cli.exe"
+          )
 
       - name: Package the binaries for their platform
         shell: bash

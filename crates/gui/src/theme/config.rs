@@ -50,6 +50,8 @@ pub struct ThemeFile {
     pub font_size: Option<f32>,
     /// UI language tag. Missing or unsupported tags use English.
     pub language: Option<String>,
+    /// The chat wallpaper, by the ids in [`super::wallpaper::Wallpaper`].
+    pub wallpaper: Option<String>,
 }
 
 /// A resolved, always-valid theme.
@@ -60,6 +62,7 @@ pub struct ThemeSettings {
     pub density: Density,
     pub font_size: f32,
     pub language: crate::i18n::Language,
+    pub wallpaper: super::wallpaper::Wallpaper,
     /// What the file asked for that could not be honoured, in the order the
     /// keys appear. Empty means the file was fully applied — or absent.
     pub problems: Vec<String>,
@@ -74,6 +77,7 @@ impl Default for ThemeSettings {
             density: Density::default(),
             font_size: DEFAULT_FONT_SIZE,
             language: crate::i18n::Language::default(),
+            wallpaper: super::wallpaper::Wallpaper::default(),
             problems: Vec::new(),
         }
     }
@@ -124,6 +128,17 @@ impl ThemeSettings {
             },
         };
 
+        let wallpaper = match file.wallpaper.as_deref() {
+            None => super::wallpaper::Wallpaper::default(),
+            Some(name) => match name.parse::<super::wallpaper::Wallpaper>() {
+                Ok(wallpaper) => wallpaper,
+                Err(err) => {
+                    problems.push(err.to_string());
+                    super::wallpaper::Wallpaper::default()
+                }
+            },
+        };
+
         let font_size = match file.font_size {
             None => DEFAULT_FONT_SIZE,
             Some(size) if (MIN_FONT_SIZE..=MAX_FONT_SIZE).contains(&size) => size,
@@ -145,6 +160,7 @@ impl ThemeSettings {
                 .as_deref()
                 .map(crate::i18n::Language::parse)
                 .unwrap_or_default(),
+            wallpaper,
             problems,
         }
     }
@@ -169,6 +185,7 @@ impl ThemeSettings {
             density: Some(self.density.id().to_string()),
             font_size: Some(self.font_size),
             language: Some(self.language.code().to_string()),
+            wallpaper: Some(self.wallpaper.id().to_string()),
         }
     }
 }
@@ -311,7 +328,7 @@ pub fn revision() -> Option<prefs::Revision> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::theme::palette::TOKYO_NIGHT;
+    use crate::theme::palette::{CLASSIC_DARK, TOKYO_NIGHT};
 
     fn resolve(raw: &str) -> ThemeSettings {
         parse(raw)
@@ -339,8 +356,8 @@ mod tests {
     #[test]
     fn nothing_configured_is_the_product_default() {
         let settings = ThemeSettings::default();
-        assert_eq!(settings.preset, Preset::TokyoNight);
-        assert_eq!(settings.palette, TOKYO_NIGHT);
+        assert_eq!(settings.preset, Preset::ClassicDark);
+        assert_eq!(settings.palette, CLASSIC_DARK);
         assert!(settings.problems.is_empty(), "absence is not a problem");
     }
 
@@ -372,7 +389,7 @@ mod tests {
             resolve(r##"{ "colors": { "primary": "not a colour", "danger": "#ff0000" } }"##);
         assert_eq!(settings.palette.danger, Rgb(0xff0000));
         assert_eq!(
-            settings.palette.primary, TOKYO_NIGHT.primary,
+            settings.palette.primary, CLASSIC_DARK.primary,
             "the unparseable key falls back rather than blanking the role"
         );
         assert_eq!(settings.problems.len(), 1);
@@ -381,21 +398,21 @@ mod tests {
     #[test]
     fn unknown_role_is_reported_not_fatal() {
         let settings = resolve(r##"{ "colors": { "bakcground": "#000000" } }"##);
-        assert_eq!(settings.palette, TOKYO_NIGHT);
+        assert_eq!(settings.palette, CLASSIC_DARK);
         assert!(settings.problems[0].contains("bakcground"));
     }
 
     #[test]
     fn malformed_json_still_yields_a_usable_theme() {
         let settings = resolve("{ this is not json");
-        assert_eq!(settings.palette, TOKYO_NIGHT);
+        assert_eq!(settings.palette, CLASSIC_DARK);
         assert_eq!(settings.problems.len(), 1);
     }
 
     #[test]
     fn unknown_preset_falls_back_and_is_reported() {
         let settings = resolve(r##"{ "extends": "dracula" }"##);
-        assert_eq!(settings.preset, Preset::TokyoNight);
+        assert_eq!(settings.preset, Preset::ClassicDark);
         assert!(settings.problems[0].contains("dracula"));
     }
 
@@ -414,6 +431,7 @@ mod tests {
             density: Density::Compact,
             font_size: 18.0,
             language: crate::i18n::Language::Portuguese,
+            wallpaper: crate::theme::wallpaper::Wallpaper::Ocean,
             problems: Vec::new(),
         };
         settings.palette.primary = Rgb(0xff00ff);
@@ -427,6 +445,7 @@ mod tests {
         assert_eq!(reloaded.density, settings.density);
         assert_eq!(reloaded.font_size, settings.font_size);
         assert_eq!(reloaded.language, settings.language);
+        assert_eq!(reloaded.wallpaper, settings.wallpaper);
     }
 
     #[test]

@@ -2619,6 +2619,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "extended"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af9673d8203fcb076b19dfd17e38b3d4ae9f44959416ea532ce72415a6020365"
+
+[[package]]
 name = "fancy_constructor"
 version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6530,7 +6536,7 @@ dependencies = [
 
 [[package]]
 name = "oxidezap-audio"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -6547,6 +6553,7 @@ dependencies = [
  "oxidezap-platform",
  "portable-atomic",
  "ringbuf",
+ "symphonia",
  "tokio",
  "wacore",
  "wasm-bindgen",
@@ -6557,7 +6564,7 @@ dependencies = [
 
 [[package]]
 name = "oxidezap-chat-store"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "buffa",
  "chrono",
@@ -6582,7 +6589,7 @@ dependencies = [
 
 [[package]]
 name = "oxidezap-cli"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "oxidezap-ipc",
  "oxidezap-wire",
@@ -6594,7 +6601,7 @@ dependencies = [
 
 [[package]]
 name = "oxidezap-core"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -6610,7 +6617,7 @@ dependencies = [
 
 [[package]]
 name = "oxidezap-daemon"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -6618,6 +6625,7 @@ dependencies = [
  "base64 0.23.1",
  "chrono",
  "core-foundation 0.10.1",
+ "embed-resource",
  "futures-channel",
  "futures-util",
  "getrandom 0.2.17",
@@ -6653,16 +6661,18 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
  "web-sys",
+ "windows 0.62.2",
  "windows-sys 0.61.2",
 ]
 
 [[package]]
 name = "oxidezap-gui"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "block2 0.6.2",
  "chrono",
+ "embed-resource",
  "futures-channel",
  "futures-lite",
  "getrandom 0.4.3",
@@ -6691,6 +6701,7 @@ dependencies = [
  "oxidezap-video",
  "portable-atomic",
  "qrcode",
+ "raw-window-handle",
  "rust-embed",
  "serde",
  "serde_json",
@@ -6709,7 +6720,7 @@ dependencies = [
 
 [[package]]
 name = "oxidezap-ipc"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "futures-channel",
  "futures-lite",
@@ -6731,7 +6742,7 @@ dependencies = [
 
 [[package]]
 name = "oxidezap-logging"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "env_logger",
  "log",
@@ -6742,7 +6753,7 @@ dependencies = [
 
 [[package]]
 name = "oxidezap-platform"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "futures-channel",
  "futures-lite",
@@ -6752,25 +6763,28 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+ "windows 0.62.2",
+ "windows-registry 0.6.1",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
 name = "oxidezap-plugin"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "oxidezap-plugin-abi",
 ]
 
 [[package]]
 name = "oxidezap-plugin-abi"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "oxidezap-plugin-abi",
 ]
 
 [[package]]
 name = "oxidezap-plugin-host"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -6791,7 +6805,7 @@ dependencies = [
 
 [[package]]
 name = "oxidezap-session"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -6829,15 +6843,17 @@ dependencies = [
 
 [[package]]
 name = "oxidezap-video"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "async-channel",
  "futures-lite",
  "getrandom 0.2.17",
  "getrandom 0.4.3",
+ "image",
  "js-sys",
  "log",
+ "mp4",
  "nokhwa",
  "nokhwa-bindings-macos",
  "openh264",
@@ -6852,7 +6868,7 @@ dependencies = [
 
 [[package]]
 name = "oxidezap-wire"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -9194,10 +9210,43 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7edef6a96b696d4e0cab5ee9ebb7ca155ed95f30a6b45bbb8b97d2727f02424"
 dependencies = [
  "lazy_static",
+ "symphonia-bundle-flac",
+ "symphonia-bundle-mp3",
  "symphonia-codec-aac",
+ "symphonia-codec-adpcm",
+ "symphonia-codec-alac",
+ "symphonia-codec-pcm",
+ "symphonia-codec-vorbis",
  "symphonia-core",
+ "symphonia-format-caf",
  "symphonia-format-isomp4",
+ "symphonia-format-mkv",
+ "symphonia-format-ogg",
+ "symphonia-format-riff",
  "symphonia-metadata",
+]
+
+[[package]]
+name = "symphonia-bundle-flac"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6405d5c34ff6f8f7ca08a4101efe66d21e180f7322ef9359900a0e55698a7892"
+dependencies = [
+ "log",
+ "symphonia-common",
+ "symphonia-core",
+ "symphonia-metadata",
+]
+
+[[package]]
+name = "symphonia-bundle-mp3"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "98ea5ffc8716bff677dfb3b01b420c7b758de901a72b8c330bf2040ab74b4add"
+dependencies = [
+ "lazy_static",
+ "log",
+ "symphonia-core",
 ]
 
 [[package]]
@@ -9207,6 +9256,48 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f5bf8e39552d34a3c4c98333370e62f48c92456d2e814f273b5c3ad7c4a5f45c"
 dependencies = [
  "lazy_static",
+ "log",
+ "symphonia-common",
+ "symphonia-core",
+]
+
+[[package]]
+name = "symphonia-codec-adpcm"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "445932ecb0c59362fde9c082dd63a75380650c5077fdb8b80b8cac850442a74c"
+dependencies = [
+ "log",
+ "symphonia-core",
+]
+
+[[package]]
+name = "symphonia-codec-alac"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "920a78f96f3cf62932d0c497959c0cc2100ef36b03c7ca1417b260f432a482d8"
+dependencies = [
+ "log",
+ "symphonia-common",
+ "symphonia-core",
+]
+
+[[package]]
+name = "symphonia-codec-pcm"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e04ba75686acbe43542fdd374571195f0530c0b7785ca25cc6840e9c6c4b6eea"
+dependencies = [
+ "log",
+ "symphonia-core",
+]
+
+[[package]]
+name = "symphonia-codec-vorbis"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73d90b4fcf796137cc683c538282804ff9629f8ad9dbfd881fcbba331ac4e986"
+dependencies = [
  "log",
  "symphonia-common",
  "symphonia-core",
@@ -9238,6 +9329,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "symphonia-format-caf"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab64327ee1920531c5bf86cf7e9cd1a599d57013ddc30691da62683cefc65191"
+dependencies = [
+ "log",
+ "symphonia-common",
+ "symphonia-core",
+]
+
+[[package]]
 name = "symphonia-format-isomp4"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9245,6 +9347,42 @@ checksum = "0e681a70e1870d34e02abf1dbc51e4267c3f1827801474e8870be8c689fc4dc3"
 dependencies = [
  "log",
  "symphonia-common",
+ "symphonia-core",
+ "symphonia-metadata",
+]
+
+[[package]]
+name = "symphonia-format-mkv"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d015c5c0558864665894b3f4cbd95e10abb01b9c868e751c72670f326a56360e"
+dependencies = [
+ "lazy_static",
+ "log",
+ "symphonia-common",
+ "symphonia-core",
+]
+
+[[package]]
+name = "symphonia-format-ogg"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b5495e7f7e3c7035328d82b6d6e377eef289bb0c4105bdeb557fc93a833f994"
+dependencies = [
+ "log",
+ "symphonia-common",
+ "symphonia-core",
+ "symphonia-metadata",
+]
+
+[[package]]
+name = "symphonia-format-riff"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ff70929083a8c1a5f6cd7c904b6071c7914ad04739b510c2f7239dfc9b7dabe"
+dependencies = [
+ "extended",
+ "log",
  "symphonia-core",
  "symphonia-metadata",
 ]
@@ -10234,6 +10372,22 @@ name = "vcpkg"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
+
+[[package]]
+name = "velo-setup"
+version = "1.0.0"
+dependencies = [
+ "embed-resource",
+ "flate2",
+ "gpui-component",
+ "gpui-fast",
+ "gpui-fast-platform",
+ "gpui-kit-assets",
+ "oxidezap-ipc",
+ "oxidezap-wire",
+ "windows 0.62.2",
+ "windows-registry 0.6.1",
+]
 
 [[package]]
 name = "version_check"

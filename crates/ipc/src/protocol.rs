@@ -421,9 +421,24 @@ pub enum DaemonMessage {
         snapshot: Box<StateSnapshot>,
     },
     /// Device work answered only to the front end that requested it.
+    CallHistory {
+        id: RequestId,
+        result: Result<Vec<oxidezap_core::CallHistoryEntry>, String>,
+    },
+    /// Hits for [`ClientRequest::SearchEverywhere`]: each message with the
+    /// chat it is in, best match first.
+    SearchResults {
+        id: RequestId,
+        result: Result<Vec<(String, oxidezap_core::ChatMessage)>, String>,
+    },
     CallDevices {
         id: RequestId,
         result: Result<Box<CallDeviceReply>, String>,
+    },
+    /// The answer to [`ClientRequest::ChatAction`].
+    ChatActed {
+        id: RequestId,
+        result: Result<(), String>,
     },
     /// What this account occupies on disk, answering
     /// [`ClientRequest::StorageUsage`].
@@ -935,6 +950,19 @@ pub struct EnsureAvatars {
     pub items: Vec<AvatarDemand>,
 }
 
+/// What a chat's menu can do to it. Each is an app-state change WhatsApp
+/// carries to the phone and every linked device.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ChatAction {
+    Pin(bool),
+    /// Seconds to mute for; `None` mutes until unmuted, `Some(0)` unmutes.
+    Mute(Option<u64>),
+    Archive(bool),
+    MarkUnread,
+    Clear,
+    Delete,
+}
+
 /// What a client asks the daemon to do.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "request", rename_all = "snake_case")]
@@ -1037,6 +1065,28 @@ pub enum ClientRequest {
     Typing(Typing),
     Call(CallAction),
     CallDevices(Box<CallDeviceAction>),
+    LoadCallHistory {
+        refresh: bool,
+    },
+    /// Full-text search over every chat's stored history. Answered with
+    /// [`DaemonMessage::SearchResults`] under the request's id.
+    SearchEverywhere {
+        query: String,
+        limit: u32,
+    },
+    /// Change a conversation the way its menu offers: pin, mute, archive,
+    /// mark unread, clear, delete. Answered with [`DaemonMessage::ChatActed`].
+    ChatAction {
+        jid: String,
+        action: ChatAction,
+    },
+    /// Forward one stored message to another chat. Answered with
+    /// [`DaemonMessage::ChatActed`].
+    ForwardMessage {
+        source_jid: String,
+        message_id: String,
+        target_jid: String,
+    },
     /// Fetch media the daemon has not cached yet.
     ///
     /// The one request whose answer is neither a state change nor an

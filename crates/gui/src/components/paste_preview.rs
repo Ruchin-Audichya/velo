@@ -36,7 +36,7 @@ impl PreviewFile {
     /// batch, so decoding every image of a batch retains copies nothing
     /// draws.
     pub fn with_preview(file: crate::platform::picker::Picked, decode: bool) -> Self {
-        let image = (decode && file.kind == OutgoingMedia::Image)
+        let image = (decode && matches!(file.kind, OutgoingMedia::Image | OutgoingMedia::Sticker))
             .then(|| crate::platform::picker::previewable_image_mime(&file.bytes))
             .flatten()
             .and_then(gpui::ImageFormat::from_mime_type)
@@ -215,8 +215,8 @@ fn render_files(
 
 fn render_file_row(file: &PreviewFile, metrics: Metrics, cx: &App) -> impl IntoElement + use<> {
     let icon = match file.kind() {
-        OutgoingMedia::Image => ProductIcon::Image,
-        OutgoingMedia::Video => ProductIcon::Video,
+        OutgoingMedia::Image | OutgoingMedia::Sticker => ProductIcon::Image,
+        OutgoingMedia::Video | OutgoingMedia::Gif => ProductIcon::Video,
         OutgoingMedia::Document => ProductIcon::FileText,
     };
     div()

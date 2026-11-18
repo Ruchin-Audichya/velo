@@ -16,6 +16,9 @@ repository.workspace = true
 name = "oxidezap"
 path = "src/main.rs"
 
+[build-dependencies]
+embed-resource = "3.0.12"
+
 [dependencies]
 # The video's own audio track: `mp4` demuxes the container and `symphonia`
 # decodes the AAC out of it. Both were desktop-only while the only caller was
@@ -96,11 +99,16 @@ smol = "2.0.2"
 gpui_platform = { package = "gpui-fast-platform", version = "0.1.13", features = ["font-kit", "x11", "wayland", "runtime_shaders"] }
 openh264 = "0.9.9" # H.264 software decoder
 
-# The one Win32 constant the daemon spawn names (`CREATE_NO_WINDOW`), and
-# nothing else: process creation flags are std, and the value itself belongs
-# to the OS rather than to a literal in the call.
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61.2", features = ["Win32_System_Threading"] }
+oxidezap-platform = { workspace = true }
+raw-window-handle = "0.6.2"
+windows-sys = { version = "0.61.2", features = [
+    "Win32_Graphics_Dwm",
+    "Win32_Graphics_Gdi",
+    "Win32_System_Threading",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
 
 # Native notification authorization and the process-level active state. GPUI
 # already uses this objc2 family internally; declared because this crate calls

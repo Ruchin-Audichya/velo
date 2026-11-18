@@ -10,6 +10,7 @@
 mod ack;
 mod audio_played;
 mod avatar;
+mod call_history;
 mod chat_names;
 mod chat_rows;
 mod contacts;
@@ -353,6 +354,8 @@ impl EventHandler for ChatStoreHandler {
             EventKind::ServerAck,
             EventKind::UndecryptableMessage,
             EventKind::HistorySync,
+            EventKind::CallLogSync,
+            EventKind::CallLogHistory,
             EventKind::ContactUpdate,
             EventKind::ContactRemoved,
             EventKind::PinUpdate,

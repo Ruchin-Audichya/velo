@@ -32,6 +32,21 @@ use crate::theme::ActiveProductTheme as _;
 // collide with the local bindings they replace, and the qualification is what
 // makes it obvious the colour is a shared token rather than a nearby `let`.
 
+/// Tabular figures: every digit the same width, so a column of times and
+/// a counter that ticks do not shimmer as their digits change.
+pub fn tabular() -> gpui::FontFeatures {
+    gpui::FontFeatures(std::sync::Arc::new(vec![("tnum".into(), 1)]))
+}
+
+/// The type of metadata — timestamps, counts, the small print under a name:
+/// the interface face at regular weight with tabular figures, so a column of
+/// times lines up and never competes with the message it describes.
+pub fn meta() -> Div {
+    div()
+        .font_weight(gpui::FontWeight::NORMAL)
+        .font_features(tabular())
+}
+
 /// Metadata ink: timestamps, counters, the line under a name.
 pub fn subtle(cx: &App) -> Hsla {
     cx.product().hsla(cx.product().palette.subtle_foreground)

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- The default picture for a person with none: a head and shoulders that
+       run off the bottom of the circle, the shape every messenger uses. -->
+  <circle cx="12" cy="9.4" r="4.4" fill="black"/>
+  <path fill="black" d="M3.2 24.5C3.2 18.4 7.1 15.4 12 15.4C16.9 15.4 20.8 18.4 20.8 24.5Z"/>
+</svg>

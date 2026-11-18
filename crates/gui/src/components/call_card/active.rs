@@ -48,7 +48,7 @@ pub fn live_header(
                 .flex_1()
                 .items_center()
                 .gap(metrics.space_md())
-                .font_family(cx.theme().mono_font_family.clone())
+                .font_features(crate::components::parts::tabular())
                 .text_size(metrics.text_meta())
                 .text_color(cx.theme().primary)
                 .child(
@@ -161,7 +161,7 @@ pub fn active_audio(
                             // Monospace so the digits do not jitter as the
                             // seconds tick.
                             div()
-                                .font_family(cx.theme().mono_font_family.clone())
+                                .font_features(crate::components::parts::tabular())
                                 // The number the person on a call is actually
                                 // looking for, so it is not set at the size of
                                 // a timestamp.

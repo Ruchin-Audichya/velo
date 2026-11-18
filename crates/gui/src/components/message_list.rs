@@ -64,9 +64,18 @@ pub fn render_message_list(
     is_group: bool,
     is_own_number: bool,
     layout: ResponsiveLayout,
-    _cx: &App,
+    cx: &App,
 ) -> impl IntoElement + use<> {
     let metrics = *layout.metrics();
+    let theme = cx.product();
+    // The chat's wallpaper, as a layer under everything the list draws.
+    let wallpaper = || {
+        theme
+            .wallpaper
+            .paint(&theme.palette, theme.preset.is_dark())
+            .absolute()
+            .inset_0()
+    };
 
     // What the list holds, not what the chat holds. In a conversation with no
     // history the other side may still be typing, and that row is the only
@@ -81,6 +90,8 @@ pub fn render_message_list(
             .justify_center()
             .items_center()
             .p(metrics.space_xxxl())
+            .relative()
+            .child(wallpaper())
             .child(
                 EmptyState::new(crate::tr!(NoMessagesYet))
                     .icon(ProductIcon::MessageSquare)
@@ -105,6 +116,7 @@ pub fn render_message_list(
         .flex_1()
         .min_h_0()
         .relative()
+        .child(wallpaper())
         .overflow_hidden()
         .on_children_prepainted(move |_, _, cx| {
             if !media_entity
@@ -297,6 +309,7 @@ fn render_row(
             let audio = (app.audio_owner() == Some(message_id.as_str())).then(|| AudioProgress {
                 fraction: app.audio_progress(),
                 elapsed_secs: app.audio_elapsed_secs(),
+                total_secs: app.audio_total_secs(),
             });
             let props = BubbleProps {
                 ids: ids.clone(),
@@ -325,7 +338,19 @@ fn render_row(
                 is_preparing: app.is_audio_preparing(message_id),
             };
 
-            render_message_bubble(props, entity.clone(), layout, cx).into_any_element()
+            let bubble = render_message_bubble(props, entity.clone(), layout, cx);
+            // A message that has just arrived rises into place; anything
+            // older is drawn still, so scrolling never replays it.
+            if crate::motion::is_fresh(msg.timestamp) {
+                crate::motion::rise_in(
+                    div().w_full().child(bubble),
+                    gpui::ElementId::Name(format!("arrive-{message_id}").into()),
+                    metrics.space_lg(),
+                )
+                .into_any_element()
+            } else {
+                bubble.into_any_element()
+            }
         }
     }
 }
@@ -352,7 +377,7 @@ fn render_date_divider(
                 .bg(cx.theme().secondary)
                 .border_1()
                 .border_color(cx.theme().border)
-                .font_family(cx.theme().mono_font_family.clone())
+                .font_features(crate::components::parts::tabular())
                 .text_size(metrics.text_micro())
                 .text_color(subtle)
                 .child(format_date_divider(&at)),
@@ -423,7 +448,7 @@ fn render_typing(
                                 .flex()
                                 .items_center()
                                 .justify_center()
-                                .font_family(cx.theme().mono_font_family.clone())
+                                .font_features(crate::components::parts::tabular())
                                 .text_size(metrics.text_micro())
                                 .text_color(cx.theme().muted_foreground)
                                 .child(format!("+{overflow}")),
@@ -439,7 +464,7 @@ fn render_typing(
                 .when(is_group, |el| {
                     el.child(
                         div()
-                            .font_family(cx.theme().mono_font_family.clone())
+                            .font_features(crate::components::parts::tabular())
                             .text_size(metrics.text_micro())
                             .text_color(subtle)
                             .child(label),

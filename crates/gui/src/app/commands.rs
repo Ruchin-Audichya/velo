@@ -104,6 +104,7 @@ impl WhatsAppApp {
         // A photo and a voice note both want the speakers; opening one stops
         // the other rather than talking over it.
         self.stop_user_media();
+        self.fetch_viewer_picture(cx);
         // The arrow keys follow in `sync_overlay_focus`, on this same frame —
         // and, unlike focusing here, they are handed back when the viewer
         // goes away, however it goes away.
@@ -130,7 +131,33 @@ impl WhatsAppApp {
         let messages = self.find_chat(&jid).map(|chat| chat.messages.as_slice());
         self.viewer
             .update(cx, |state, cx| state.step(forward, messages, cx));
+        self.fetch_viewer_picture(cx);
         cx.notify();
+    }
+
+    /// Fetch the full picture behind the thumbnail the viewer is showing.
+    ///
+    /// Into memory only: the viewer is the preview, and nothing reaches the
+    /// disk until the reader presses Save.
+    fn fetch_viewer_picture(&mut self, cx: &mut Context<Self>) {
+        let Some(jid) = self.viewer.read(cx).jid().map(str::to_string) else {
+            return;
+        };
+        let Some(message) = self.media_viewer_message(cx) else {
+            return;
+        };
+        if !super::viewer::needs_full_fetch(message) || self.is_downloading(&message.id) {
+            return;
+        }
+        let Some(downloadable) = message
+            .media
+            .as_ref()
+            .and_then(|media| media.downloadable.clone())
+        else {
+            return;
+        };
+        let id = message.id.clone();
+        self.download_image(jid, id, downloadable, cx);
     }
 
     pub fn conversation_search<'a>(&self, cx: &'a App) -> Option<&'a ConversationSearch> {
@@ -251,6 +278,7 @@ impl WhatsAppApp {
         self.search
             .update(cx, |search, cx| search.clear_list_query(window, cx));
         self.invalidate_chat_cache();
+        self.refresh_global_search(cx);
         cx.notify();
     }
 
@@ -344,7 +372,10 @@ impl WhatsAppApp {
             self.decline_waiting_call(cx);
             return;
         }
-        if self.cancel_message_delete(cx) {
+        if self.cancel_message_delete(cx)
+            || self.cancel_chat_confirmation(cx)
+            || self.cancel_forward_picker(cx)
+        {
             return;
         }
         if self.cancel_paste_preview(cx) {
@@ -416,6 +447,29 @@ impl WhatsAppApp {
     ) {
         self.settings
             .update(cx, |settings, cx| settings.set_density(density, window, cx));
+    }
+
+    /// Choose the accent colour.
+    pub fn set_accent(
+        &mut self,
+        accent: crate::theme::accent::Accent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.settings
+            .update(cx, |settings, cx| settings.set_accent(accent, window, cx));
+    }
+
+    /// Choose the chat wallpaper.
+    pub fn set_wallpaper(
+        &mut self,
+        wallpaper: crate::theme::wallpaper::Wallpaper,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.settings.update(cx, |settings, cx| {
+            settings.set_wallpaper(wallpaper, window, cx)
+        });
     }
 
     /// Nudge the base font, which scales the whole interface.

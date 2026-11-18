@@ -31,6 +31,8 @@ nokhwa = { version = "0.10.11", default-features = false, features = [
 # The same encoder the GUI already decodes with: one copy of OpenH264 in the
 # tree, and a video call adds no codec the binary did not already carry.
 openh264 = "0.9.9"
+image = { version = "0.25.10", default-features = false, features = ["gif"] }
+mp4 = "0.14.0"
 # Only to get the blocking open and the blocking close off a runtime thread.
 tokio = { workspace = true, features = ["rt"] }
 

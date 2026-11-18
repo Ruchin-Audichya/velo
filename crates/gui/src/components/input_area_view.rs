@@ -7,11 +7,14 @@ use std::time::Duration;
 
 use wacore::time::Instant;
 
-use gpui::{App, Entity, EventEmitter, Focusable as _, Task, WeakEntity, Window, div, prelude::*};
+use gpui::{
+    App, Entity, EntityInputHandler as _, EventEmitter, Focusable as _, Task, WeakEntity, Window,
+    div, prelude::*,
+};
 use gpui_component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _,
     button::{Button, ButtonVariants},
-    input::{Enter, InputEvent, Paste, Textarea, TextareaState},
+    input::{Enter, Input, InputEvent, InputState, Paste, Textarea, TextareaState},
     menu::{DropdownMenu as _, PopupMenuItem},
 };
 
@@ -119,6 +122,8 @@ pub struct InputAreaView {
     /// The field itself. A textarea rather than a single line: a message is
     /// not always one, and the design asks it to grow with what is typed.
     input: Entity<TextareaState>,
+    emoji_open: bool,
+    emoji_search: Entity<InputState>,
     language: crate::i18n::Language,
     /// Whether PTT recording is active
     is_recording: bool,
@@ -181,7 +186,12 @@ impl InputAreaView {
         cx.subscribe_in(&input, window, Self::handle_input_event)
             .detach();
 
+        let emoji_search = cx.new(|cx| InputState::new(window, cx).placeholder("Search emoji…"));
+        cx.subscribe(&emoji_search, |_, _, _: &InputEvent, cx| cx.notify())
+            .detach();
         Self {
+            emoji_open: false,
+            emoji_search,
             input,
             language: crate::i18n::Language::current(),
             is_recording: false,
@@ -469,6 +479,9 @@ impl Render for InputAreaView {
                     .filter(|_| !self.editing)
                     .map(|reply| render_reply_bar(reply, entity.clone(), metrics, cx)),
             )
+            .children(
+                (self.emoji_open && !is_recording).then(|| self.render_emoji_picker(metrics, cx)),
+            )
             .child(if is_recording {
                 self.render_recording(control, metrics, cx)
                     .into_any_element()
@@ -480,6 +493,85 @@ impl Render for InputAreaView {
 }
 
 impl InputAreaView {
+    fn render_emoji_picker(
+        &self,
+        metrics: Metrics,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement + use<> {
+        #[derive(serde::Deserialize)]
+        struct Emoji {
+            emoji: String,
+            name: String,
+        }
+        static EMOJI: std::sync::OnceLock<Vec<Emoji>> = std::sync::OnceLock::new();
+        let entries = EMOJI.get_or_init(|| {
+            serde_json::from_str(include_str!("../../assets/emoji.json"))
+                .expect("bundled Unicode emoji data")
+        });
+        let query = self.emoji_search.read(cx).value().to_lowercase();
+        let matches: Vec<_> = entries
+            .iter()
+            .filter(|item| {
+                query.is_empty()
+                    || item.name.to_lowercase().contains(&query)
+                    || item.emoji.contains(&query)
+            })
+            .take(120)
+            .collect();
+        div()
+            .flex()
+            .flex_col()
+            .gap(metrics.space_sm())
+            .pb(metrics.space_md())
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(metrics.space_sm())
+                    .child(div().flex_1().child(Input::new(&self.emoji_search)))
+                    .child(
+                        Button::new("emoji-close")
+                            .icon(IconName::Close)
+                            .ghost()
+                            .on_click(cx.listener(|view, _, window, cx| {
+                                view.emoji_open = false;
+                                window.focus(&view.focus_handle(cx), cx);
+                                cx.notify();
+                            })),
+                    ),
+            )
+            .child(
+                div()
+                    .id("emoji-grid")
+                    .h(metrics.touch_target() * 3.0)
+                    .overflow_y_scroll()
+                    .flex()
+                    .flex_wrap()
+                    .gap(metrics.space_xs())
+                    .children(matches.into_iter().enumerate().map(|(index, item)| {
+                        let emoji = item.emoji.clone();
+                        Button::new(("emoji-pick", index))
+                            .label(item.emoji.clone())
+                            .tooltip(item.name.clone())
+                            .ghost()
+                            .size(metrics.touch_target())
+                            .on_click(cx.listener(move |view, _, window, cx| {
+                                view.input.update(cx, |state, cx| {
+                                    state.replace_text_in_range(None, &emoji, window, cx)
+                                });
+                                window.focus(&view.focus_handle(cx), cx);
+                                cx.notify();
+                            }))
+                    })),
+            )
+            .child(
+                div()
+                    .text_size(metrics.text_small())
+                    .text_color(cx.theme().muted_foreground)
+                    .child("Search to find more emoji, including skin tones and flags."),
+            )
+    }
+
     /// The ordinary state: attach, field, emoji, and either record or send.
     fn render_composer(
         &self,
@@ -524,8 +616,12 @@ impl InputAreaView {
                 .cursor_pointer()
                 .debug_selector(|| "attach-trigger".into())
                 .dropdown_menu(move |menu, _window, _cx| {
+                    let sticker_entity = attach_entity.clone();
+                    let gif_entity = attach_entity.clone();
                     let photos_entity = attach_entity.clone();
                     let document_entity = attach_entity.clone();
+                    // Document and photos first: they are what an attachment
+                    // usually is, and the keyboard lands on the first item.
                     menu.item(
                         PopupMenuItem::new(crate::tr!(Document))
                             .icon(Icon::from(ProductIcon::FileText))
@@ -548,6 +644,26 @@ impl InputAreaView {
                                 });
                             }),
                     )
+                    .item(
+                        PopupMenuItem::new("GIF or looping video")
+                            .icon(Icon::from(ProductIcon::Film))
+                            .on_click(move |_, _, cx| {
+                                gif_entity.update(cx, |_, cx| {
+                                    cx.emit(InputAreaEvent::AttachFiles(AttachmentCategory::Gif))
+                                });
+                            }),
+                    )
+                    .item(
+                        PopupMenuItem::new("Sticker from image")
+                            .icon(Icon::from(ProductIcon::Sticker))
+                            .on_click(move |_, _, cx| {
+                                sticker_entity.update(cx, |_, cx| {
+                                    cx.emit(InputAreaEvent::AttachFiles(
+                                        AttachmentCategory::Sticker,
+                                    ))
+                                });
+                            }),
+                    )
                 }),
             )
             .child(
@@ -557,9 +673,17 @@ impl InputAreaView {
                     .capture_action::<Paste>(
                         cx.listener(|view, _: &Paste, _window, cx| view.paste_image(cx)),
                     )
+                    // A soft pill with no outline, the way the desktop
+                    // messengers draw their composer: the caret says where
+                    // focus is; a coloured ring around the whole field
+                    // shouted it on every keystroke.
+                    .rounded(metrics.radius_xl())
+                    .bg(cx.theme().secondary)
+                    .px(metrics.space_md())
                     .child(
                         Textarea::new(&self.input)
                             .readonly(self.edit_pending)
+                            .bordered(false)
                             .w_full(),
                     ),
             )
@@ -567,10 +691,14 @@ impl InputAreaView {
                 parts::icon_button(
                     "emoji",
                     Icon::new(ProductIcon::Smile),
-                    crate::tr!(TheEmojiPickerIsNotAvailableYet),
+                    "Emoji, GIFs and stickers",
                     control,
                 )
-                .disabled(true),
+                .disabled(self.edit_pending)
+                .on_click(cx.listener(|view, _, _, cx| {
+                    view.emoji_open = !view.emoji_open;
+                    cx.notify();
+                })),
             )
             // Record or send, never both: which one is available follows
             // whether there is anything to send, the way every messaging
@@ -591,6 +719,7 @@ impl InputAreaView {
                     .on_click(move |_, window, cx| {
                         entity.update(cx, |view, cx| view.submit_input(window, cx));
                     })
+                    .map(|button| crate::motion::swap_in(button, "composer-send-in"))
                     .into_any_element()
             } else {
                 // Drawn disabled where nothing can come of pressing it, with
@@ -662,7 +791,7 @@ impl InputAreaView {
                     )
                     .child(
                         div()
-                            .font_family(cx.theme().mono_font_family.clone())
+                            .font_features(crate::components::parts::tabular())
                             .text_size(metrics.text_meta())
                             .text_color(cx.theme().foreground)
                             .child(self.recording_elapsed()),
@@ -1095,6 +1224,11 @@ mod tests {
 
         // The menu is keyboard-focused on open. Its first item is Document,
         // matching the user-facing menu order and preserving keyboard access.
+        // The pointer is moved off the menu first: a taller menu opens under
+        // the click, and hovering an item selects it, which is a fact about
+        // the mouse rather than the keyboard order this test is about.
+        let away = gpui::point(gpui::px(1.0), gpui::px(1.0));
+        cx.simulate_mouse_move(away, None, gpui::Modifiers::default());
         cx.simulate_keystrokes("down enter");
         cx.run_until_parked();
 
@@ -1105,6 +1239,7 @@ mod tests {
 
         cx.simulate_click(attach.center(), gpui::Modifiers::default());
         cx.run_until_parked();
+        cx.simulate_mouse_move(away, None, gpui::Modifiers::default());
         cx.simulate_keystrokes("down down enter");
         cx.run_until_parked();
         assert_eq!(

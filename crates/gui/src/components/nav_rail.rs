@@ -7,7 +7,7 @@
 //! axis follows the responsive layout.
 
 use gpui::prelude::*;
-use gpui::{App, Entity, IntoElement, ParentElement, Styled, div};
+use gpui::{App, Entity, InteractiveElement, IntoElement, ParentElement, Styled, div};
 use gpui_component::ActiveTheme as _;
 use gpui_component::button::{Button, ButtonVariants as _};
 use gpui_component::{Icon, Selectable as _};
@@ -20,6 +20,9 @@ use crate::theme::Metrics;
 pub fn render_nav_rail(
     current: Destination,
     unread: [usize; 4],
+    // Who is signed in, drawn as the photo at the foot of the strip — the
+    // way into your profile and Settings, as in the desktop messengers.
+    account: Option<crate::components::AccountSummary>,
     entity: Entity<WhatsAppApp>,
     layout: ResponsiveLayout,
     cx: &App,
@@ -30,19 +33,24 @@ pub fn render_nav_rail(
     // the icon it holds. Using the touch target at every width put a 60px rail
     // beside 34px header icons — two control scales in one window, and the
     // phone's minimum applied where nothing else in the app uses it.
+    let gap = metrics.space_sm();
     let target = if is_mobile {
-        metrics.touch_target()
+        let count = (Destination::ALL.len() + 3) as f32;
+        metrics
+            .touch_target()
+            .min((layout.viewport().width - gap * (count - 1.0)) / count)
     } else {
         metrics.icon_button()
     };
     let thickness = target + metrics.space_lg();
 
     let base = div()
+        .id("navigation-rail")
         .tab_group()
         .flex_shrink_0()
         .flex()
         .items_center()
-        .gap(metrics.space_sm())
+        .gap(gap)
         .bg(cx.theme().sidebar)
         .border_color(cx.theme().border);
 
@@ -59,12 +67,17 @@ pub fn render_nav_rail(
         // no part of what they switch between.
         base.h_full()
             .w(thickness)
+            .overflow_y_scroll()
             .flex_col()
             .justify_start()
             .pt(metrics.space_lg())
             .border_r_1()
     };
 
+    let files_entity = entity.clone();
+    let calls_entity = entity.clone();
+    let settings_entity = entity.clone();
+    let profile_entity = entity.clone();
     base.children(
         Destination::ALL
             .into_iter()
@@ -81,6 +94,69 @@ pub fn render_nav_rail(
                 )
             }),
     )
+    .child(
+        Button::new("nav-calls")
+            .ghost()
+            .icon(crate::components::ProductIcon::Phone)
+            .tooltip("Calls")
+            .accessibility_label("Calls")
+            .size(target)
+            .on_click(move |_, _, cx| calls_entity.update(cx, |app, cx| app.open_call_history(cx))),
+    )
+    .child(
+        Button::new("nav-files")
+            .ghost()
+            .icon(crate::components::ProductIcon::FileText)
+            .tooltip("Files & downloads")
+            .accessibility_label("Files and downloads")
+            .size(target)
+            .on_click(move |_, _, cx| {
+                files_entity.update(cx, |app, cx| {
+                    app.files_open = true;
+                    if let Some(view) = &app.files_view {
+                        view.update(cx, |view, cx| view.refresh(cx));
+                    }
+                    cx.notify();
+                });
+            }),
+    )
+    // Settings and your photo sit at the foot of the strip, apart from the
+    // places you go between: they are about you, not about a conversation.
+    .when(!is_mobile, |el| el.child(div().flex_1()))
+    .child(
+        Button::new("nav-settings")
+            .ghost()
+            .icon(gpui_component::IconName::Settings)
+            .tooltip("Settings")
+            .accessibility_label("Settings")
+            .size(target)
+            .on_click(move |_, window, cx| {
+                settings_entity.update(cx, |app, cx| app.open_settings(window, cx))
+            }),
+    )
+    .children(account.map(|account| {
+        Button::new("nav-profile")
+            .ghost()
+            .size(target)
+            .tooltip("Profile")
+            .accessibility_label("Profile")
+            .child(
+                crate::components::Avatar::new(
+                    account.name.clone(),
+                    &account.name,
+                    metrics.icon_button() * 0.8,
+                )
+                .picture(account.avatar_key.clone(), None)
+                .on(cx.theme().sidebar),
+            )
+            .on_click(move |_, window, cx| {
+                profile_entity.update(cx, |app, cx| {
+                    app.open_settings(window, cx);
+                    app.set_settings_section(crate::app::SettingsSection::Account, cx);
+                })
+            })
+    }))
+    .when(!is_mobile, |el| el.pb(metrics.space_lg()))
 }
 
 /// One destination. It selects where the window is, the way a chat row selects
@@ -166,7 +242,7 @@ fn render_destination(
                     .justify_center()
                     .rounded_full()
                     .bg(cx.theme().primary)
-                    .font_family(cx.theme().mono_font_family.clone())
+                    .font_features(crate::components::parts::tabular())
                     .text_size(metrics.text_micro())
                     .text_color(cx.theme().primary_foreground)
                     .child(

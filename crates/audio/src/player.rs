@@ -1,6 +1,6 @@
 //! Audio playback using cpal
 //!
-//! Plays Opus/OGG audio files for PTT voice message playback.
+//! Voice notes and audio attachments share the same output stream.
 
 /// Playing a clip through a sound card, having decoded it here.
 ///
@@ -23,6 +23,7 @@ mod cpal_output {
     use tokio::sync::oneshot;
 
     use super::PlayerError;
+    use crate::file_decode::{self, DecodedAudio, SAMPLE_LIMIT};
     use crate::playback_start::PlaybackStart;
 
     /// Samples ready for the output callback.
@@ -221,25 +222,45 @@ mod cpal_output {
             self.play_prepared(prepared)
         }
 
-        /// Prepare an OGG voice note without touching player state.
+        /// Decode and prepare an audio attachment without touching player state.
         ///
         /// This function is deliberately pure with respect to `AudioPlayer`:
         /// callers can run it on GPUI's background executor and discard a
         /// result when a newer playback request supersedes it.
-        pub fn prepare(ogg_data: Vec<u8>, speed: f32) -> Result<PreparedAudio, PlayerError> {
-            if ogg_data.is_empty() {
+        pub fn prepare(data: Vec<u8>, speed: f32) -> Result<PreparedAudio, PlayerError> {
+            if data.is_empty() {
                 return Err(PlayerError::EmptyAudio);
             }
-            let samples = decode_ogg(&ogg_data)?;
-            if samples.is_empty() {
-                return Err(PlayerError::EmptyAudio);
-            }
+            let voice_note = is_ogg_opus(&data);
+            let DecodedAudio {
+                samples,
+                rate,
+                channels,
+            } = if voice_note {
+                DecodedAudio {
+                    samples: decode_ogg(&data)?,
+                    rate: 48_000,
+                    channels: 1,
+                }
+            } else {
+                file_decode::decode(data)?
+            };
 
             info!("Decoded {} samples for playback", samples.len());
             let (config, sample_format) = output_config()?;
+            if !voice_note {
+                let output_samples = (samples.len() / channels) as f64
+                    * f64::from(config.sample_rate)
+                    * f64::from(config.channels)
+                    / (f64::from(rate) * f64::from(speed.clamp(0.25, 1.0)));
+                if output_samples > SAMPLE_LIMIT as f64 {
+                    return Err(PlayerError::AudioTooLong);
+                }
+            }
             Ok(prepare_samples(
                 &samples,
-                48000,
+                rate,
+                channels,
                 speed,
                 config,
                 sample_format,
@@ -298,7 +319,8 @@ mod cpal_output {
             );
 
             let (config, sample_format) = output_config()?;
-            let prepared = prepare_samples(samples, src_sample_rate, speed, config, sample_format);
+            let prepared =
+                prepare_samples(samples, src_sample_rate, 1, speed, config, sample_format);
             self.start_resampled(
                 prepared.samples,
                 prepared.config,
@@ -512,6 +534,15 @@ mod cpal_output {
             .map_err(|e| PlayerError::StreamError(e.to_string()))
     }
 
+    fn is_ogg_opus(data: &[u8]) -> bool {
+        data.starts_with(b"OggS")
+            && data.get(26).is_some_and(|&segments| {
+                data.get(27 + usize::from(segments)..).is_some_and(|page| {
+                    page.starts_with(b"OpusHead") || page.starts_with(b"OpusTags")
+                })
+            })
+    }
+
     fn decode_ogg(ogg_data: &[u8]) -> Result<Vec<f32>, PlayerError> {
         let cursor = Cursor::new(ogg_data);
         let mut packet_reader = PacketReader::new(cursor);
@@ -629,17 +660,46 @@ mod cpal_output {
     fn prepare_samples(
         samples: &[f32],
         src_sample_rate: u32,
+        source_channels: usize,
         speed: f32,
         config: StreamConfig,
         sample_format: SampleFormat,
     ) -> PreparedAudio {
         let output_channels = config.channels as usize;
-        let resampled = resample_audio(
-            samples,
-            src_sample_rate,
-            config.sample_rate,
-            output_channels,
-        );
+        let resampled = match (source_channels, output_channels) {
+            (2, 2) if src_sample_rate == config.sample_rate => samples.to_vec(),
+            (2, 1) => {
+                let mono: Vec<_> = samples
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
+                    .map(|[left, right]| (left + right) * 0.5)
+                    .collect();
+                resample_audio(&mono, src_sample_rate, config.sample_rate, 1)
+            }
+            (2, _) => {
+                let (left, right): (Vec<_>, Vec<_>) = samples
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
+                    .map(|[left, right]| (*left, *right))
+                    .unzip();
+                let left = resample_audio(&left, src_sample_rate, config.sample_rate, 1);
+                let right = resample_audio(&right, src_sample_rate, config.sample_rate, 1);
+                let mut stereo = Vec::with_capacity(left.len() * output_channels);
+                for (left, right) in left.into_iter().zip(right) {
+                    stereo.extend([left, right]);
+                    stereo.extend(std::iter::repeat_n(0.0, output_channels - 2));
+                }
+                stereo
+            }
+            _ => resample_audio(
+                samples,
+                src_sample_rate,
+                config.sample_rate,
+                output_channels,
+            ),
+        };
         let before = resampled.len();
         let resampled = crate::timescale::stretch(resampled, output_channels, speed);
         // The ratio achieved, not the one asked for. A short clip may not be
@@ -842,6 +902,7 @@ pub enum PlayerError {
     NoOutputDevice,
     NoSupportedConfig,
     EmptyAudio,
+    AudioTooLong,
     DeviceError(String),
     StreamError(String),
     DecodeError(String),
@@ -853,6 +914,10 @@ impl std::fmt::Display for PlayerError {
             Self::NoOutputDevice => write!(f, "No audio output device found"),
             Self::NoSupportedConfig => write!(f, "No supported audio configuration"),
             Self::EmptyAudio => write!(f, "No audio data to play"),
+            Self::AudioTooLong => write!(
+                f,
+                "This track is too long for in-app playback. Save it to play the full file."
+            ),
             Self::DeviceError(e) => write!(f, "Audio device error: {}", e),
             Self::StreamError(e) => write!(f, "Audio stream error: {}", e),
             Self::DecodeError(e) => write!(f, "Audio decode error: {}", e),

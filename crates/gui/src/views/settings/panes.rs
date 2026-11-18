@@ -29,7 +29,7 @@ pub fn render(
 ) -> AnyElement {
     let body = match section {
         SettingsSection::Account => account(app, entity, metrics, cx),
-        SettingsSection::Notifications => notifications(metrics, cx),
+        SettingsSection::Notifications => notifications(entity, metrics, cx),
         SettingsSection::AudioVideo => super::devices::render(app, entity.clone(), metrics, cx),
         SettingsSection::Privacy => privacy(entity.clone(), metrics, cx),
         SettingsSection::Storage => storage(app, entity, metrics, cx),
@@ -268,10 +268,13 @@ fn plugin_controls(
 
 /// A short all-caps section label.
 pub fn label(text: &'static str, metrics: Metrics, cx: &App) -> impl IntoElement + use<> {
+    // A section heading in the pane: sentence case, Inter SemiBold, one step
+    // below body. Not the small-caps-in-a-code-font tag it used to be, which
+    // read as a debugging overlay rather than a settings page.
     div()
-        .font_family(cx.theme().mono_font_family.clone())
-        .text_size(metrics.text_micro())
-        .text_color(parts::subtle(cx))
+        .text_size(metrics.text_secondary())
+        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .text_color(cx.theme().muted_foreground)
         .child(text)
 }
 
@@ -332,7 +335,7 @@ fn row(
             parts::one_line()
                 .flex_1()
                 .min_w_0()
-                .font_family(cx.theme().mono_font_family.clone())
+                .font_features(crate::components::parts::tabular())
                 .text_size(metrics.text_meta())
                 .text_color(cx.theme().foreground)
                 .text_right()
@@ -424,13 +427,252 @@ fn account(
     .into_any_element()
 }
 
-fn notifications(metrics: Metrics, cx: &App) -> AnyElement {
-    group(
-        label(crate::tr!(Notifications), metrics, cx),
-        pending(crate::tr!(NotificationsGuidance), metrics, cx),
+/// The chime's volume as five steps, the saved one selected. Choosing a
+/// step plays the chime at it, so the choice is heard, not guessed.
+fn chime_volume_row(
+    entity: Entity<WhatsAppApp>,
+    current: u32,
+    metrics: Metrics,
+) -> impl IntoElement + use<> {
+    use crate::platform::notifications;
+    const STEPS: [(u32, &str); 5] = [
+        (20, "Quiet"),
+        (40, "Soft"),
+        (60, "Medium"),
+        (80, "Clear"),
+        (100, "Loud"),
+    ];
+    div()
+        .flex()
+        .items_center()
+        .gap(metrics.space_sm())
+        .children(STEPS.into_iter().map(move |(volume, name)| {
+            let entity = entity.clone();
+            Button::new(SharedString::from(format!("chime-volume-{volume}")))
+                .outline()
+                .small()
+                .selected(current == volume)
+                .label(name)
+                .on_click(move |_, _, cx| {
+                    entity.update(cx, |app, cx| {
+                        match notifications::set_chime_volume(volume) {
+                            Ok(()) => {
+                                notifications::preview_chime(false);
+                            }
+                            Err(error) => app.report_desktop_setting_error(error, cx),
+                        }
+                        cx.notify();
+                    });
+                })
+        }))
+}
+
+fn preview_chime_button(
+    id: &'static str,
+    label: &'static str,
+    group: bool,
+    entity: Entity<WhatsAppApp>,
+) -> impl IntoElement + use<> {
+    use crate::platform::notifications;
+    Button::new(id)
+        .ghost()
+        .label(label)
+        .on_click(move |_, _, cx| {
+            if !notifications::preview_chime(group) {
+                entity.update(cx, |app, cx| {
+                    app.report_desktop_setting_error(
+                        "Could not play the chime. Check your sound output.".into(),
+                        cx,
+                    )
+                });
+            }
+        })
+}
+
+/// A settings card: rows on one surface, a hairline between them — the
+/// shape every desktop messenger's settings use.
+pub fn setting_card(
+    rows: Vec<gpui::AnyElement>,
+    metrics: Metrics,
+    cx: &App,
+) -> impl IntoElement + use<> {
+    let last = rows.len().saturating_sub(1);
+    let border = cx.theme().border;
+    div()
+        .w_full()
+        .flex()
+        .flex_col()
+        .rounded(metrics.radius_lg())
+        .overflow_hidden()
+        .bg(cx.theme().secondary)
+        .children(rows.into_iter().enumerate().map(move |(ix, row)| {
+            div()
+                .when(ix != last, |el| el.border_b_1().border_color(border))
+                .child(row)
+        }))
+}
+
+/// One row of a card: what it is and what it does on the left, its control
+/// on the right.
+pub fn setting_row(
+    title: &'static str,
+    description: Option<&'static str>,
+    control: impl IntoElement + 'static,
+    metrics: Metrics,
+    cx: &App,
+) -> gpui::AnyElement {
+    div()
+        .flex()
+        .items_center()
+        .gap(metrics.space_xl())
+        .px(metrics.space_xl())
+        .py(metrics.space_lg())
+        .child(
+            div()
+                .flex_1()
+                .min_w_0()
+                .flex()
+                .flex_col()
+                .gap(metrics.space_xxs())
+                .child(
+                    div()
+                        .text_size(metrics.text_body())
+                        .text_color(cx.theme().foreground)
+                        .child(title),
+                )
+                .children(description.map(|text| {
+                    div()
+                        .text_size(metrics.text_small())
+                        .text_color(cx.theme().muted_foreground)
+                        .child(text)
+                })),
+        )
+        .child(div().flex_shrink_0().child(control))
+        .into_any_element()
+}
+
+fn notifications(entity: Entity<WhatsAppApp>, metrics: Metrics, cx: &App) -> AnyElement {
+    use crate::platform::notifications;
+    use gpui_component::switch::Switch;
+    let Some(options) = notifications::desktop_options() else {
+        return group(
+            label(crate::tr!(Notifications), metrics, cx),
+            pending(crate::tr!(NotificationsGuidance), metrics, cx),
+            metrics,
+        )
+        .into_any_element();
+    };
+    let startup = entity.clone();
+    let sound = entity.clone();
+    let test = entity.clone();
+
+    let general = setting_card(
+        vec![setting_row(
+            "Start Velo when you sign in",
+            Some(
+                "Runs quietly in the background so messages and calls arrive even with the window closed.",
+            ),
+            Switch::new("start-at-sign-in")
+                .checked(options.startup)
+                .cursor_pointer()
+                .on_click(move |checked, _, cx| {
+                    let checked = *checked;
+                    startup.update(cx, |app, cx| {
+                        if let Err(error) = notifications::set_start_at_sign_in(checked) {
+                            app.report_desktop_setting_error(error, cx);
+                        }
+                        cx.notify();
+                    });
+                }),
+            metrics,
+            cx,
+        )],
         metrics,
-    )
-    .into_any_element()
+        cx,
+    );
+
+    let sounds = setting_card(
+        vec![
+            setting_row(
+                "Message sounds",
+                Some("A soft chime for new messages; groups have their own, lower one."),
+                Switch::new("message-chime")
+                    .checked(options.sound)
+                    .cursor_pointer()
+                    .on_click(move |checked, _, cx| {
+                        let checked = *checked;
+                        sound.update(cx, |app, cx| {
+                            if let Err(error) = notifications::set_message_sound(checked) {
+                                app.report_desktop_setting_error(error, cx);
+                            }
+                            cx.notify();
+                        });
+                    }),
+                metrics,
+                cx,
+            ),
+            setting_row(
+                "Volume",
+                None,
+                chime_volume_row(entity.clone(), options.volume, metrics),
+                metrics,
+                cx,
+            ),
+            setting_row(
+                "Preview",
+                Some("Hear each chime at the volume above."),
+                div()
+                    .flex()
+                    .gap(metrics.space_sm())
+                    .child(preview_chime_button(
+                        "preview-message-chime",
+                        "Message",
+                        false,
+                        entity.clone(),
+                    ))
+                    .child(preview_chime_button(
+                        "preview-group-chime",
+                        "Group",
+                        true,
+                        entity,
+                    )),
+                metrics,
+                cx,
+            ),
+        ],
+        metrics,
+        cx,
+    );
+
+    let check = setting_card(
+        vec![setting_row(
+            "Test notification",
+            Some("Shows a sample alert, and says what to change if Windows is blocking it."),
+            Button::new("test-message-alert")
+                .outline()
+                .small()
+                .label("Send test")
+                .accessibility_id("test-message-alert")
+                .on_click(move |_, _, cx| {
+                    if let Err(error) = notifications::test_message_alert() {
+                        test.update(cx, |app, cx| app.report_desktop_setting_error(error, cx));
+                    }
+                }),
+            metrics,
+            cx,
+        )],
+        metrics,
+        cx,
+    );
+
+    div()
+        .flex()
+        .flex_col()
+        .gap(metrics.space_xxl())
+        .child(group(label("General", metrics, cx), general, metrics))
+        .child(group(label("Sounds", metrics, cx), sounds, metrics))
+        .child(group(label("Check", metrics, cx), check, metrics))
+        .into_any_element()
 }
 
 fn privacy(entity: Entity<WhatsAppApp>, metrics: Metrics, cx: &App) -> AnyElement {
@@ -634,7 +876,7 @@ fn advanced(entity: Entity<WhatsAppApp>, metrics: Metrics, cx: &App) -> AnyEleme
     let forced = oxidezap_logging::forced();
     let kept = oxidezap_logging::location();
 
-    group(
+    let diagnostics = group(
         label(crate::tr!(Diagnostics), metrics, cx),
         div()
             .flex()
@@ -679,6 +921,13 @@ fn advanced(entity: Entity<WhatsAppApp>, metrics: Metrics, cx: &App) -> AnyEleme
                         kept.unwrap_or_else(|| crate::tr!(NowhereItLastsForThisRun).to_string()),
                     ),
                     (crate::tr!(Renderer).to_string(), "GPUI".to_string()),
+                    (
+                        "Version".to_string(),
+                        match option_env!("OXIDEZAP_REV").filter(|rev| !rev.is_empty()) {
+                            Some(rev) => format!("Velo {} ({rev})", env!("CARGO_PKG_VERSION")),
+                            None => format!("Velo {}", env!("CARGO_PKG_VERSION")),
+                        },
+                    ),
                 ],
                 metrics,
                 cx,
@@ -696,8 +945,51 @@ fn advanced(entity: Entity<WhatsAppApp>, metrics: Metrics, cx: &App) -> AnyEleme
                 )
             }),
         metrics,
-    )
-    .into_any_element()
+    );
+    div()
+        .flex()
+        .flex_col()
+        .gap(metrics.space_xxl())
+        .child(diagnostics)
+        .child(group(
+            label("Keyboard shortcuts", metrics, cx),
+            card(shortcuts(), metrics, cx),
+            metrics,
+        ))
+        .into_any_element()
+}
+
+/// The window's shortcuts, as a table. Written here by hand rather than read
+/// from the keymap, because the keymap holds actions, not the sentence that
+/// says what each is for.
+fn shortcuts() -> Vec<(String, String)> {
+    let ctrl = if cfg!(target_os = "macos") {
+        "⌘"
+    } else {
+        "Ctrl"
+    };
+    let alt = if cfg!(target_os = "macos") {
+        "⌥"
+    } else {
+        "Alt"
+    };
+    [
+        ("Search chats and messages", format!("{ctrl} K")),
+        ("Search in this chat", format!("{ctrl} F")),
+        ("Next chat", format!("{alt} ↓")),
+        ("Previous chat", format!("{alt} ↑")),
+        ("Next unread chat", format!("{alt} Shift ↓")),
+        ("Contact info", format!("{ctrl} Shift I")),
+        ("Shared files", format!("{ctrl} Shift D")),
+        ("Settings", format!("{ctrl} ,")),
+        ("Mute microphone in a call", format!("{ctrl} Shift M")),
+        ("Return to the call", format!("{ctrl} Shift C")),
+        ("Previous / next photo", "← →".to_string()),
+        ("Close the topmost panel", "Esc".to_string()),
+    ]
+    .into_iter()
+    .map(|(what, keys)| (what.to_string(), keys))
+    .collect()
 }
 
 #[cfg(test)]

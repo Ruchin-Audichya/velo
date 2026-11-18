@@ -5,6 +5,7 @@
 
 use super::*;
 use gpui::AppContext as _;
+use oxidezap_core::MediaType;
 
 /// A voice note whose expensive preparation is running off the UI executor.
 ///
@@ -389,6 +390,10 @@ impl WhatsAppApp {
     /// Seconds played of the loaded voice note.
     pub fn audio_elapsed_secs(&self) -> f32 {
         self.audio_player.elapsed_secs()
+    }
+
+    pub fn audio_total_secs(&self) -> f32 {
+        self.audio_player.total_secs()
     }
 
     /// Whether this voice note is being decoded or re-timed off the UI thread.
@@ -1243,33 +1248,74 @@ impl WhatsAppApp {
                     .find(|message| message.id == message_id)
                     .cloned()
             })
-            .and_then(|message| message.media)
-            .filter(|media| !media.data.is_empty())
+            .and_then(|message| (!message.revoked).then_some(message.media).flatten())
         else {
             warn!("nothing to save for {message_id}");
             return;
         };
 
-        let file_name = media
-            .file_name
-            .clone()
-            .unwrap_or_else(|| default_media_name(message_id, &media.mime_type));
+        let mime = media
+            .downloadable
+            .as_ref()
+            .map_or(media.mime_type.as_str(), |media| &media.mime_type);
+        let file_name = if media.media_type == MediaType::Sticker {
+            format!("sticker-{}", default_media_name(message_id, "image/webp"))
+        } else {
+            media
+                .file_name
+                .clone()
+                .unwrap_or_else(|| default_media_name(message_id, mime))
+        };
+        if media.data_is_preview || media.data.is_empty() {
+            if let Some(downloadable) = media.downloadable {
+                self.download_document(message_id.to_string(), file_name, downloadable, cx);
+            } else {
+                self.notify_user(
+                    "The original attachment is unavailable.",
+                    notices::Tone::Problem,
+                    cx,
+                );
+            }
+            return;
+        }
+        let Some(scope) = self.document_scope(message_id) else {
+            return;
+        };
+        if !self.document_downloads_in_flight.insert(scope.clone()) {
+            return;
+        }
+        cx.notify();
+        let generation = self.document_state_generation;
         let data = Arc::clone(&media.data);
         let id = message_id.to_string();
 
         cx.spawn(async move |entity: WeakEntity<Self>, cx| {
             match hand_to_user(cx, file_name, data).await {
                 Ok(crate::platform::download::DownloadOutcome::NativeFile(path)) => {
-                    info!("Saved {id} to {}", path.display())
+                    info!("Saved {id} to {}", path.display());
+                    let _ = entity.update(cx, |app, cx| {
+                        if app.document_state_generation == generation
+                            && app.account_scope() == scope.0
+                        {
+                            app.saved_documents.insert(scope.clone(), path);
+                            cx.notify();
+                        }
+                    });
                 }
                 Ok(crate::platform::download::DownloadOutcome::BrowserDownloadRequested(
                     description,
                 )) => info!("Saved {id} to {description}"),
                 Err(e) => {
                     warn!("Failed to save {id}: {e}");
-                    say(&entity, cx, e);
+                    say_if_document_current(&entity, cx, generation, &scope.0, e);
                 }
             }
+            let _ = entity.update(cx, |app, cx| {
+                if app.document_state_generation == generation {
+                    app.document_downloads_in_flight.remove(&scope);
+                    cx.notify();
+                }
+            });
         })
         .detach();
     }

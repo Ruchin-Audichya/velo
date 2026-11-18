@@ -183,7 +183,7 @@ fn render_header(
                 )
                 .child(
                     div()
-                        .font_family(cx.theme().mono_font_family.clone())
+                        .font_features(crate::components::parts::tabular())
                         .text_size(metrics.text_meta())
                         .text_color(parts::subtle(cx))
                         .child(when),

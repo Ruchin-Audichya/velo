@@ -50,6 +50,8 @@ impl MediaType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OutgoingMedia {
+    Sticker,
+    Gif,
     Image,
     Video,
     Document,
@@ -247,6 +249,46 @@ pub struct MediaContent {
 }
 
 impl MediaContent {
+    pub fn is_audio_attachment(&self) -> bool {
+        if self.media_type == MediaType::Audio {
+            return true;
+        }
+        if self.media_type != MediaType::Document {
+            return false;
+        }
+        self.mime_type
+            .get(..6)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case("audio/"))
+            || self
+                .file_name
+                .as_deref()
+                .and_then(|name| name.rsplit_once('.'))
+                .is_some_and(|(_, extension)| {
+                    matches!(
+                        extension.to_ascii_lowercase().as_str(),
+                        "aac"
+                            | "adts"
+                            | "aif"
+                            | "aiff"
+                            | "aifc"
+                            | "alac"
+                            | "caf"
+                            | "flac"
+                            | "m4a"
+                            | "m4b"
+                            | "mp1"
+                            | "mp2"
+                            | "mp3"
+                            | "mpa"
+                            | "oga"
+                            | "ogg"
+                            | "opus"
+                            | "wav"
+                            | "wave"
+                    )
+                })
+    }
+
     /// Everything a piece of media has regardless of which kind it is: the
     /// bytes in hand and what they are.
     ///

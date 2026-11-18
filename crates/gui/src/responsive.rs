@@ -76,6 +76,8 @@ pub struct ResponsiveLayout {
     /// window's edges — a card floating over the conversation — needs both.
     viewport: Size<Pixels>,
     metrics: Metrics,
+    sidebar_preference_rem: Option<f32>,
+    show_details: bool,
 }
 
 impl ResponsiveLayout {
@@ -94,7 +96,15 @@ impl ResponsiveLayout {
             mobile_panel,
             viewport,
             metrics,
+            sidebar_preference_rem: None,
+            show_details: false,
         }
+    }
+
+    pub fn with_panes(mut self, sidebar_preference_rem: Option<f32>, show_details: bool) -> Self {
+        self.sidebar_preference_rem = sidebar_preference_rem;
+        self.show_details = show_details;
+        self
     }
 
     /// The window this layout describes.
@@ -174,18 +184,53 @@ impl ResponsiveLayout {
     /// Below this they are still reachable — the overflow menu carries every
     /// one of them — so this decides presentation, never availability.
     pub fn show_call_buttons(&self) -> bool {
-        self.viewport.width >= self.metrics.breakpoint_header_actions()
+        self.conversation_width() >= self.metrics.breakpoint_header_actions()
     }
 
     pub fn sidebar_width(&self) -> Pixels {
-        match self.breakpoint {
+        let default = match self.breakpoint {
             Breakpoint::Desktop => self.metrics.sidebar_width(),
             Breakpoint::Tablet => (self.viewport.width * 0.35).clamp(
                 self.metrics.sidebar_width_min(),
                 self.metrics.sidebar_width_compact(),
             ),
-            Breakpoint::Mobile => self.viewport.width,
+            Breakpoint::Mobile => return self.viewport.width,
+        };
+        let minimum = self.metrics.sidebar_width_min();
+        let maximum =
+            (self.viewport.width - self.rail_width() - self.metrics.breakpoint_header_actions())
+                .min(self.metrics.sidebar_width() * 1.45)
+                .max(minimum);
+        self.sidebar_preference_rem
+            .map(|width| gpui::px(width * self.metrics.rem_size()))
+            .unwrap_or(default)
+            .clamp(minimum, maximum)
+    }
+
+    pub fn rail_width(&self) -> Pixels {
+        if self.is_mobile() {
+            Pixels::ZERO
+        } else {
+            self.metrics.icon_button() + self.metrics.space_lg()
         }
+    }
+
+    pub fn can_show_details(&self) -> bool {
+        !self.is_mobile()
+            && self.viewport.width - self.rail_width() - self.sidebar_width()
+                >= self.metrics.details_width() + self.metrics.breakpoint_header_actions()
+    }
+
+    fn conversation_width(&self) -> Pixels {
+        if self.is_mobile() {
+            return self.viewport.width;
+        }
+        let details = if self.show_details && self.can_show_details() {
+            self.metrics.details_width()
+        } else {
+            Pixels::ZERO
+        };
+        self.viewport.width - self.sidebar_width() - self.rail_width() - details
     }
 
     /// The conversation header. Taller than the sidebar's own header because
@@ -220,21 +265,23 @@ impl ResponsiveLayout {
     }
 
     pub fn max_bubble_width(&self) -> Pixels {
-        match self.breakpoint {
+        let upper = match self.breakpoint {
             Breakpoint::Desktop => self.metrics.bubble_max_width(),
             Breakpoint::Tablet => self.metrics.bubble_max_width_compact(),
             Breakpoint::Mobile => (self.viewport.width * Self::MAX_BUBBLE_WIDTH_MOBILE_RATIO)
                 .min(self.metrics.bubble_max_width_phone()),
-        }
+        };
+        upper.min((self.conversation_width() - self.conversation_padding() * 2.0).max(Pixels::ZERO))
     }
 
     pub fn max_media_size(&self) -> f32 {
-        f32::from(match self.breakpoint {
+        let upper = match self.breakpoint {
             Breakpoint::Desktop => self.metrics.media_max_size(),
             Breakpoint::Tablet => self.metrics.media_max_size_compact(),
             Breakpoint::Mobile => (self.viewport.width * Self::MAX_MEDIA_SIZE_MOBILE_RATIO)
                 .min(self.metrics.media_max_size_compact()),
-        })
+        };
+        f32::from(upper.min(self.max_bubble_width()))
     }
 
     /// A fixed sticker canvas, capped to the space beside the hover actions.
@@ -242,15 +289,7 @@ impl ResponsiveLayout {
     pub fn sticker_size(&self) -> f32 {
         let metrics = &self.metrics;
         let actions = metrics.icon_button() * 3.0 + metrics.space_xxs() * 2.0;
-        // The chat-area estimate includes the navigation rail on two-pane
-        // layouts; it is outside the rendered conversation's available width.
-        let rail = if self.is_mobile() {
-            0.0
-        } else {
-            f32::from(metrics.icon_button() + metrics.space_lg())
-        };
         let available = self.chat_area_width()
-            - rail
             - f32::from(self.conversation_padding() * 2.0 + actions + metrics.space_md());
         let content = available.min(f32::from(self.max_bubble_width()))
             - f32::from(metrics.bubble_padding_x() * 2.0);
@@ -258,10 +297,7 @@ impl ResponsiveLayout {
     }
 
     pub fn chat_area_width(&self) -> f32 {
-        f32::from(match self.breakpoint {
-            Breakpoint::Desktop | Breakpoint::Tablet => self.viewport.width - self.sidebar_width(),
-            Breakpoint::Mobile => self.viewport.width,
-        })
+        f32::from(self.conversation_width())
     }
 
     pub fn message_list_width(&self) -> f32 {
@@ -345,6 +381,35 @@ mod sticker_tests {
     use gpui::{px, size};
 
     #[test]
+    fn snapped_layout_preserves_the_conversation_and_hides_details_before_it_clips() {
+        let metrics = Metrics::default();
+        let wide = ResponsiveLayout::new(size(px(1440.0), px(850.0)), MobilePanel::Chat, metrics)
+            .with_panes(Some(28.0), true);
+        assert!(wide.can_show_details());
+        assert_eq!(wide.sidebar_width(), px(28.0 * metrics.rem_size()));
+        assert_eq!(
+            px(wide.chat_area_width())
+                + wide.sidebar_width()
+                + wide.rail_width()
+                + metrics.details_width(),
+            wide.viewport().width
+        );
+
+        let snapped = ResponsiveLayout::new(size(px(740.0), px(450.0)), MobilePanel::Chat, metrics)
+            .with_panes(Some(28.0), true);
+        assert!(!snapped.can_show_details());
+        assert!(snapped.show_sidebar() && snapped.show_chat_area());
+        assert!(px(snapped.chat_area_width()) >= metrics.breakpoint_header_actions());
+
+        let narrow = ResponsiveLayout::new(size(px(320.0), px(280.0)), MobilePanel::Chat, metrics)
+            .with_panes(Some(28.0), true);
+        assert!(narrow.show_back_button());
+        assert!(!narrow.show_sidebar());
+        assert_eq!(narrow.chat_area_width(), 320.0);
+        assert!(narrow.max_media_size() <= narrow.message_list_width());
+    }
+
+    #[test]
     fn sticker_canvas_follows_zoom_and_fits_narrow_conversations() {
         for rem in [10.0, 16.0, 24.0, 32.0] {
             for density in Density::ALL {
@@ -363,11 +428,6 @@ mod sticker_tests {
                     assert!(canvas <= f32::from(metrics.sticker_size()));
                     assert!(canvas <= f32::from(layout.max_bubble_width()));
                     if canvas > 0.0 {
-                        let rail = if layout.is_mobile() {
-                            0.0
-                        } else {
-                            f32::from(metrics.icon_button() + metrics.space_lg())
-                        };
                         assert!(
                             canvas
                                 + f32::from(
@@ -377,7 +437,7 @@ mod sticker_tests {
                                         + metrics.space_xxs() * 2.0
                                         + metrics.space_md(),
                                 )
-                                <= layout.chat_area_width() - rail + 0.001
+                                <= layout.chat_area_width() + 0.001
                         );
                     }
                 }

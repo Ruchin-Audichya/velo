@@ -52,7 +52,7 @@ pub fn render_conversation_search(
         .children(status.map(|status| {
             div()
                 .flex_shrink_0()
-                .font_family(cx.theme().mono_font_family.clone())
+                .font_features(crate::components::parts::tabular())
                 .text_size(metrics.text_meta())
                 .text_color(subtle)
                 .child(status)

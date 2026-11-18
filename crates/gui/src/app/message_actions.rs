@@ -17,6 +17,13 @@ pub(super) struct DeleteConfirmation {
 }
 
 pub(crate) fn can_delete_sent(message: &ChatMessage, for_everyone: bool, now_ms: i64) -> bool {
+    // "Delete for me" is WhatsApp's for any message, anyone's, a deleted
+    // placeholder included: it only touches our own devices. Ours must have
+    // left this device first, or there is no stored row to delete.
+    if !for_everyone {
+        return message.system.is_none()
+            && (!message.is_from_me || message.status.has_left_this_device());
+    }
     message.is_from_me
         && !message.revoked
         && message.system.is_none()

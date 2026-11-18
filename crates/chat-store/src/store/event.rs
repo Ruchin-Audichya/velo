@@ -97,6 +97,9 @@ pub(super) fn apply_event(
             cs.message_chats.insert(chat);
             Ok(())
         }
+        Event::CallLogSync(_) | Event::CallLogHistory(_) => {
+            super::call_history::apply(conn, device_id, event)
+        }
         Event::HistorySync(lazy) => apply_history_sync(conn, device_id, lazy, cs),
         Event::ContactUpdate(update) => {
             clear_contact_removal_tombstones(conn, device_id, &update.jid.to_string())?;

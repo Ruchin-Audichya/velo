@@ -191,7 +191,7 @@ fn identity(
                 .flex()
                 .items_center()
                 .gap(metrics.space_sm())
-                .font_family(cx.theme().mono_font_family.clone())
+                .font_features(crate::components::parts::tabular())
                 .text_size(metrics.text_meta())
                 .text_color(cx.theme().primary)
                 .child(icon.size(metrics.icon_small()))
@@ -201,7 +201,7 @@ fn identity(
 
 fn hint(text: &str, metrics: Metrics, cx: &App) -> impl IntoElement + use<> {
     div()
-        .font_family(cx.theme().mono_font_family.clone())
+        .font_features(crate::components::parts::tabular())
         .text_size(metrics.text_micro())
         .text_color(parts::subtle(cx))
         .child(text.to_string())

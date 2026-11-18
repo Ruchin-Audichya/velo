@@ -7,6 +7,13 @@
 
 pub mod call_alert;
 
+mod desktop_controls;
+
+pub use desktop_controls::{
+    desktop_options, play_message_chime, preview_chime, set_chime_volume, set_message_sound,
+    set_start_at_sign_in, test_message_alert,
+};
+
 /// Ask the operating system for notification authorization when it has one.
 pub fn request_authorization() {
     imp::request_authorization();

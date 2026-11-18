@@ -229,7 +229,18 @@ impl Palette {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Preset {
+    /// The product default: the familiar messenger look — deep blue-grey
+    /// surfaces, a green accent, green sent bubbles.
     #[default]
+    ClassicDark,
+    /// Its light counterpart: white panels, pale green sent bubbles.
+    ClassicLight,
+    /// Neutral near-black surfaces and one ultramarine accent, after Signal
+    /// Desktop's dark theme.
+    UltramarineDark,
+    /// Its light counterpart.
+    UltramarineLight,
+    Graphite,
     TokyoNight,
     TokyoNightStorm,
     TokyoNightLight,
@@ -237,7 +248,12 @@ pub enum Preset {
 
 impl Preset {
     /// Every preset, in the order Settings offers them.
-    pub const ALL: [Self; 3] = [
+    pub const ALL: [Self; 8] = [
+        Self::ClassicDark,
+        Self::ClassicLight,
+        Self::UltramarineDark,
+        Self::UltramarineLight,
+        Self::Graphite,
         Self::TokyoNight,
         Self::TokyoNightStorm,
         Self::TokyoNightLight,
@@ -246,6 +262,11 @@ impl Preset {
     /// The value written to `extends`.
     pub fn id(self) -> &'static str {
         match self {
+            Self::ClassicDark => "classic-dark",
+            Self::ClassicLight => "classic-light",
+            Self::UltramarineDark => "ultramarine-dark",
+            Self::UltramarineLight => "ultramarine-light",
+            Self::Graphite => "graphite",
             Self::TokyoNight => "tokyo-night",
             Self::TokyoNightStorm => "tokyo-night-storm",
             Self::TokyoNightLight => "tokyo-night-light",
@@ -254,6 +275,11 @@ impl Preset {
 
     pub fn label(self) -> &'static str {
         match self {
+            Self::ClassicDark => "Classic Dark",
+            Self::ClassicLight => "Classic Light",
+            Self::UltramarineDark => "Ultramarine Dark",
+            Self::UltramarineLight => "Ultramarine Light",
+            Self::Graphite => "Graphite & Sage",
             Self::TokyoNight => "Tokyo Night",
             Self::TokyoNightStorm => "Tokyo Night Storm",
             Self::TokyoNightLight => "Tokyo Night Light",
@@ -262,11 +288,19 @@ impl Preset {
 
     /// Whether the preset wants gpui-component's dark base theme underneath.
     pub fn is_dark(self) -> bool {
-        !matches!(self, Self::TokyoNightLight)
+        !matches!(
+            self,
+            Self::TokyoNightLight | Self::UltramarineLight | Self::ClassicLight
+        )
     }
 
     pub fn palette(self) -> Palette {
         match self {
+            Self::ClassicDark => CLASSIC_DARK,
+            Self::ClassicLight => CLASSIC_LIGHT,
+            Self::UltramarineDark => ULTRAMARINE_DARK,
+            Self::UltramarineLight => ULTRAMARINE_LIGHT,
+            Self::Graphite => GRAPHITE,
             Self::TokyoNight => TOKYO_NIGHT,
             Self::TokyoNightStorm => TOKYO_NIGHT_STORM,
             Self::TokyoNightLight => TOKYO_NIGHT_LIGHT,
@@ -307,7 +341,194 @@ const fn rgb(value: u32) -> Rgb {
     Rgb::new(value)
 }
 
-/// Tokyo Night, the product default.
+/// The familiar messenger look, dark: the current desktop design's neutral
+/// near-black greys, a bright green accent and deep green sent bubbles.
+/// Sampled from the desktop app and checked against this file's contrast
+/// floors, which every ink meets.
+pub const CLASSIC_DARK: Palette = Palette {
+    background: rgb(0x161717),
+    sidebar: rgb(0x161717),
+    secondary: rgb(0x242626),
+    elevated: rgb(0x2e2f2f),
+    foreground: rgb(0xf7f8fa),
+    muted_foreground: rgb(0xc4c6c6),
+    subtle_foreground: rgb(0x9fa1a1),
+    faint_foreground: rgb(0x7c7e7e),
+    border: rgb(0x2a2c2c),
+    list_hover: rgb(0x242626),
+    list_active: rgb(0x2e2f2f),
+    primary: rgb(0x21c063),
+    ring: rgb(0x21c063),
+    danger: rgb(0xf6737f),
+    warning: rgb(0xffd279),
+    success: rgb(0x21c063),
+    info: rgb(0x53bdeb),
+    scrim: rgb(0x0b0c0c),
+    on_scrim: rgb(0xf7f8fa),
+    message_sent: rgb(0x144d37),
+    message_received: rgb(0x242626),
+    speakers: [
+        rgb(0x53bdeb),
+        rgb(0xff8aa8),
+        rgb(0x06cf9c),
+        rgb(0xffd279),
+        rgb(0xa5b3ff),
+        rgb(0xfc9775),
+        rgb(0xe88bd0),
+    ],
+};
+
+/// The familiar messenger look, light: white panels, a deep green accent
+/// and pale green sent bubbles.
+pub const CLASSIC_LIGHT: Palette = Palette {
+    background: rgb(0xffffff),
+    sidebar: rgb(0xffffff),
+    secondary: rgb(0xf0f2f5),
+    elevated: rgb(0xffffff),
+    foreground: rgb(0x111b21),
+    muted_foreground: rgb(0x3b4a54),
+    subtle_foreground: rgb(0x54656f),
+    faint_foreground: rgb(0x7b8a93),
+    border: rgb(0xe9edef),
+    list_hover: rgb(0xf5f6f6),
+    list_active: rgb(0xf0f2f5),
+    primary: rgb(0x017561),
+    ring: rgb(0x00a884),
+    danger: rgb(0xc62828),
+    warning: rgb(0x7a5f00),
+    success: rgb(0x017561),
+    info: rgb(0x0270a3),
+    scrim: rgb(0x0b141a),
+    on_scrim: rgb(0xe9edef),
+    message_sent: rgb(0xd9fdd3),
+    message_received: rgb(0xffffff),
+    speakers: [
+        rgb(0x0270a3),
+        rgb(0xb3261e),
+        rgb(0x017561),
+        rgb(0x8a5a00),
+        rgb(0x6a3fc4),
+        rgb(0xa8481e),
+        rgb(0xa8326e),
+    ],
+};
+
+/// Neutral near-black surfaces and a single ultramarine accent.
+///
+/// The structure is Signal Desktop's dark theme — true greys rather than a
+/// tinted graphite, one strong blue that means "you" and "act here" — with
+/// two values of our own: the accent used as *text* is lifted to `#6b98f4`
+/// so links and selected labels pass AA on every surface, and the sent
+/// bubble is the deeper `#1d4aa8`, which keeps both the message ink and the
+/// dimmer in-bubble ink (timers, file sizes) legible on it.
+pub const ULTRAMARINE_DARK: Palette = Palette {
+    background: rgb(0x121212),
+    sidebar: rgb(0x1b1b1b),
+    secondary: rgb(0x262626),
+    elevated: rgb(0x2e2e2e),
+    foreground: rgb(0xe9e9e9),
+    muted_foreground: rgb(0xc6c6c6),
+    subtle_foreground: rgb(0x9a9a9a),
+    faint_foreground: rgb(0x7a7a7a),
+    border: rgb(0x2e2e2e),
+    list_hover: rgb(0x262626),
+    list_active: rgb(0x343434),
+    primary: rgb(0x6b98f4),
+    ring: rgb(0x6b98f4),
+    danger: rgb(0xf2726a),
+    warning: rgb(0xffd624),
+    success: rgb(0x5fbf63),
+    info: rgb(0x6b98f4),
+    scrim: rgb(0x0b0b0b),
+    on_scrim: rgb(0xf6f6f6),
+    message_sent: rgb(0x1d4aa8),
+    message_received: rgb(0x262626),
+    speakers: [
+        rgb(0x7aa3f6),
+        rgb(0xf08a8a),
+        rgb(0x6cc7a1),
+        rgb(0xe8b363),
+        rgb(0xc59bf2),
+        rgb(0x5fc4d9),
+        rgb(0xf29bc4),
+    ],
+};
+
+/// The light counterpart: white and near-white surfaces, the same accent.
+///
+/// The sent bubble is a pale ultramarine with dark text rather than Signal's
+/// solid blue: every bubble component — voice notes, documents, polls — sets
+/// its ink from the theme, and a solid blue under the light theme's dark inks
+/// would leave timers and file names unreadable on your own messages.
+pub const ULTRAMARINE_LIGHT: Palette = Palette {
+    background: rgb(0xffffff),
+    sidebar: rgb(0xf6f6f6),
+    secondary: rgb(0xf0f0f0),
+    elevated: rgb(0xffffff),
+    foreground: rgb(0x1b1b1b),
+    muted_foreground: rgb(0x3b3b3b),
+    subtle_foreground: rgb(0x5e5e5e),
+    faint_foreground: rgb(0x848484),
+    border: rgb(0xdedede),
+    list_hover: rgb(0xf0f0f0),
+    list_active: rgb(0xe3e9f7),
+    primary: rgb(0x1f5fd6),
+    ring: rgb(0x2c6bed),
+    danger: rgb(0xc62828),
+    warning: rgb(0x7a5f00),
+    success: rgb(0x2b7a30),
+    info: rgb(0x1f5fd6),
+    scrim: rgb(0x0b0b0b),
+    on_scrim: rgb(0xf6f6f6),
+    message_sent: rgb(0xdbe6fc),
+    message_received: rgb(0xf0f0f0),
+    speakers: [
+        rgb(0x1f5fd6),
+        rgb(0xb3261e),
+        rgb(0x1b7a55),
+        rgb(0x8a5a00),
+        rgb(0x7b3fc4),
+        rgb(0x0b6e83),
+        rgb(0xa8326e),
+    ],
+};
+
+/// Calm graphite surfaces with sage controls and muted teal message bubbles.
+pub const GRAPHITE: Palette = Palette {
+    background: rgb(0x181d21),
+    sidebar: rgb(0x20262b),
+    secondary: rgb(0x272f34),
+    elevated: rgb(0x2b3338),
+    foreground: rgb(0xedf1ee),
+    muted_foreground: rgb(0xaab6b2),
+    // A full 1.2 step below muted, and still AA on the raised surface.
+    subtle_foreground: rgb(0x96a49f),
+    faint_foreground: rgb(0x77857f),
+    border: rgb(0x343d42),
+    list_hover: rgb(0x333d42),
+    list_active: rgb(0x394b44),
+    primary: rgb(0xa8c5b0),
+    ring: rgb(0xa8c5b0),
+    danger: rgb(0xf29b98),
+    warning: rgb(0xe4bd88),
+    success: rgb(0xa8c5b0),
+    info: rgb(0xa9c8e5),
+    scrim: rgb(0x101518),
+    on_scrim: rgb(0xedf1ee),
+    message_sent: rgb(0x3e5b57),
+    message_received: rgb(0x2b3338),
+    speakers: [
+        rgb(0xa9c8e5),
+        rgb(0xb4aed4),
+        rgb(0x9dc6c0),
+        rgb(0xa8c5b0),
+        rgb(0xe4bd88),
+        rgb(0xf29b98),
+        rgb(0xd7b8cb),
+    ],
+};
+
+/// Original Tokyo Night theme.
 pub const TOKYO_NIGHT: Palette = Palette {
     background: rgb(0x16161e),
     sidebar: rgb(0x1a1b26),

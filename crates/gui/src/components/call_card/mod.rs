@@ -414,7 +414,7 @@ fn minimized_pill(
                 )
                 .child(
                     div()
-                        .font_family(cx.theme().mono_font_family.clone())
+                        .font_features(crate::components::parts::tabular())
                         .text_size(metrics.text_meta())
                         .text_color(cx.theme().primary)
                         .child(detail),
@@ -519,7 +519,7 @@ fn mobile_banner(
                 )
                 .child(
                     div()
-                        .font_family(cx.theme().mono_font_family.clone())
+                        .font_features(crate::components::parts::tabular())
                         .text_size(metrics.text_meta())
                         .text_color(cx.theme().primary)
                         .child(detail),

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- The default picture for a group with none: one person in front of
+       another, the back one smaller and set apart by a gap. -->
+  <defs>
+    <mask id="gap">
+      <rect width="24" height="24" fill="white"/>
+      <circle cx="14.2" cy="10.4" r="4.6" fill="black"/>
+      <path fill="black" d="M6.4 25C6.4 19.2 9.8 15.6 14.2 15.6C18.6 15.6 22 19.2 22 25Z"/>
+    </mask>
+  </defs>
+  <g mask="url(#gap)">
+    <circle cx="8" cy="9" r="3.2" fill="black"/>
+    <path fill="black" d="M1.8 22C1.8 17.6 4.6 14.6 8 14.6C11.4 14.6 14.2 17.6 14.2 22Z"/>
+  </g>
+  <circle cx="14.2" cy="10.4" r="3.7" fill="black"/>
+  <path fill="black" d="M7.6 25C7.6 19.9 10.6 16.6 14.2 16.6C17.8 16.6 20.8 19.9 20.8 25Z"/>
+</svg>

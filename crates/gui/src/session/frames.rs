@@ -160,6 +160,21 @@ impl<'a> Frames<'a> {
     #[allow(clippy::too_many_lines)]
     pub(super) fn apply(&mut self, message: DaemonMessage) -> ControlFlow<()> {
         match message {
+            DaemonMessage::CallHistory { id, result } => {
+                if let Some(Awaiting::CallHistory(tx)) = take_pending(self.pending, id) {
+                    let _ = tx.send(result);
+                }
+            }
+            DaemonMessage::ChatActed { id, result } => {
+                if let Some(Awaiting::ChatActed(tx)) = take_pending(self.pending, id) {
+                    let _ = tx.send(result);
+                }
+            }
+            DaemonMessage::SearchResults { id, result } => {
+                if let Some(Awaiting::SearchResults(tx)) = take_pending(self.pending, id) {
+                    let _ = tx.send(result);
+                }
+            }
             DaemonMessage::CallDevices { id, result } => {
                 if let Some(Awaiting::CallDevices(tx)) = take_pending(self.pending, id) {
                     let _ = tx.send(result.map(|reply| *reply));

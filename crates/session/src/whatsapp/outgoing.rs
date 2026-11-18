@@ -71,7 +71,8 @@ impl OutgoingFile {
     fn upload_type(&self) -> DownloadMediaType {
         match self.kind {
             OutgoingMedia::Image => DownloadMediaType::Image,
-            OutgoingMedia::Video => DownloadMediaType::Video,
+            OutgoingMedia::Sticker => DownloadMediaType::Sticker,
+            OutgoingMedia::Video | OutgoingMedia::Gif => DownloadMediaType::Video,
             OutgoingMedia::Document => DownloadMediaType::Document,
         }
     }
@@ -198,7 +199,8 @@ pub(super) fn prepare(mut file: OutgoingFile) -> (Shape, OutgoingFile) {
             }
             (shape, file)
         }
-        OutgoingMedia::Video => (moving(&file.data), file),
+        OutgoingMedia::Video | OutgoingMedia::Gif => (moving(&file.data), file),
+        OutgoingMedia::Sticker => (Shape::default(), file),
         // A document has no dimensions and no poster frame, and its bytes are
         // the point — it is the one kind that promises nothing about what is
         // inside it, so nothing here re-encodes one. WhatsApp's own clients
@@ -214,10 +216,71 @@ pub(super) fn prepare(mut file: OutgoingFile) -> (Shape, OutgoingFile) {
 /// alone promise to preserve arbitrary bytes without interpreting them.
 pub(super) fn prepare_for_send(file: OutgoingFile) -> Result<(Shape, OutgoingFile), String> {
     match file.kind {
+        OutgoingMedia::Sticker => prepare_sticker_for_send(file),
+        OutgoingMedia::Gif => {
+            let mut file = file;
+            if file.data.starts_with(b"GIF87a") || file.data.starts_with(b"GIF89a") {
+                file.data =
+                    oxidezap_video::gif_to_mp4(&file.data).map_err(|error| error.to_string())?;
+                file.mime_type = "video/mp4".into();
+                file.file_name = "animation.mp4".into();
+            }
+            prepare_video_for_send(file)
+        }
         OutgoingMedia::Image => prepare_image_for_send(file),
         OutgoingMedia::Video => prepare_video_for_send(file),
         OutgoingMedia::Document => Ok(prepare(file)),
     }
+}
+
+fn prepare_sticker_for_send(mut file: OutgoingFile) -> Result<(Shape, OutgoingFile), String> {
+    use image::ImageDecoder as _;
+    let reader = image::ImageReader::new(std::io::Cursor::new(&file.data))
+        .with_guessed_format()
+        .map_err(|error| error.to_string())?;
+    let picture = reader
+        .decode()
+        .map_err(|error| format!("Could not read the sticker image: {error}"))?;
+    let animated = file.mime_type == "image/webp"
+        && image::codecs::webp::WebPDecoder::new(std::io::Cursor::new(&file.data))
+            .is_ok_and(|decoder| decoder.has_animation());
+    if animated {
+        if picture.width() > 512 || picture.height() > 512 || file.data.len() > 500_000 {
+            return Err("Animated stickers must be at most 512 × 512 and 500 KB.".into());
+        }
+    } else {
+        let resized = picture.thumbnail(512, 512).to_rgba8();
+        let mut canvas = image::RgbaImage::new(512, 512);
+        image::imageops::overlay(
+            &mut canvas,
+            &resized,
+            i64::from((512 - resized.width()) / 2),
+            i64::from((512 - resized.height()) / 2),
+        );
+        let mut bytes = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgba8(canvas)
+            .write_to(&mut bytes, image::ImageFormat::WebP)
+            .map_err(|error| error.to_string())?;
+        file.data = bytes.into_inner();
+        if file.data.len() > 100_000 {
+            return Err(
+                "This sticker exceeds 100 KB. Choose a simpler image or send it as a photo.".into(),
+            );
+        }
+    }
+    let decoder = image::codecs::webp::WebPDecoder::new(std::io::Cursor::new(&file.data))
+        .map_err(|error| error.to_string())?;
+    let (width, height) = decoder.dimensions();
+    file.mime_type = "image/webp".into();
+    file.file_name = "sticker.webp".into();
+    Ok((
+        Shape {
+            width: Some(width),
+            height: Some(height),
+            ..Default::default()
+        },
+        file,
+    ))
 }
 
 fn prepare_image_for_send(mut file: OutgoingFile) -> Result<(Shape, OutgoingFile), String> {
@@ -768,7 +831,7 @@ pub(super) fn message(
             });
             constructed
         }
-        OutgoingMedia::Video => {
+        OutgoingMedia::Video | OutgoingMedia::Gif => {
             let mut constructed: wa::Message = Default::default();
             constructed.video_message = MessageField::some({
                 let mut constructed: wa::message::VideoMessage = Default::default();
@@ -784,6 +847,7 @@ pub(super) fn message(
                 constructed.width = shape.width;
                 constructed.height = shape.height;
                 constructed.seconds = shape.duration_secs;
+                constructed.gif_playback = Some(file.kind == OutgoingMedia::Gif);
                 constructed.jpeg_thumbnail = shape.thumbnail;
                 // What the CDN handed back for exactly this: without it the
                 // other side downloads the whole file before the first frame.
@@ -792,6 +856,26 @@ pub(super) fn message(
                 constructed
             });
             constructed
+        }
+        OutgoingMedia::Sticker => {
+            let mut message: wa::Message = Default::default();
+            let animated = image::codecs::webp::WebPDecoder::new(std::io::Cursor::new(&file.data))
+                .is_ok_and(|decoder| decoder.has_animation());
+            let mut sticker = wa::message::StickerMessage::default();
+            sticker.url = url;
+            sticker.direct_path = direct_path;
+            sticker.media_key = media_key;
+            sticker.file_sha256 = file_sha256;
+            sticker.file_enc_sha256 = file_enc_sha256;
+            sticker.file_length = file_length;
+            sticker.media_key_timestamp = media_key_timestamp;
+            sticker.mimetype = mimetype;
+            sticker.width = shape.width;
+            sticker.height = shape.height;
+            sticker.is_animated = Some(animated);
+            sticker.context_info = context.into();
+            message.sticker_message = MessageField::some(sticker);
+            message
         }
         OutgoingMedia::Document => {
             let mut constructed: wa::Message = Default::default();

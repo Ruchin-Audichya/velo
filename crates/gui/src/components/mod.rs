@@ -2,11 +2,14 @@
 
 mod avatar;
 mod call_card;
+pub(crate) mod call_history;
 mod chat_header;
 mod chat_item;
 mod chat_list;
 mod conversation_search;
 mod empty_state;
+pub mod file_badge;
+pub mod files_view;
 mod icons;
 mod input_area_view;
 mod media_viewer;
@@ -21,6 +24,8 @@ mod rich_text;
 pub(crate) mod rich_text_selection;
 mod status;
 mod status_ticks;
+#[cfg(not(target_family = "wasm"))]
+mod window_bar;
 
 pub use avatar::Avatar;
 pub use call_card::render_call_card;
@@ -43,3 +48,5 @@ pub use status::{
     StatusListProps, StatusSelection, StatusViewProps, render_status_list, render_status_view,
 };
 pub use status_ticks::{bubble_status_ticks, status_ticks};
+#[cfg(not(target_family = "wasm"))]
+pub use window_bar::render_window_bar;

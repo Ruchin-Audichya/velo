@@ -23,14 +23,14 @@ pub use accounts::TrayHub;
 /// so no two platforms can disagree about which state gets which colour.
 /// Present on Linux for its tests alone: nothing here draws it, and the
 /// module would otherwise be dead code outside Windows and macOS.
-#[cfg(any(test, target_os = "windows", target_os = "macos"))]
+#[cfg(any(test, target_os = "macos"))]
 mod dot;
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "macos")]
 pub mod macos;
 #[cfg(target_os = "windows")]
-mod windows;
+pub(crate) mod windows;
 
 /// A live tray presence. Dropping it removes the icon.
 ///

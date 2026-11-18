@@ -40,6 +40,8 @@ pub struct Picked {
 /// The two choices offered by the attachment button.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AttachmentCategory {
+    Sticker,
+    Gif,
     PhotosVideos,
     Document,
 }
@@ -52,6 +54,8 @@ impl AttachmentCategory {
     pub fn accept_hint(self) -> Option<&'static str> {
         match self {
             Self::PhotosVideos => Some("image/jpeg,image/png,image/gif,image/webp,video/*"),
+            Self::Sticker => Some("image/webp,image/png,image/jpeg"),
+            Self::Gif => Some("image/gif,video/mp4"),
             Self::Document => None,
         }
     }
@@ -226,10 +230,14 @@ fn kind_for_category(
     match category {
         None => Ok(kind_for(mime_type)),
         Some(AttachmentCategory::Document) => Ok(OutgoingMedia::Document),
+        Some(AttachmentCategory::Sticker) => Ok(OutgoingMedia::Sticker),
+        Some(AttachmentCategory::Gif) => Ok(OutgoingMedia::Gif),
         Some(AttachmentCategory::PhotosVideos) => match kind_for(mime_type) {
             OutgoingMedia::Image => Ok(OutgoingMedia::Image),
             OutgoingMedia::Video => Ok(OutgoingMedia::Video),
-            OutgoingMedia::Document => Err(crate::tr!(unsupported_media, file_name)),
+            OutgoingMedia::Document | OutgoingMedia::Sticker | OutgoingMedia::Gif => {
+                Err(crate::tr!(unsupported_media, file_name))
+            }
         },
     }
 }
@@ -242,6 +250,22 @@ fn selected_kind_and_mime(
     bytes: &[u8],
     category: Option<AttachmentCategory>,
 ) -> Result<(OutgoingMedia, String), String> {
+    if category == Some(AttachmentCategory::Sticker) {
+        let mime = image_mime_from_bytes(bytes)
+            .filter(|mime| matches!(*mime, "image/webp" | "image/png" | "image/jpeg"))
+            .ok_or_else(|| "Choose a WebP, PNG or JPEG image for a sticker.".to_string())?;
+        return Ok((OutgoingMedia::Sticker, mime.to_string()));
+    }
+    if category == Some(AttachmentCategory::Gif) {
+        let mime = if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
+            "image/gif"
+        } else if recognizable_video_container(bytes) {
+            "video/mp4"
+        } else {
+            return Err("Choose an animated GIF or an MP4 clip.".into());
+        };
+        return Ok((OutgoingMedia::Gif, mime.into()));
+    }
     let generic_mime = matches!(
         declared_mime.trim().to_ascii_lowercase().as_str(),
         "application/octet-stream" | "binary/octet-stream"
@@ -265,7 +289,7 @@ fn selected_kind_and_mime(
         let valid = match kind {
             OutgoingMedia::Image => image_mime_from_bytes(bytes).is_some_and(arrives_as_a_photo),
             OutgoingMedia::Video => recognizable_video_container(bytes),
-            OutgoingMedia::Document => false,
+            OutgoingMedia::Document | OutgoingMedia::Sticker | OutgoingMedia::Gif => false,
         };
         if !valid {
             return Err(crate::tr!(unverified_media, file_name));

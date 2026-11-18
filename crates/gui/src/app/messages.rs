@@ -327,8 +327,16 @@ mod tests {
         }
     }
 
+    /// That hour on that day *where the test runs*. Date dividers fall on
+    /// local midnight, so a UTC fixture meant "the next day" only for
+    /// machines west of UTC+1: in India, 23:00 and 08:00 UTC are the same
+    /// local day, and the divider test failed there.
     fn at(day: u32, hour: u32) -> DateTime<Utc> {
-        Utc.with_ymd_and_hms(2026, 3, day, hour, 0, 0).unwrap()
+        chrono::Local
+            .with_ymd_and_hms(2026, 3, day, hour, 0, 0)
+            .single()
+            .expect("an unambiguous local time")
+            .with_timezone(&Utc)
     }
 
     fn message(sender: &str, from_me: bool, when: DateTime<Utc>) -> ChatMessage {

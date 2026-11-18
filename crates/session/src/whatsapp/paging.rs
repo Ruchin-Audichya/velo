@@ -95,6 +95,36 @@ impl WhatsAppClient {
     /// always loaded at once.
     pub const CHAT_PAGE: i64 = 100;
 
+    /// Read the linked account's call history, optionally refreshing the server collection.
+    pub fn load_call_history(
+        &self,
+        limit: usize,
+        refresh: bool,
+    ) -> Task<Result<Vec<oxidezap_core::CallHistoryEntry>, String>> {
+        let session = self.session.clone();
+        self.exec.spawn(async move {
+            let Some(live) = session.lock().await.clone() else {
+                return Err("Call history is unavailable until your account is loaded.".into());
+            };
+            if refresh {
+                let report = live
+                    .client
+                    .resync_app_state_collection(whatsapp_rust::WAPatchName::Regular)
+                    .await
+                    .map_err(|error| error.to_string())?;
+                if !report.all_synced() {
+                    return Err(
+                        "WhatsApp did not finish syncing call history. Try again later.".into(),
+                    );
+                }
+            }
+            live.chat_store
+                .call_history(limit)
+                .await
+                .map_err(|error| error.to_string())
+        })
+    }
+
     /// One page of a chat's messages, older than `before`.
     ///
     /// The read a front end makes when it opens a conversation and again when
@@ -211,6 +241,42 @@ impl WhatsAppClient {
             )
             .await;
             Ok(messages)
+        })
+    }
+
+    /// Search every chat's history at once, keeping which chat each hit is
+    /// in — the window's global search jumps there.
+    ///
+    /// [`Self::search_messages`] drops the chat (a `ChatMessage` does not
+    /// carry one), which is fine for a search scoped to one chat and loses
+    /// the answer to "where was that?" for a search over all of them.
+    pub fn search_everywhere(
+        &self,
+        query: String,
+        limit: i64,
+    ) -> Task<Result<Vec<(String, ChatMessage)>, String>> {
+        let session = self.session.clone();
+        self.exec.spawn(async move {
+            let Some(live) = session.lock().await.clone() else {
+                return Err("no session yet".to_string());
+            };
+            let hits = live
+                .chat_store
+                .search_messages(&query, limit.clamp(1, 200))
+                .await
+                .map_err(|e| format!("search failed: {e}"))?;
+            let chats: Vec<String> = hits.iter().map(|hit| hit.chat_jid.to_string()).collect();
+            let mut messages: Vec<ChatMessage> =
+                hits.into_iter().map(stored_to_chat_message).collect();
+            Self::hydrate_sender_names(
+                &live.chat_store,
+                &live.client,
+                &mut messages,
+                &live.names,
+                false,
+            )
+            .await;
+            Ok(chats.into_iter().zip(messages).collect())
         })
     }
 

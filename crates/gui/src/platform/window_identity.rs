@@ -25,7 +25,18 @@ mod imp {
     }
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(windows)]
+mod imp {
+    pub(super) fn apply(options: &mut gpui::WindowOptions, _: &gpui::App) {
+        let bytes = include_bytes!("../../../../packaging/windows/velo.png");
+        match image::load_from_memory(bytes) {
+            Ok(icon) => options.icon = Some(std::sync::Arc::new(icon.to_rgba8())),
+            Err(error) => log::warn!("could not load the window icon: {error}"),
+        }
+    }
+}
+
+#[cfg(not(any(target_os = "linux", windows)))]
 mod imp {
     pub(super) fn apply(_: &mut gpui::WindowOptions, _: &gpui::App) {}
 }

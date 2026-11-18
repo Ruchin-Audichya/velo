@@ -282,13 +282,19 @@ tokens! {
     radius_lg = scaled(12.0);
     /// Floating cards: the call card, dialogs.
     radius_xl = scaled(14.0);
+    /// A message bubble: rounder than a panel, the soft pill-like shape
+    /// Signal's conversation uses, so a short reply reads as a bubble rather
+    /// than a card.
+    radius_bubble = scaled(18.0);
     /// The tight corner that marks the authored side of a bubble.
     radius_bubble_tail = scaled(4.0);
 
     // ---- type ---------------------------------------------------------
     //
     // Steps around the base rather than absolute sizes, so hierarchy survives
-    // zoom.
+    // zoom. Set in the system face (see `platform::fonts::ui_family`):
+    // body at 14.5, and nothing below 11, where metadata stops holding up on
+    // a 100%-scaled screen.
 
     /// Screen and dialog titles.
     text_title = scaled(19.0);
@@ -297,15 +303,15 @@ tokens! {
     /// Names in a header.
     text_strong = scaled(16.0);
     /// Body text.
-    text_body = scaled(15.0);
+    text_body = scaled(14.5);
     /// Secondary text: previews, subtitles.
-    text_secondary = scaled(13.5);
+    text_secondary = scaled(13.0);
     /// Chips and compact controls.
     text_small = scaled(12.5);
-    /// Monospace metadata: timestamps, counters, shortcuts.
-    text_meta = scaled(11.0);
+    /// Metadata: timestamps, counters, shortcuts.
+    text_meta = scaled(11.5);
     /// The smallest step: a tick's timestamp, a date divider.
-    text_micro = scaled(10.5);
+    text_micro = scaled(11.0);
 
     // ---- chat list ----------------------------------------------------
 
@@ -333,8 +339,6 @@ tokens! {
 
     /// The sidebar's own header, which holds the title and its actions.
     sidebar_header_height = dense(56.0);
-    /// The account row at the foot of the sidebar.
-    sidebar_footer_height = dense(56.0);
     /// The conversation header: taller than the sidebar's, because it carries
     /// a subtitle under the name.
     header_height = dense(60.0);
@@ -436,6 +440,9 @@ tokens! {
     /// that is a property of the text size, not of the window.
     reading_width = scaled(720.0);
 
+    /// Width reserved for the optional shared files panel.
+    details_width = scaled(288.0);
+
     /// How wide a transient notice is allowed to get.
     ///
     /// The last `px` literal in the interface lived here, and it was the same
@@ -470,19 +477,12 @@ tokens! {
     /// the shape of a face.
     preset_preview_height = dense(84.0);
 
-    /// One destination in the Settings side navigation.
-    ///
-    /// Its own token, not an avatar's size: nothing on this row is a picture
-    /// of a person, and a list of seven places wants to read as a list rather
-    /// than as seven cards.
-    nav_item_height = dense(34.0);
-
     /// The Settings side navigation.
     ///
     /// Not the call card's width. The two were the same number and neither
     /// was chosen for the other, so widening a floating card over a video
     /// call would have moved a settings column.
-    settings_nav_width = dense(248.0);
+    settings_nav_width = dense(320.0);
 
     // ---- call card ----------------------------------------------------
 
@@ -599,7 +599,7 @@ mod tests {
         assert_eq!(metrics.chat_row_height(), px(78.0));
         assert_eq!(metrics.avatar_row(), px(44.0));
         assert_eq!(metrics.radius_lg(), px(12.0));
-        assert_eq!(metrics.text_body(), px(15.0));
+        assert_eq!(metrics.text_body(), px(14.5));
     }
 
     #[test]
@@ -607,7 +607,7 @@ mod tests {
         let base = Metrics::new(16.0, Density::Comfortable);
         let zoomed = Metrics::new(24.0, Density::Comfortable);
         assert_eq!(zoomed.chat_row_height(), px(78.0 * 1.5));
-        assert_eq!(zoomed.text_body(), px(15.0 * 1.5));
+        assert_eq!(zoomed.text_body(), px(14.5 * 1.5));
         assert!(zoomed.space_lg() > base.space_lg());
     }
 

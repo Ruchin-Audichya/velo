@@ -39,14 +39,6 @@ impl ChatKind {
             Self::Direct
         }
     }
-
-    pub fn label(self) -> Option<&'static str> {
-        match self {
-            Self::Direct => None,
-            Self::Group => Some(crate::tr!(Group)),
-            Self::Channel => Some(crate::tr!(Channel)),
-        }
-    }
 }
 
 /// The glyph in front of a media preview, so `Photo` is recognisable before
@@ -125,6 +117,7 @@ pub struct ChatRow {
     pub preview: Preview,
     pub pinned: bool,
     pub muted_until: Option<DateTime<Utc>>,
+    pub archived: bool,
 }
 
 impl ChatRow {
@@ -162,6 +155,7 @@ impl ChatRow {
             preview: preview_for(chat, typing, draft, is_own_number),
             pinned: chat.pinned_at.is_some(),
             muted_until: chat.muted_until,
+            archived: chat.archived,
         }
     }
 
@@ -203,7 +197,7 @@ fn stable_disambiguator(jid: &str) -> String {
         hash ^= u64::from(*byte);
         hash = hash.wrapping_mul(1_099_511_628_211);
     }
-    format!("{hash:016x}")
+    format!("{:04x}", hash >> 48)
 }
 
 fn preview_for(

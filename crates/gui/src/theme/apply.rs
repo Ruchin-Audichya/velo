@@ -33,6 +33,7 @@ pub fn apply(settings: &ThemeSettings, rem_size: f32, cx: &mut App) {
     Theme::change(mode, None, cx);
 
     let palette = &settings.palette;
+    let family = crate::platform::fonts::ui_family(cx);
     let theme = cx.global_mut::<Theme>();
 
     // The rem `Metrics` resolved — the base the *window* can carry, already
@@ -41,6 +42,9 @@ pub fn apply(settings: &ThemeSettings, rem_size: f32, cx: &mut App) {
     // side worked out for itself would put our chrome and the library's
     // buttons on two different scales in the same header.
     theme.font_size = px(rem_size);
+    // `Theme::change` resets the family; name the one the interface is set
+    // in. See `platform::fonts::ui_family`.
+    theme.font_family = family;
     // Radii the library resolves for its own controls. Ours come from
     // `Metrics`, which scales them with the base font; these two are the
     // library's equivalents of `radius_md` and `radius_xl` at that base.
@@ -48,6 +52,11 @@ pub fn apply(settings: &ThemeSettings, rem_size: f32, cx: &mut App) {
     theme.radius_lg = px(14.0 * rem_size / 16.0);
 
     apply_palette(&mut theme.colors, palette);
+    // The library's controls — buttons, checkboxes, switches — read a table
+    // derived from the colours, not the colours themselves, and nothing
+    // rebuilds it but a theme load. Without this a danger button kept the
+    // stock theme's red, washed out against our surfaces.
+    theme.tokens = gpui_component::theme::ThemeTokens::from(&theme.colors);
 
     // Base owns scrollbars and resize handles and holds its own projection of
     // the theme; without this it keeps painting the previous palette.

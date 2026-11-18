@@ -20,6 +20,7 @@ mod app;
 mod assets;
 mod components;
 mod i18n;
+mod motion;
 mod platform;
 mod responsive;
 mod retained_image;
@@ -61,7 +62,7 @@ fn open_the_window() {
         // Before anything asks for one: a page's text system starts empty and
         // resolving a font it has not been given is a panic, not a fallback.
         crate::platform::fonts(cx);
-        cx.set_app_identity(crate::platform::window_identity::APP_ID, "OxideZap");
+        cx.set_app_identity(crate::platform::window_identity::APP_ID, "Velo");
         gpui_component::init(cx);
         // Reads ~/.config/oxidezap/theme.json over a preset. Cannot fail: a
         // missing or malformed file resolves to the product default and
@@ -73,14 +74,20 @@ fn open_the_window() {
 
         let mut options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
+            window_min_size: Some(size(px(320.0), px(280.0))),
+            // The app draws its own title strip (`components::window_bar`):
+            // the system caption is hidden, and the window's own title is
+            // kept for the taskbar and Alt-Tab.
             titlebar: Some(gpui::TitlebarOptions {
-                title: Some(SharedString::from("WhatsApp")),
-                ..Default::default()
+                title: Some(SharedString::from("Velo")),
+                ..gpui_component::TitleBar::title_bar_options()
             }),
+            app_owns_titlebar_drag: true,
             ..Default::default()
         };
         crate::platform::window_identity::apply(&mut options, cx);
         if let Err(error) = cx.open_window(options, |window, cx| {
+            crate::platform::window_placement::keep_title_bar_on_screen(window);
             let view = cx.new(WhatsAppApp::new);
             let notification_view = view.downgrade();
             let notification_window = window.window_handle();
@@ -151,16 +158,26 @@ fn open_the_window() {
 /// that is `theme::fit_to_viewport`, from whatever size the window ends up.
 fn opening_size(cx: &App) -> Size<Pixels> {
     const DESIGN: Size<Pixels> = Size {
-        width: px(1200.0),
-        height: px(800.0),
+        width: px(1440.0),
+        height: px(900.0),
     };
 
     let Some(display) = cx.primary_display() else {
         return DESIGN;
     };
-    let screen = display.bounds().size;
+    // The visible bounds are the work area — the screen minus the taskbar —
+    // and what is sized here is the window's *content*: Windows adds the
+    // title bar and borders outside it. Leaving room for them (and a little
+    // air) is what lets the finished window open inside the screen instead
+    // of taller than it. `window_placement` corrects whatever still does not
+    // fit, using the real frame once it exists.
+    const CHROME: Size<Pixels> = Size {
+        width: px(32.0),
+        height: px(64.0),
+    };
+    let screen = display.visible_bounds().size;
     size(
-        DESIGN.width.min(screen.width),
-        DESIGN.height.min(screen.height),
+        DESIGN.width.min(screen.width - CHROME.width),
+        DESIGN.height.min(screen.height - CHROME.height),
     )
 }

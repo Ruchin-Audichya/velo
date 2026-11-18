@@ -308,6 +308,9 @@ enum Awaiting {
     Download(oneshot::Sender<Result<std::sync::Arc<Vec<u8>>, Failure>>),
     /// What this account occupies on disk, for the Storage pane.
     Storage(oneshot::Sender<StorageUsage>),
+    CallHistory(oneshot::Sender<Result<Vec<oxidezap_core::CallHistoryEntry>, String>>),
+    SearchResults(oneshot::Sender<Result<Vec<(String, oxidezap_core::ChatMessage)>, String>>),
+    ChatActed(oneshot::Sender<Result<(), String>>),
     CallDevices(oneshot::Sender<Result<oxidezap_ipc::CallDeviceReply, String>>),
     /// A message drawn before it was sent. On refusal it has to stop being
     /// pending, and the front end is the side that knows which bubble it is.
@@ -382,6 +385,9 @@ impl Awaiting {
             Self::Download(tx) => tx.is_closed(),
             Self::Storage(tx) => tx.is_closed(),
             Self::CallDevices(tx) => tx.is_closed(),
+            Self::CallHistory(tx) => tx.is_closed(),
+            Self::SearchResults(tx) => tx.is_closed(),
+            Self::ChatActed(tx) => tx.is_closed(),
             Self::Acted(tx) => tx.is_closed(),
             Self::Installed { tell, .. } => tell.is_closed(),
             Self::Removed(tx) => tx.is_closed(),
@@ -413,6 +419,15 @@ impl Awaiting {
         let detail = failure.detail.as_str();
         match self {
             Self::Account(tx) => {
+                let _ = tx.send(Err(detail.to_string()));
+            }
+            Self::CallHistory(tx) => {
+                let _ = tx.send(Err(detail.to_string()));
+            }
+            Self::SearchResults(tx) => {
+                let _ = tx.send(Err(detail.to_string()));
+            }
+            Self::ChatActed(tx) => {
                 let _ = tx.send(Err(detail.to_string()));
             }
             Self::CallDevices(tx) => {
@@ -1748,6 +1763,65 @@ impl SessionHandle {
     ///
     /// The daemon measures, because it is the only process that owns either
     /// path. The answer arrives under this request's id.
+    pub fn call_history(
+        &self,
+        refresh: bool,
+    ) -> oneshot::Receiver<Result<Vec<oxidezap_core::CallHistoryEntry>, String>> {
+        let (tx, rx) = oneshot::channel();
+        self.ask(
+            ClientRequest::LoadCallHistory { refresh },
+            Awaiting::CallHistory(tx),
+        );
+        rx
+    }
+
+    /// Pin, mute, archive, mark unread, clear or delete a conversation.
+    pub fn chat_action(
+        &self,
+        jid: String,
+        action: oxidezap_ipc::ChatAction,
+    ) -> oneshot::Receiver<Result<(), String>> {
+        let (tx, rx) = oneshot::channel();
+        self.ask(
+            ClientRequest::ChatAction { jid, action },
+            Awaiting::ChatActed(tx),
+        );
+        rx
+    }
+
+    /// Forward one stored message to another chat.
+    pub fn forward_message(
+        &self,
+        source_jid: String,
+        message_id: String,
+        target_jid: String,
+    ) -> oneshot::Receiver<Result<(), String>> {
+        let (tx, rx) = oneshot::channel();
+        self.ask(
+            ClientRequest::ForwardMessage {
+                source_jid,
+                message_id,
+                target_jid,
+            },
+            Awaiting::ChatActed(tx),
+        );
+        rx
+    }
+
+    /// Search every chat's stored history. Best match first.
+    pub fn search_everywhere(
+        &self,
+        query: String,
+        limit: u32,
+    ) -> oneshot::Receiver<Result<Vec<(String, oxidezap_core::ChatMessage)>, String>> {
+        let (tx, rx) = oneshot::channel();
+        self.ask(
+            ClientRequest::SearchEverywhere { query, limit },
+            Awaiting::SearchResults(tx),
+        );
+        rx
+    }
+
     pub fn call_devices(
         &self,
         action: oxidezap_ipc::CallDeviceAction,

@@ -152,6 +152,82 @@ pub(super) async fn handle_request(
         ClientRequest::VotePoll(request) => {
             acted(dispatch(hub, commands, Action::VotePoll(request)).await)
         }
+        ClientRequest::LoadCallHistory { refresh } => {
+            let id = match addressed(id, "a call history request needs an id") {
+                Ok(id) => id,
+                Err(answer) => return answer,
+            };
+            out_of_band(
+                hub,
+                commands,
+                id,
+                Action::LoadCallHistory {
+                    id,
+                    refresh,
+                    answer_to: outbox.clone(),
+                },
+            )
+            .await
+        }
+        ClientRequest::ForwardMessage {
+            source_jid,
+            message_id,
+            target_jid,
+        } => {
+            let id = match addressed(id, "a forward needs an id") {
+                Ok(id) => id,
+                Err(answer) => return answer,
+            };
+            out_of_band(
+                hub,
+                commands,
+                id,
+                Action::ForwardMessage {
+                    id,
+                    source_jid,
+                    message_id,
+                    target_jid,
+                    answer_to: outbox.clone(),
+                },
+            )
+            .await
+        }
+        ClientRequest::ChatAction { jid, action } => {
+            let id = match addressed(id, "a chat action needs an id") {
+                Ok(id) => id,
+                Err(answer) => return answer,
+            };
+            out_of_band(
+                hub,
+                commands,
+                id,
+                Action::ChatAction {
+                    id,
+                    jid,
+                    action,
+                    answer_to: outbox.clone(),
+                },
+            )
+            .await
+        }
+        ClientRequest::SearchEverywhere { query, limit } => {
+            let id = match addressed(id, "a search request needs an id") {
+                Ok(id) => id,
+                Err(answer) => return answer,
+            };
+            out_of_band(
+                hub,
+                commands,
+                id,
+                Action::SearchEverywhere {
+                    id,
+                    query,
+                    limit,
+                    answer_to: outbox.clone(),
+                },
+            )
+            .await
+        }
         ClientRequest::CallDevices(request) => {
             let id = match addressed(id, "a device request needs an id") {
                 Ok(id) => id,

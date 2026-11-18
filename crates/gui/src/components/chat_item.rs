@@ -13,8 +13,13 @@ use gpui::{
     Styled, div,
 };
 use gpui_component::ActiveTheme as _;
+use gpui_component::menu::ContextMenuExt as _;
 use gpui_component::{Icon, IconName};
 
+use crate::app::chat_actions::{
+    ArchiveChat, ClearChat, DeleteChat, MUTE_EIGHT_HOURS, MUTE_ONE_WEEK, MarkChatUnread, MuteChat,
+    PinChat,
+};
 use crate::app::{ChatOpen, ChatRow, Preview, PreviewGlyph, Unread, WhatsAppApp};
 use crate::components::parts;
 use crate::components::{ProductIcon, status_ticks};
@@ -40,6 +45,13 @@ pub fn render_chat_item(
     let has_unread = row.has_unread();
     let toggle_jid = row.jid.clone();
     let toggle_entity = entity.clone();
+    let menu_jid: SharedString = row.jid.clone().into();
+    let menu_pinned = row.pinned;
+    let menu_archived = row.archived;
+    let menu_unread = has_unread;
+    let menu_muted = row
+        .muted_until
+        .is_some_and(|until| until > wacore::time::now_utc());
 
     // The row's own ground, which the avatar's badge rings itself in.
     let ground = if is_selected {
@@ -67,21 +79,6 @@ pub fn render_chat_item(
         })
         .when(row.tree_depth > 0, |el| {
             el.pl(metrics.chat_row_padding_x() + metrics.space_xl())
-        })
-        // Selection is a bar as well as a fill. A fill alone is a small
-        // lightness step on a dark palette, and it disappears entirely next
-        // to a hovered neighbour.
-        .when(is_selected, |el| {
-            el.child(
-                div()
-                    .absolute()
-                    .left_0()
-                    .top(metrics.space_lg())
-                    .bottom(metrics.space_lg())
-                    .w(metrics.selection_bar_width())
-                    .rounded_r(metrics.selection_bar_width())
-                    .bg(cx.theme().primary),
-            )
         })
         .cursor_pointer()
         .on_click(move |_, window, cx| {
@@ -130,6 +127,81 @@ pub fn render_chat_item(
                 .child(render_name_row(&row, name, has_unread, metrics, cx))
                 .child(render_preview_row(&row, has_unread, metrics, cx)),
         )
+        // WhatsApp's chat menu, in its order. Every item is reachable without
+        // opening the chat, which is the point of having it on the row.
+        .context_menu(move |menu, _window, _cx| {
+            let jid = menu_jid.clone();
+            let menu = menu
+                .menu(
+                    if menu_archived {
+                        "Unarchive chat"
+                    } else {
+                        "Archive chat"
+                    },
+                    Box::new(ArchiveChat {
+                        jid: jid.clone(),
+                        archive: !menu_archived,
+                    }),
+                )
+                .separator();
+            let menu = if menu_muted {
+                menu.menu(
+                    "Unmute notifications",
+                    Box::new(MuteChat {
+                        jid: jid.clone(),
+                        seconds: Some(0),
+                    }),
+                )
+            } else {
+                menu.menu(
+                    "Mute for 8 hours",
+                    Box::new(MuteChat {
+                        jid: jid.clone(),
+                        seconds: Some(MUTE_EIGHT_HOURS),
+                    }),
+                )
+                .menu(
+                    "Mute for 1 week",
+                    Box::new(MuteChat {
+                        jid: jid.clone(),
+                        seconds: Some(MUTE_ONE_WEEK),
+                    }),
+                )
+                .menu(
+                    "Mute always",
+                    Box::new(MuteChat {
+                        jid: jid.clone(),
+                        seconds: None,
+                    }),
+                )
+            };
+            menu.separator()
+                .menu(
+                    if menu_pinned {
+                        "Unpin chat"
+                    } else {
+                        "Pin chat"
+                    },
+                    Box::new(PinChat {
+                        jid: jid.clone(),
+                        pin: !menu_pinned,
+                    }),
+                )
+                .menu(
+                    if menu_unread {
+                        "Mark as read"
+                    } else {
+                        "Mark as unread"
+                    },
+                    Box::new(MarkChatUnread {
+                        jid: jid.clone(),
+                        unread: !menu_unread,
+                    }),
+                )
+                .separator()
+                .menu("Clear chat", Box::new(ClearChat { jid: jid.clone() }))
+                .menu("Delete chat", Box::new(DeleteChat { jid }))
+        })
 }
 
 fn render_name_row(
@@ -145,30 +217,39 @@ fn render_name_row(
         .gap(metrics.space_md())
         .min_w_0()
         .child(
-            parts::one_line()
+            // One line, laid out as a row. It used to be a text box holding
+            // three blocks, so the tag and the disambiguator each took a line
+            // of their own — the tag's chip stretched into a full-width grey
+            // bar, and a hash sat above the name like a heading.
+            div()
                 .flex_1()
                 .min_w_0()
+                .flex()
+                .items_center()
+                .gap(metrics.space_sm())
                 .text_size(metrics.text_body())
                 .text_color(if row.hierarchy_context {
                     cx.theme().muted_foreground
                 } else {
                     cx.theme().foreground
                 })
-                .font_weight(gpui::FontWeight::MEDIUM)
+                .font_weight(gpui::FontWeight::NORMAL)
+                .child(parts::one_line().min_w_0().child(name))
                 .children(row.disambiguator.as_ref().map(|ordinal| {
                     div()
                         .flex_shrink_0()
-                        .text_color(cx.theme().primary)
+                        .font_weight(gpui::FontWeight::NORMAL)
+                        .text_size(metrics.text_small())
+                        .text_color(parts::subtle(cx))
                         .child(format!("#{ordinal}"))
                 }))
-                .child(name)
                 .children(row.hierarchy_label.map(|label| {
                     div()
                         .flex_shrink_0()
                         .rounded(metrics.radius_sm())
                         .bg(cx.theme().secondary)
                         .px(metrics.space_xs())
-                        .font_family(cx.theme().mono_font_family.clone())
+                        .font_weight(gpui::FontWeight::MEDIUM)
                         .text_size(metrics.text_micro())
                         .text_color(cx.theme().secondary_foreground)
                         .child(label)
@@ -178,25 +259,21 @@ fn render_name_row(
             row.muted_until
                 .filter(|until| *until > wacore::time::now_utc())
                 .map(|_| {
-                    div()
+                    Icon::new(crate::components::ProductIcon::BellOff)
                         .flex_shrink_0()
-                        .text_size(metrics.text_meta())
+                        .size(metrics.icon_small())
                         .text_color(parts::subtle(cx))
-                        .child(crate::tr!(Muted))
                 }),
         )
         .children(row.pinned.then(|| {
-            div()
+            Icon::new(crate::components::ProductIcon::Pin)
                 .flex_shrink_0()
-                .font_family(cx.theme().mono_font_family.clone())
-                .text_size(metrics.text_meta())
+                .size(metrics.icon_small())
                 .text_color(parts::subtle(cx))
-                .child(crate::tr!(Pinned))
         }))
         .children(row.timestamp.map(|timestamp| {
-            div()
+            parts::meta()
                 .flex_shrink_0()
-                .font_family(cx.theme().mono_font_family.clone())
                 .text_size(metrics.text_meta())
                 // The time joins the badge in saying "something is waiting
                 // here", so the two agree rather than competing.
@@ -220,17 +297,8 @@ fn render_preview_row(
         .items_center()
         .gap(metrics.space_sm())
         .min_w_0()
-        .children(row.kind.label().map(|label| {
-            div()
-                .flex_shrink_0()
-                .rounded(metrics.radius_sm())
-                .bg(cx.theme().secondary)
-                .px(metrics.space_xs())
-                .font_family(cx.theme().mono_font_family.clone())
-                .text_size(metrics.text_micro())
-                .text_color(cx.theme().secondary_foreground)
-                .child(label)
-        }))
+        // No kind tag: groups carry a badge on their avatar, and channels
+        // and communities are listed under their own section.
         .child(render_preview(&row.preview, row.is_group, metrics, cx))
         .children(render_unread(
             &row.jid,
@@ -267,12 +335,13 @@ fn render_preview(
 
         // Typing is the one preview that is happening right now, so it takes
         // the accent colour the rest of the row spends on unread state.
-        Preview::Typing(summary) => line()
-            .text_color(cx.theme().primary)
-            .child(text(
+        Preview::Typing(summary) => crate::motion::breathe(
+            line().text_color(cx.theme().primary).child(text(
                 crate::i18n::Language::current().typing(summary, is_group, true),
-            ))
-            .into_any_element(),
+            )),
+            "typing-pulse",
+        )
+        .into_any_element(),
 
         Preview::Draft(draft) => line()
             .child(
@@ -340,22 +409,27 @@ fn render_unread(
         .justify_center();
 
     Some(match unread {
-        Unread::Count(count) => badge
-            .min_w(metrics.space_xxl())
-            .min_h(metrics.space_xxl())
-            .py(metrics.space_xxs())
-            .line_height(gpui::relative(1.0))
-            .px(metrics.space_sm())
-            .font_family(cx.theme().mono_font_family.clone())
-            .text_size(metrics.text_meta())
-            .text_color(cx.theme().primary_foreground)
-            .child(
-                div()
-                    .id("unread-label")
-                    .debug_selector(|| "unread-label".into())
-                    .child(format_count(*count)),
-            )
-            .into_any_element(),
+        // Keyed by the count, so a new message makes the badge pop once.
+        Unread::Count(count) => crate::motion::pop_in(
+            badge
+                .min_w(metrics.space_xxl())
+                .min_h(metrics.space_xxl())
+                .py(metrics.space_xxs())
+                .line_height(gpui::relative(1.0))
+                .px(metrics.space_sm())
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_features(crate::components::parts::tabular())
+                .text_size(metrics.text_meta())
+                .text_color(cx.theme().primary_foreground)
+                .child(
+                    div()
+                        .id("unread-label")
+                        .debug_selector(|| "unread-label".into())
+                        .child(format_count(*count)),
+                ),
+            gpui::ElementId::Name(format!("unread-pop-{jid}-{count}").into()),
+        )
+        .into_any_element(),
         // Marked unread by hand has no number. A pill containing a bullet
         // pretends to be a count of something; a dot does not.
         Unread::Marked => badge.size(metrics.space_md()).into_any_element(),

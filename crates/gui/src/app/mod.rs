@@ -11,14 +11,17 @@ mod body;
 mod call_devices;
 mod calls;
 mod calls_ctl;
+pub(crate) mod chat_actions;
 pub mod chat_row;
 mod chats;
 mod commands;
 pub(crate) mod editing;
 mod events;
+pub(crate) mod forward;
 pub use editing::EditMessage;
 #[cfg(test)]
 mod frame_cost;
+pub(crate) mod global_search;
 mod media;
 mod media_ctl;
 mod media_materialization;
@@ -30,7 +33,7 @@ mod plugins_ctl;
 mod recording;
 mod recovery;
 mod search;
-mod settings;
+pub(crate) mod settings;
 mod status;
 mod timeline_ctl;
 mod viewer;
@@ -328,6 +331,16 @@ actions!(
     [
         /// Move focus to the conversation search field.
         FocusSearch,
+        /// Open the next conversation in the list, wherever focus is.
+        NextChat,
+        /// Open the previous conversation in the list, wherever focus is.
+        PreviousChat,
+        /// Open the next conversation with unread messages.
+        NextUnreadChat,
+        /// Show or hide Contact info / Group info for the open chat.
+        ToggleContactInfo,
+        /// Show or hide the open chat's shared files.
+        ToggleSharedFiles,
         /// Open or close the search for messages in the open conversation.
         ToggleConversationSearch,
         /// Move one page through the open conversation.
@@ -552,6 +565,11 @@ fn default_media_name(message_id: &str, mime_type: &str) -> String {
         "image/gif" => "gif",
         "video/mp4" => "mp4",
         "video/webm" => "webm",
+        "audio/ogg" | "audio/opus" => "ogg",
+        "audio/mpeg" => "mp3",
+        "audio/mp4" => "m4a",
+        "audio/wav" => "wav",
+        "application/pdf" => "pdf",
         _ => "bin",
     };
     // Ids are opaque and long; the tail is enough to tell two apart and short
@@ -625,6 +643,8 @@ pub fn init_app_bindings(cx: &mut gpui::App) {
         // Window-wide: reachable whatever owns focus, because both are ways
         // *out* of wherever the user currently is.
         window_binding("secondary-k", FocusSearch, cx),
+        // WhatsApp Desktop's own shortcut for a new chat.
+        window_binding("secondary-n", forward::NewChat, cx),
         window_binding(
             crate::platform::keyboard::conversation_search_key(),
             ToggleConversationSearch,
@@ -641,6 +661,14 @@ pub fn init_app_bindings(cx: &mut gpui::App) {
             None,
         ),
         window_binding("secondary-,", OpenSettings, cx),
+        // Moving between conversations without the mouse, the way Signal
+        // Desktop does: Alt and the arrows walk the list from anywhere, the
+        // composer included, because Alt-arrow means nothing to a text field.
+        KeyBinding::new("alt-down", NextChat, None),
+        KeyBinding::new("alt-up", PreviousChat, None),
+        KeyBinding::new("alt-shift-down", NextUnreadChat, None),
+        window_binding("secondary-shift-i", ToggleContactInfo, cx),
+        window_binding("secondary-shift-d", ToggleSharedFiles, cx),
         // Scoped to the call so Enter and Escape keep their composer meaning
         // while nothing is ringing.
         KeyBinding::new("enter", AcceptCall, Some(CALL_CONTEXT)),
@@ -688,6 +716,21 @@ pub enum OfflineRecovery {
 
 /// Main application struct
 pub struct WhatsAppApp {
+    pub(crate) calls_open: bool,
+    pub(crate) call_history_view: Option<Entity<crate::components::call_history::CallHistory>>,
+    pub(crate) shared_files_open: bool,
+    /// Contact info / Group info, opened from the chat header's name.
+    pub(crate) contact_info_open: bool,
+    pub(crate) sidebar_preference_rem: Option<f32>,
+    pub(crate) shared_files_filter: crate::views::shared_files::Filter,
+    pub(crate) shared_files_sort: crate::views::shared_files::Sort,
+    /// Message hits from every chat for the sidebar's search.
+    pub(crate) global_search: global_search::GlobalSearch,
+    /// The Shared files panel's search box. Made on the first frame that has
+    /// a window, like the Files view's.
+    pub(crate) shared_files_search: Option<Entity<InputState>>,
+    pub(crate) files_open: bool,
+    pub(crate) files_view: Option<Entity<crate::components::files_view::FilesView>>,
     body: Option<Entity<body::Body>>,
     #[cfg(test)]
     body_renders: usize,
@@ -1038,6 +1081,10 @@ pub struct WhatsAppApp {
     /// each move the timeline the other measured against.
     reaction_picker_for: Option<String>,
     delete_confirmation: Option<message_actions::DeleteConfirmation>,
+    /// A chat clear or delete waiting on the user's word.
+    chat_confirmation: Option<chat_actions::ChatConfirmation>,
+    /// The forward picker, while one message waits for a destination.
+    forward_picker: Option<forward::ForwardPicker>,
     pending_message_actions: HashSet<(String, String)>,
     #[cfg(test)]
     delete_attempts: Vec<(String, String, bool)>,
@@ -1147,6 +1194,31 @@ pub(super) fn clear_window_message_selection(window: &mut Window, cx: &mut App) 
 }
 
 impl WhatsAppApp {
+    pub(crate) fn call_history_request(
+        &self,
+        refresh: bool,
+    ) -> Option<tokio::sync::oneshot::Receiver<Result<Vec<oxidezap_core::CallHistoryEntry>, String>>>
+    {
+        self.client
+            .as_ref()
+            .map(|client| client.call_history(refresh))
+    }
+
+    pub(crate) fn open_call_history(&mut self, cx: &mut Context<Self>) {
+        self.calls_open = true;
+        self.files_open = false;
+        let view = self
+            .call_history_view
+            .get_or_insert_with(|| {
+                let owner = cx.entity().downgrade();
+                cx.new(|_| crate::components::call_history::CallHistory::new(owner))
+            })
+            .clone();
+        let request = self.call_history_request(false);
+        view.update(cx, |view, cx| view.start(request, cx));
+        cx.notify();
+    }
+
     pub fn media_cache(&self) -> Option<std::sync::Arc<dyn crate::session::MediaCache>> {
         #[cfg(test)]
         if let Some(cache) = &self.materialization_cache {
@@ -1443,6 +1515,17 @@ impl WhatsAppApp {
     /// Create a new WhatsApp application
     pub fn new(cx: &mut Context<Self>) -> Self {
         Self {
+            calls_open: false,
+            call_history_view: None,
+            shared_files_open: false,
+            contact_info_open: false,
+            sidebar_preference_rem: None,
+            shared_files_filter: Default::default(),
+            shared_files_sort: Default::default(),
+            global_search: Default::default(),
+            shared_files_search: None,
+            files_open: false,
+            files_view: None,
             body: None,
             #[cfg(test)]
             body_renders: 0,
@@ -1553,6 +1636,8 @@ impl WhatsAppApp {
             pending_edits: std::collections::HashSet::new(),
             reaction_picker_for: None,
             delete_confirmation: None,
+            chat_confirmation: None,
+            forward_picker: None,
             pending_message_actions: HashSet::new(),
             #[cfg(test)]
             delete_attempts: Vec::new(),
@@ -1631,6 +1716,12 @@ impl WhatsAppApp {
             window.viewport_size(),
             self.visible_panel(),
             cx.product().metrics,
+        )
+        .with_panes(
+            self.sidebar_preference_rem,
+            self.shared_files_open
+                && self.destination.has_conversations()
+                && self.selected_destination_jid().is_some(),
         )
     }
 
@@ -1883,7 +1974,61 @@ impl WhatsAppApp {
                 _ => crate::tr!(LinkedReconnecting).to_string(),
             },
             is_healthy: connected,
+            // The account's own picture is its "You" chat's picture: the
+            // same fetched, cached image, not a second request.
+            avatar_key: self
+                .chats
+                .iter()
+                .find(|chat| self.is_own_number(&chat.jid))
+                .and_then(|chat| chat.avatar_cache_key.clone()),
         })
+    }
+
+    /// Open or close Contact info / Group info for the open chat.
+    pub(crate) fn toggle_contact_info(&mut self, cx: &mut Context<Self>) {
+        if self.selected_chat.is_none() {
+            return;
+        }
+        self.contact_info_open = !self.contact_info_open;
+        if self.contact_info_open {
+            self.shared_files_open = false;
+            self.demand_member_avatars();
+        }
+        cx.notify();
+    }
+
+    /// Ask for the pictures of a group's members, for Group info.
+    ///
+    /// Only members this account also has a chat with: their picture has a
+    /// cache key to land under and a row that already knows how to show it.
+    /// Bounded, because a group can have a thousand members and the panel
+    /// shows the first screenful before anyone scrolls.
+    fn demand_member_avatars(&mut self) {
+        const MAX: usize = 60;
+        let Some(jid) = self.selected_chat.clone() else {
+            return;
+        };
+        let Some(roster) = self.group_rosters.get(&jid) else {
+            return;
+        };
+        let demands: Vec<crate::session::avatar::ChatDemand> = roster
+            .members
+            .iter()
+            .filter_map(|member| self.find_chat(&member.jid))
+            .take(MAX)
+            .map(|chat| crate::session::avatar::ChatDemand {
+                jid: chat.jid.clone(),
+                picture_id: chat.avatar_picture_id.clone(),
+                cache_key: chat.avatar_cache_key.clone(),
+            })
+            .collect();
+        if demands.is_empty() {
+            return;
+        }
+        self.avatar_manager.demand_chats(&demands);
+        if let Some(session) = &self.client {
+            self.avatar_manager.flush_demands(session);
+        }
     }
 
     /// The account's own number, when the session has said.
@@ -2314,6 +2459,8 @@ impl WhatsAppApp {
     /// reappearing in the composer of the new one, ready to be sent to
     /// someone it was never written for.
     fn clear_account_view(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.calls_open = false;
+        self.call_history_view = None;
         // The microphone and the speaker belong to the account too. This is
         // the same departure a disconnect or a logout makes — the connected
         // view is going away — and skipping it left capture running with no
@@ -2521,7 +2668,7 @@ impl WhatsAppApp {
     // ========== Accessors ==========
 
     /// Check if the client is connected
-    fn is_connected(&self) -> bool {
+    pub(crate) fn is_connected(&self) -> bool {
         matches!(self.app_state, AppState::Connected)
     }
 
@@ -2595,7 +2742,7 @@ impl WhatsAppApp {
     }
 
     /// Find a chat by JID (immutable)
-    fn find_chat(&self, jid: &str) -> Option<&Arc<Chat>> {
+    pub(crate) fn find_chat(&self, jid: &str) -> Option<&Arc<Chat>> {
         self.chats.iter().find(|c| c.jid == jid)
     }
 
@@ -2865,6 +3012,26 @@ impl WhatsAppApp {
     }
 
     /// Select the previous chat in the list (keyboard navigation)
+    /// Open the next chat below the current one that has something unread,
+    /// wrapping to the top. Nothing happens when every chat is read.
+    pub fn select_next_unread_chat(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let cache = self.get_chat_list_cache(cx);
+        let current = self
+            .chat_list_selection_jid(&cache)
+            .and_then(|jid| cache.rows.iter().position(|row| row.jid == jid));
+        let len = cache.rows.len();
+        let start = current.map_or(0, |i| i + 1);
+        let Some(index) = (0..len).map(|step| (start + step) % len.max(1)).find(|&i| {
+            Some(i) != current && cache.rows[i].unread != crate::app::chat_row::Unread::None
+        }) else {
+            return;
+        };
+        let jid = cache.rows[index].jid.clone();
+        self.select_chat(jid, ChatOpen::ToCompose, window, cx);
+        self.chat_list_scroll
+            .scroll_to_item(index, ScrollStrategy::Center);
+    }
+
     pub fn select_previous_chat(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let cache = self.get_chat_list_cache(cx);
         if cache.rows.is_empty() {
@@ -2902,6 +3069,7 @@ impl WhatsAppApp {
             .update(cx, |search, cx| search.set_list_query(query, app, cx));
         if now {
             self.invalidate_chat_cache();
+            self.refresh_global_search(cx);
             cx.notify();
         }
     }
@@ -3760,12 +3928,14 @@ impl WhatsAppApp {
             }
         });
         let avatar_key = chat.avatar_cache_key.clone();
+        let is_group = chat.is_group;
         self.notified_messages.insert(key, ());
         while self.notified_messages.len() > REMEMBERED_MESSAGES {
             self.notified_messages.shift_remove_index(0);
         }
         let tag = notification_tag(chat_jid);
         let media_cache = self.media_cache();
+        crate::platform::notifications::play_message_chime(is_group);
         // The native path can include a cached profile image as a content
         // thumbnail. Its reader runs off the UI thread after macOS confirms
         // authorization. Web builds and non-bundle tests stay on GPUI's path.
@@ -4433,6 +4603,27 @@ impl Render for WhatsAppApp {
             .on_action(cx.listener(|app, _: &FocusSearch, window, cx| {
                 app.focus_search(window, cx);
             }))
+            .on_action(cx.listener(|app, _: &NextChat, window, cx| {
+                app.select_next_chat(window, cx);
+            }))
+            .on_action(cx.listener(|app, _: &PreviousChat, window, cx| {
+                app.select_previous_chat(window, cx);
+            }))
+            .on_action(cx.listener(|app, _: &NextUnreadChat, window, cx| {
+                app.select_next_unread_chat(window, cx);
+            }))
+            .on_action(cx.listener(|app, _: &ToggleContactInfo, _window, cx| {
+                app.toggle_contact_info(cx);
+            }))
+            .on_action(cx.listener(|app, _: &ToggleSharedFiles, _window, cx| {
+                if app.selected_chat.is_some() {
+                    app.shared_files_open = !app.shared_files_open;
+                    if app.shared_files_open {
+                        app.contact_info_open = false;
+                    }
+                    cx.notify();
+                }
+            }))
             .on_action(
                 cx.listener(|app, _: &ToggleConversationSearch, window, cx| {
                     app.toggle_conversation_search(window, cx);
@@ -4469,6 +4660,14 @@ impl Render for WhatsAppApp {
             .on_action(cx.listener(|app, react: &ReactToMessage, window, cx| {
                 app.toggle_reaction(&react.id, &react.emoji, window, cx);
             }))
+            .on_action(cx.listener(|app, _: &forward::NewChat, window, cx| {
+                app.open_new_chat(window, cx);
+            }))
+            .on_action(
+                cx.listener(|app, forward: &forward::ForwardMessage, window, cx| {
+                    app.open_forward_picker(&forward.jid, &forward.id, window, cx);
+                }),
+            )
             .on_action(cx.listener(|app, delete: &DeleteSentMessage, _window, cx| {
                 app.begin_message_delete(&delete.jid, &delete.id, delete.for_everyone, cx);
             }))
@@ -4478,6 +4677,7 @@ impl Render for WhatsAppApp {
             .on_action(|link: &OpenMessageLink, _window, cx| {
                 cx.open_url(&link.url);
             });
+        let root = Self::register_chat_action_handlers(root, cx);
 
         // Whether this frame draws the app rather than a screen on the way to
         // it, computed before the borrow below.
@@ -4501,15 +4701,38 @@ impl Render for WhatsAppApp {
             )
             .into_any_element()
         });
-        let message_delete = self.delete_confirmation.as_ref().map(|confirmation| {
-            message_actions::render_message_delete(
-                confirmation,
-                cx.entity().clone(),
-                &self.message_delete_focus,
-                cx,
-            )
-            .into_any_element()
-        });
+        let message_delete = self
+            .delete_confirmation
+            .as_ref()
+            .map(|confirmation| {
+                message_actions::render_message_delete(
+                    confirmation,
+                    cx.entity().clone(),
+                    &self.message_delete_focus,
+                    cx,
+                )
+                .into_any_element()
+            })
+            .or_else(|| {
+                // The same modal surface and focus as a message deletion:
+                // the two never show together, and every keyboard rule the
+                // root keeps for one (Escape, the focus trap) holds for both.
+                self.chat_confirmation.as_ref().map(|confirmation| {
+                    chat_actions::render_chat_confirmation(
+                        confirmation,
+                        cx.entity().clone(),
+                        &self.message_delete_focus,
+                        cx,
+                    )
+                    .into_any_element()
+                })
+            })
+            .or_else(|| {
+                self.forward_picker.as_ref().map(|picker| {
+                    self.render_forward_picker(picker, &self.message_delete_focus, cx)
+                        .into_any_element()
+                })
+            });
 
         // Outside the Settings-versus-conversation branch on purpose. The
         // card and the focus it takes were built by the conversation view
@@ -4552,11 +4775,16 @@ impl Render for WhatsAppApp {
                         cx,
                     )
                 });
+        #[cfg(not(target_family = "wasm"))]
+        let window_bar = Some(crate::components::render_window_bar(cx));
+        #[cfg(target_family = "wasm")]
+        let window_bar: Option<gpui::Empty> = None;
         root.child(
             div()
                 .size_full()
                 .flex()
                 .flex_col()
+                .children(window_bar)
                 .child(
                     div()
                         .flex_1()
@@ -4566,8 +4794,14 @@ impl Render for WhatsAppApp {
                 .children(offline_banner),
         )
         .children(paste_preview)
-        .children(message_delete)
-        .children(call_overlay)
+        .children(message_delete.map(|modal| {
+            crate::motion::fade_in(div().absolute().inset_0().child(modal), "modal-in")
+        }))
+        .children(call_overlay.map(|card| {
+            // A fade, not a rise: the wrapper is absolutely placed over the
+            // window, and the rise works by making its element relative.
+            crate::motion::fade_in(div().absolute().inset_0().child(card), "call-card-in")
+        }))
         .child(self.notices().clone())
         // Cached views report their surfaces in prepaint. Move focus after
         // drawing, when focus can schedule the frame that delivers blur/focus.

@@ -102,6 +102,7 @@ pub struct BubbleProps {
 /// How far into the voice note the player is.
 #[derive(Debug, Clone, Copy)]
 pub struct AudioProgress {
+    pub total_secs: f32,
     /// 0..=1 through the clip.
     pub fraction: f32,
     pub elapsed_secs: f32,
@@ -181,6 +182,11 @@ pub fn render_message_bubble(
     let menu_jid = props.chat_jid.clone();
     let now_ms = wacore::time::now_millis();
     let menu_delete_for_me = can_delete_sent(&message, false, now_ms);
+    // Anything with content that has reached the store: not a deleted
+    // placeholder, not a system line, not ours still on its way out.
+    let menu_forwardable = !message.revoked
+        && message.system.is_none()
+        && (!message.is_from_me || message.status.has_left_this_device());
     let menu_delete_for_everyone = can_delete_sent(&message, true, now_ms);
     // A refcount, not a rescan: the row's text already parsed these when the
     // timeline was built, and the targets were shared then.
@@ -249,7 +255,7 @@ pub fn render_message_bubble(
                         // Asymmetric corners: the tight one marks the side the
                         // message came from, so authorship survives even when
                         // the two bubble colours are close.
-                        .rounded(metrics.radius_lg())
+                        .rounded(metrics.radius_bubble())
                         .map(|el| {
                             if is_from_me {
                                 el.rounded_br(metrics.radius_bubble_tail())
@@ -351,6 +357,14 @@ pub fn render_message_bubble(
                                                     // the window.
                                                     .min_w_0()
                                                     .text_size(metrics.text_body())
+                                                    // Inter Regular at ~1.4: the
+                                                    // reading measure Signal uses
+                                                    // for message text, tighter
+                                                    // than gpui's default golden
+                                                    // ratio, which spread long
+                                                    // messages into ruled paper.
+                                                    .font_weight(gpui::FontWeight::NORMAL)
+                                                    .line_height(gpui::relative(1.42))
                                                     .text_color(cx.theme().foreground)
                                                     .child(render_rich_text(
                                                         content,
@@ -390,6 +404,9 @@ pub fn render_message_bubble(
                     // activation, which the inline ranges never have. One
                     // per address, naming what it opens, like the menu
                     // entries below.
+                    // Shown on hover, like the other per-message actions:
+                    // always-visible, they read as a stray line of text
+                    // under every message with a link in it.
                     el.child(
                         div()
                             .flex()
@@ -398,6 +415,8 @@ pub fn render_message_bubble(
                             .max_w(layout.max_bubble_width())
                             .gap(metrics.space_xxs())
                             .mt(metrics.space_xs())
+                            .invisible()
+                            .group_hover(ids.group.clone(), |s| s.visible())
                             .children(link_buttons.iter().enumerate().map(|(ix, target)| {
                                 let url = target.clone();
                                 Button::new(SharedString::from(format!(
@@ -436,11 +455,14 @@ pub fn render_message_bubble(
                     )
                 })
                 .when(props.reaction_picker_open, |el| {
-                    el.child(render_reaction_picker(
-                        &message_id,
-                        entity.clone(),
-                        metrics,
-                        cx,
+                    el.child(crate::motion::pop_in(
+                        div().child(render_reaction_picker(
+                            &message_id,
+                            entity.clone(),
+                            metrics,
+                            cx,
+                        )),
+                        SharedString::from(format!("reaction-picker-in-{message_id}")),
                     ))
                 })
                 .when(has_reactions, |el| {
@@ -501,6 +523,17 @@ pub fn render_message_bubble(
                     id: menu_id.clone().into(),
                 }),
             );
+            let menu = if menu_forwardable {
+                menu.menu(
+                    "Forward",
+                    Box::new(crate::app::forward::ForwardMessage {
+                        jid: menu_jid.clone(),
+                        id: menu_id.clone().into(),
+                    }),
+                )
+            } else {
+                menu
+            };
             let menu = if menu_text.is_empty() {
                 menu
             } else {
@@ -591,12 +624,12 @@ fn render_meta(
                 .id(edited_id)
                 .debug_selector(move || selector.to_string())
                 .text_size(metrics.text_micro())
+                .font_weight(gpui::FontWeight::MEDIUM)
                 .text_color(colour)
-                .child("editada")
+                .child(crate::tr!(Edited))
         }))
         .child(
-            div()
-                .font_family(cx.theme().mono_font_family.clone())
+            parts::meta()
                 .text_size(metrics.text_micro())
                 .text_color(colour)
                 .child(time),

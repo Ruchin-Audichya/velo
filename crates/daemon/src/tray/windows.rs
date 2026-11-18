@@ -31,6 +31,10 @@ use crate::state::TrayState;
 /// state update is waiting.
 const EVENT_POLL: Duration = Duration::from_millis(100);
 
+mod messages;
+
+pub(crate) use messages::deliver;
+
 const OPEN_ID: &str = "oxidezap-open";
 const HIDE_ID: &str = "oxidezap-hide";
 const QUIT_ID: &str = "oxidezap-quit";
@@ -124,6 +128,7 @@ fn build(initial: &TrayState) -> Result<TrayIcon, String> {
 /// Drain state updates and tray events until the daemon drops the handle.
 fn pump(hub: Arc<TrayHub>, tray: TrayIcon, states: Receiver<TrayState>) {
     let mut click = crate::window::Toggle::default();
+    let mut notifications = messages::Receiver::new();
     let tray_events = TrayIconEvent::receiver();
     let menu_events = tray_icon::menu::MenuEvent::receiver();
 
@@ -137,6 +142,7 @@ fn pump(hub: Arc<TrayHub>, tray: TrayIcon, states: Receiver<TrayState>) {
         // Before reading the events: this is what delivers the queued clicks
         // and menu picks to the hidden window that produces them.
         pump_win32_messages();
+        notifications.drain();
         while let Ok(event) = tray_events.try_recv() {
             // A left-click release, like the Linux `activate`: put the window
             // away if there is one, bring one up if there is not. The
@@ -203,10 +209,23 @@ fn apply(tray: &TrayIcon, state: &TrayState) {
     }
 }
 
-/// The shared dot, in this platform's icon type.
 fn icon_for(state: &TrayState) -> tray_icon::Icon {
-    use super::dot::{SIDE, colour_for, dot};
-
-    tray_icon::Icon::from_rgba(dot(colour_for(state)), SIDE, SIDE)
+    const SIDE: usize = 32;
+    let mut rgba = include_bytes!("../../../../packaging/windows/velo-tray.rgba").to_vec();
+    if state.unread > 0 {
+        for y in 0..12 {
+            for x in 20..SIDE {
+                let distance = (x as i32 - 25).pow(2) + (y as i32 - 6).pow(2);
+                let pixel = (y * SIDE + x) * 4;
+                if distance <= 36 {
+                    rgba[pixel..pixel + 4].copy_from_slice(&[18, 18, 18, 255]);
+                }
+                if distance <= 16 {
+                    rgba[pixel..pixel + 4].copy_from_slice(&[255, 111, 145, 255]);
+                }
+            }
+        }
+    }
+    tray_icon::Icon::from_rgba(rgba, SIDE as u32, SIDE as u32)
         .expect("the tray icon's bytes match its dimensions")
 }

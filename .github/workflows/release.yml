@@ -26,6 +26,12 @@ jobs:
       # tag is launched from a branch, and without this the archives would
       # be that branch's code uploaded over the tagged release's assets.
       ref: ${{ inputs.tag || github.ref_name }}
+    # Only the signing secrets, by name, rather than `inherit`: the build
+    # job has no business seeing anything else this repository holds.
+    secrets:
+      WINDOWS_SIGNING_PFX_BASE64: ${{ secrets.WINDOWS_SIGNING_PFX_BASE64 }}
+      WINDOWS_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
+      WINDOWS_SIGNING_THUMBPRINT: ${{ secrets.WINDOWS_SIGNING_THUMBPRINT }}
 
   # The client as a page, packaged so it can be hosted without being built.
   web:

@@ -42,6 +42,30 @@ pub enum Action {
     MarkStatusWatched(oxidezap_ipc::MarkStatusWatched),
     Typing(oxidezap_ipc::Typing),
     Call(CallAction),
+    LoadCallHistory {
+        id: RequestId,
+        refresh: bool,
+        answer_to: Outbox,
+    },
+    SearchEverywhere {
+        id: RequestId,
+        query: String,
+        limit: u32,
+        answer_to: Outbox,
+    },
+    ChatAction {
+        id: RequestId,
+        jid: String,
+        action: oxidezap_ipc::ChatAction,
+        answer_to: Outbox,
+    },
+    ForwardMessage {
+        id: RequestId,
+        source_jid: String,
+        message_id: String,
+        target_jid: String,
+        answer_to: Outbox,
+    },
     CallDevices {
         id: RequestId,
         request: oxidezap_ipc::CallDeviceAction,
@@ -241,6 +265,8 @@ impl Action {
                     | Self::MarkAudioPlayed(_)
                     | Self::MarkStatusWatched(_)
                     | Self::LoadMessages { .. }
+                    | Self::LoadCallHistory { refresh: false, .. }
+                    | Self::SearchEverywhere { .. }
                     | Self::LoadChats { .. }
                     | Self::RefreshAvatars
                     | Self::Download { .. }

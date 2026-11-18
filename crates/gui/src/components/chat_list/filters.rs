@@ -77,7 +77,8 @@ fn render_chip(
         .child(filter.label())
         .children(count.filter(|c| *c > 0).map(|count| {
             div()
-                .font_family(cx.theme().mono_font_family.clone())
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_features(crate::components::parts::tabular())
                 .text_size(metrics.text_meta())
                 .text_color(cx.theme().foreground)
                 .child(count.to_string())

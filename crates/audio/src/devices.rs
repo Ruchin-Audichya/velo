@@ -45,19 +45,45 @@ pub fn call_preferences_with_origin() -> (oxidezap_core::CallDevicePreferences, 
         .clone()
 }
 
-/// A deterministic, quiet two-tone signal with a silent interval.
+/// A deterministic, quiet ring: two soft bell notes in the first second of
+/// every three, then silence.
+///
+/// Each note has a short attack, a natural exponential decay and a faded
+/// tail, so it never stops mid-wave. The earlier tone was one bare sine that
+/// was cut off at the end of its second — a click on every ring that read
+/// as distortion through laptop speakers.
 pub fn ringtone_sample(tone: Ringtone, frame: u64, rate: u32) -> i16 {
     if tone == Ringtone::Silent || rate == 0 || frame % (u64::from(rate) * 3) >= u64::from(rate) {
         return 0;
     }
-    let hz = if tone == Ringtone::Gentle {
-        440.0
-    } else {
-        660.0
+    // (start, length) in seconds and the note's pitch, per tone.
+    let notes: [(f64, f64, f64); 2] = match tone {
+        Ringtone::Gentle => [(0.0, 0.46, 523.25), (0.48, 0.5, 659.25)], // C5, E5
+        _ => [(0.0, 0.46, 783.99), (0.48, 0.5, 1046.5)],                // G5, C6
     };
-    let phase = frame as f64 / f64::from(rate);
-    let envelope = (phase % 3.0 * 40.0).min(1.0);
-    ((phase * hz * std::f64::consts::TAU).sin() * 2000.0 * envelope) as i16
+    let t = (frame % u64::from(rate)) as f64 / f64::from(rate);
+    let mut sample = 0.0;
+    for (start, length, hz) in notes {
+        let age = t - start;
+        if !(0.0..length).contains(&age) {
+            continue;
+        }
+        let attack = (age / 0.008).min(1.0);
+        let decay = (-age / 0.16).exp();
+        // A raised-cosine fade over the note's last 60 ms: zero at the end.
+        let fade_at = length - 0.06;
+        let release = if age > fade_at {
+            0.5 * (1.0 + (std::f64::consts::PI * (age - fade_at) / 0.06).cos())
+        } else {
+            1.0
+        };
+        let phase = age * hz * std::f64::consts::TAU;
+        // A little of the octave above, fading faster: a bell, not a beep.
+        let voice = phase.sin() + 0.18 * (-age / 0.05).exp() * (2.0 * phase).sin();
+        sample += voice * attack * decay * release;
+    }
+    // Peak stays inside the 2000 the call path was tuned for.
+    (sample / 1.18 * 2000.0).clamp(-2000.0, 2000.0) as i16
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -415,6 +441,35 @@ mod tests {
             assert!((16000..48000).all(|i| ringtone_sample(tone, i, 16000) == 0));
         }
         assert!((0..16000).all(|i| ringtone_sample(Ringtone::Silent, i, 16000) == 0));
+    }
+
+    /// The click that made the ring sound broken: no sample-to-sample jump
+    /// larger than a sine at the note's own pitch could make, and the ring
+    /// has reached silence by the time the silent gap begins.
+    #[test]
+    fn the_ring_has_no_clicks() {
+        let rate = 48_000;
+        for tone in [Ringtone::Classic, Ringtone::Gentle] {
+            let samples: Vec<i32> = (0..rate as u64)
+                .map(|i| i32::from(ringtone_sample(tone, i, rate)))
+                .collect();
+            // Max slope of 2000·sin(2π·1046.5·t) per sample at 48 kHz ≈ 274,
+            // plus headroom for the harmonic and the attack.
+            let worst = samples
+                .windows(2)
+                .map(|w| (w[1] - w[0]).abs())
+                .max()
+                .unwrap();
+            assert!(worst < 600, "{tone:?}: a {worst}-step jump is a click");
+            assert!(
+                samples[samples.len() - 1].abs() < 20,
+                "{tone:?} ends at silence"
+            );
+            assert!(
+                samples.iter().any(|s| s.abs() > 1000),
+                "{tone:?} is audible"
+            );
+        }
     }
 }
 

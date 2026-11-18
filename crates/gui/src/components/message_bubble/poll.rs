@@ -124,7 +124,7 @@ pub fn render_poll(
                                         .children(count.map(|count| {
                                             div()
                                                 .flex_shrink_0()
-                                                .font_family(cx.theme().mono_font_family.clone())
+                                                .font_features(crate::components::parts::tabular())
                                                 .text_size(metrics.text_small())
                                                 .text_color(cx.theme().muted_foreground)
                                                 .child(format!("{count}"))

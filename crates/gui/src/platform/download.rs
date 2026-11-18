@@ -103,17 +103,9 @@ mod imp {
     }
 
     fn write(file_name: &str, data: &[u8]) -> std::io::Result<PathBuf> {
-        let not_empty = |v: std::ffi::OsString| (!v.is_empty()).then_some(PathBuf::from(v));
-        let dir = std::env::var_os("XDG_DOWNLOAD_DIR")
-            .and_then(not_empty)
-            .or_else(|| {
-                std::env::var_os("HOME")
-                    .and_then(not_empty)
-                    .or_else(|| std::env::var_os("USERPROFILE").and_then(not_empty))
-                    .map(|home| home.join("Downloads"))
-            })
-            .unwrap_or_else(|| PathBuf::from("."));
-        write_in(&dir, file_name, data)
+        let root = crate::platform::files::root().map_err(std::io::Error::other)?;
+        let category = crate::platform::files::Category::of(std::path::Path::new(file_name));
+        write_in(&root.join(category.label()), file_name, data)
     }
 
     pub(super) fn write_in(
@@ -146,7 +138,11 @@ mod imp {
                 .open(&candidate)
             {
                 Ok(mut file) => {
-                    file.write_all(data)?;
+                    if let Err(error) = file.write_all(data).and_then(|_| file.sync_all()) {
+                        drop(file);
+                        let _ = std::fs::remove_file(&candidate);
+                        return Err(error);
+                    }
                     return Ok(candidate);
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}

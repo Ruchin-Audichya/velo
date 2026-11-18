@@ -21,7 +21,10 @@
 
 use std::path::{Path, PathBuf};
 
+include!("../../packaging/windows/version_resource.rs");
+
 fn main() {
+    embed_windows_resources("../../packaging/windows/velo.ico", "Velo", "oxidezap.exe");
     println!("cargo:rerun-if-changed=build.rs");
     revision();
 

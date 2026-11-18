@@ -251,7 +251,7 @@ fn camera_tooltip(on: bool, asked: bool) -> &'static str {
 
 fn placeholder(label: &str, metrics: Metrics, cx: &App) -> impl IntoElement + use<> {
     div()
-        .font_family(cx.theme().mono_font_family.clone())
+        .font_features(crate::components::parts::tabular())
         .text_size(metrics.text_micro())
         .text_color(parts::faint(cx))
         .child(label.to_string())

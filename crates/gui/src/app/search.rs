@@ -169,6 +169,8 @@ impl Search {
             });
             let _ = app.update(cx, |app, cx| {
                 app.invalidate_chat_cache();
+                // The same settled query asks every chat's history too.
+                app.refresh_global_search(cx);
                 cx.notify();
             });
         }));

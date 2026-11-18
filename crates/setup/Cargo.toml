@@ -1,0 +1,44 @@
+[package]
+name = "velo-setup"
+description = "Velo's installer and uninstaller for Windows"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+publish = false
+
+[[bin]]
+name = "velo-setup"
+path = "src/main.rs"
+
+# The payload — the window, the daemon, the CLI and the notices — is
+# compressed into the binary at build time when `VELO_PAYLOAD_DIR` names a
+# directory holding them; see `build.rs`. Without it the installer builds
+# empty, which is what `cargo check` and CI want.
+[build-dependencies]
+embed-resource = "3.0.12"
+flate2 = { workspace = true }
+
+# Windows only: there is nothing for this to install anywhere else, and the
+# crate builds to an empty `main` there so the workspace still checks.
+[target.'cfg(windows)'.dependencies]
+flate2 = { workspace = true }
+gpui = { package = "gpui-fast", version = "0.1.13" }
+gpui-component = { git = "https://github.com/longbridge/gpui-kit.git", features = ["gpui-fast"] }
+gpui-kit-assets = { git = "https://github.com/longbridge/gpui-kit.git", features = ["gpui-fast"] }
+gpui_platform = { package = "gpui-fast-platform", version = "0.1.13", features = ["font-kit", "x11", "wayland", "runtime_shaders"] }
+oxidezap-ipc = { path = "../ipc" }
+oxidezap-wire = { path = "../wire" }
+windows-registry = "0.6.1"
+windows = { version = "0.62.2", features = [
+    "Win32_Foundation",
+    "Win32_Storage_EnhancedStorage",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Variant",
+    "Win32_UI_Shell",
+    "Win32_UI_Shell_PropertiesSystem",
+] }
+
+[lints]
+workspace = true

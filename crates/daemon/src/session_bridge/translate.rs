@@ -73,6 +73,36 @@ impl Bridge {
         // behind a message already covers it. What it answers is whether the
         // message is new to this side, which is what the badge below counts.
         let first_sighting = self.reads().observe(&event);
+        #[cfg(windows)]
+        if first_sighting
+            && !self.hub.windows_attached()
+            && let UiEvent::MessageReceived {
+                chat_jid,
+                message,
+                notification_allowed: true,
+                notification_title,
+                chat_name,
+                sender_name,
+                ..
+            } = &event
+            && !message.is_from_me
+            && !message.is_read
+            && chat_jid != oxidezap_core::STATUS_BROADCAST_JID
+        {
+            let title = notification_title
+                .as_ref()
+                .or(chat_name.as_ref())
+                .or(sender_name.as_ref())
+                .cloned()
+                .unwrap_or_else(|| "New WhatsApp message".into());
+            let body = message.preview_text();
+            crate::tray::windows::deliver(
+                std::sync::Arc::downgrade(&self.hub),
+                chat_jid,
+                title,
+                body,
+            );
+        }
 
         if let Some(frame) = passthrough(&event) {
             self.hub.signal(&frame);

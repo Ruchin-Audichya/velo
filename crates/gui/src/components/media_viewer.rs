@@ -12,7 +12,6 @@ use gpui::{
     App, Entity, InteractiveElement, IntoElement, ParentElement, RenderImage, SharedString,
     StatefulInteractiveElement, Styled, div, img, prelude::FluentBuilder as _,
 };
-use gpui_component::ActiveTheme as _;
 use gpui_component::button::{Button, ButtonVariants as _};
 use gpui_component::spinner::Spinner;
 use gpui_component::{Disableable as _, FocusTrapElement as _, Icon, IconName, Sizable as _};
@@ -38,6 +37,9 @@ pub struct ViewerProps {
     /// The decoded image, when the app's cache has one. Video shows its
     /// current frame instead.
     pub image: Option<RetainedImage>,
+    /// The message's thumbnail, shown large while the full picture is still
+    /// on its way — a preview before anything is saved.
+    pub preview: Option<RetainedImage>,
     pub frame: Option<Arc<RenderImage>>,
     pub is_loading: bool,
     pub author: SharedString,
@@ -59,6 +61,7 @@ pub fn render_media_viewer(
     let close_entity = entity.clone();
     let save_entity = entity;
     let message_id = props.message.id.clone();
+    let fade_key = message_id.clone();
     let can_step = viewer.can_step();
     let position: Option<SharedString> = viewer.position().map(Into::into);
     let is_video = props
@@ -177,13 +180,19 @@ pub fn render_media_viewer(
                                 .max_w_full()
                                 .max_h_full()
                                 .on_click(|_, _window, cx| cx.stop_propagation())
-                                .child(render_frame(
-                                    props.image,
-                                    props.frame,
-                                    is_video,
-                                    props.is_loading,
-                                    metrics,
-                                    cx,
+                                // Faded in per picture, so stepping to the
+                                // next one settles rather than snaps.
+                                .child(crate::motion::fade_in(
+                                    div().flex().size_full().child(render_frame(
+                                        props.image,
+                                        props.preview,
+                                        props.frame,
+                                        is_video,
+                                        props.is_loading,
+                                        metrics,
+                                        cx,
+                                    )),
+                                    gpui::ElementId::Name(format!("viewer-in-{fade_key}").into()),
                                 )),
                         ),
                 )
@@ -264,7 +273,8 @@ fn render_bar(
                 )
                 .child(
                     div()
-                        .font_family(cx.theme().mono_font_family.clone())
+                        .font_weight(gpui::FontWeight::MEDIUM)
+                        .font_features(crate::components::parts::tabular())
                         .text_size(metrics.text_meta())
                         .text_color(on_scrim.opacity(0.7))
                         .child(when),
@@ -273,7 +283,8 @@ fn render_bar(
         .children(position.map(|position| {
             div()
                 .flex_shrink_0()
-                .font_family(cx.theme().mono_font_family.clone())
+                .font_weight(gpui::FontWeight::MEDIUM)
+                .font_features(crate::components::parts::tabular())
                 .text_size(metrics.text_meta())
                 .text_color(on_scrim.opacity(0.7))
                 .child(position)
@@ -310,6 +321,7 @@ fn render_bar(
 /// The picture itself, contained so nothing is cropped.
 fn render_frame(
     image: Option<RetainedImage>,
+    preview: Option<RetainedImage>,
     frame: Option<Arc<RenderImage>>,
     is_video: bool,
     is_loading: bool,
@@ -335,6 +347,51 @@ fn render_frame(
             .max_h_full()
             .object_fit(gpui::ObjectFit::Contain)
             .rounded(metrics.radius_md())
+            .into_any_element();
+    }
+    // The thumbnail, stretched to the viewer while the real picture is on
+    // its way. Soft, but it is the photo, and it is there at once.
+    if let Some(preview) = preview {
+        return div()
+            .id("viewer-preview")
+            .debug_selector(|| "viewer-preview".into())
+            .relative()
+            .size_full()
+            .flex()
+            .items_center()
+            .justify_center()
+            .child(
+                img(preview.source(false))
+                    .size_full()
+                    .object_fit(gpui::ObjectFit::Contain)
+                    .rounded(metrics.radius_md())
+                    .opacity(0.85),
+            )
+            .when(is_loading, |el| {
+                el.child(
+                    div()
+                        .absolute()
+                        .bottom(metrics.space_xl())
+                        .flex()
+                        .items_center()
+                        .gap(metrics.space_md())
+                        .px(metrics.space_lg())
+                        .py(metrics.space_sm())
+                        .rounded_full()
+                        .bg(parts::scrim(cx).opacity(0.7))
+                        .child(
+                            Spinner::new()
+                                .small()
+                                .color(parts::on_scrim(cx).opacity(0.8)),
+                        )
+                        .child(
+                            div()
+                                .text_size(metrics.text_small())
+                                .text_color(parts::on_scrim(cx).opacity(0.85))
+                                .child(crate::tr!(LoadingFullQuality)),
+                        ),
+                )
+            })
             .into_any_element();
     }
 
@@ -415,7 +472,15 @@ mod tests {
     }
     impl Render for Fixture {
         fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-            render_frame(None, None, false, self.loading, cx.product().metrics, cx)
+            render_frame(
+                None,
+                None,
+                None,
+                false,
+                self.loading,
+                cx.product().metrics,
+                cx,
+            )
         }
     }
 

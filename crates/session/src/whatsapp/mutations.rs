@@ -520,6 +520,44 @@ impl WhatsAppClient {
         })
     }
 
+    /// Delete a conversation and its media, on every linked device and the
+    /// phone. Irreversible: the caller confirms first.
+    pub fn delete_chat(&self, chat_jid: String) -> Task<Result<(), String>> {
+        let session = self.session.clone();
+        self.exec.spawn(async move {
+            let chat: Jid = chat_jid
+                .parse()
+                .map_err(|_| "not a chat address".to_string())?;
+            let Some(live) = session.lock().await.clone() else {
+                return Err("no session yet".to_string());
+            };
+            live.client
+                .chat_actions()
+                .delete_chat(&chat, true, None)
+                .await
+                .map_err(|e| e.to_string())
+        })
+    }
+
+    /// Clear a conversation's messages, keeping the chat in the list and
+    /// starred messages in it.
+    pub fn clear_chat(&self, chat_jid: String) -> Task<Result<(), String>> {
+        let session = self.session.clone();
+        self.exec.spawn(async move {
+            let chat: Jid = chat_jid
+                .parse()
+                .map_err(|_| "not a chat address".to_string())?;
+            let Some(live) = session.lock().await.clone() else {
+                return Err("no session yet".to_string());
+            };
+            live.client
+                .chat_actions()
+                .clear_chat_with_options(&chat, whatsapp_rust::ClearChatOptions::default(), None)
+                .await
+                .map_err(|e| e.to_string())
+        })
+    }
+
     /// Mark a conversation unread, keeping whatever is behind it unread too.
     pub fn mark_chat_unread(&self, chat_jid: String) -> Task<Result<(), String>> {
         let session = self.session.clone();

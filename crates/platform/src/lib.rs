@@ -29,6 +29,9 @@ use std::time::Duration;
 #[cfg_attr(not(target_family = "wasm"), path = "native.rs")]
 mod platform;
 
+#[cfg(windows)]
+pub mod windows_desktop;
+
 pub use platform::{sleep, spawn, try_sleep};
 
 /// [`Send`], where the platform's executor asks for it.

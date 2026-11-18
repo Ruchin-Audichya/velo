@@ -219,6 +219,7 @@ impl WhatsAppApp {
         }
         self.search
             .update(cx, |search, cx| search.clear_list_query(window, cx));
+        self.refresh_global_search(cx);
         self.chat_list_scroll
             .scroll_to_item(0, gpui::ScrollStrategy::Top);
         self.invalidate_chat_cache();

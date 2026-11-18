@@ -14,26 +14,12 @@ use gpui::{
 };
 use gpui_component::ActiveTheme as _;
 use gpui_component::button::{Button, ButtonVariants as _};
-use gpui_component::link::Link;
 use gpui_component::{Icon, IconName, Selectable as _, Sizable as _};
 
 use crate::app::{SettingsSection, WhatsAppApp};
 use crate::components::ProductIcon;
 use crate::components::parts;
 use crate::theme::Metrics;
-
-/// Version strings for the sidebar footer.
-///
-/// The app's comes from Cargo at build time; the library's is the dependency
-/// this binary was actually compiled against, which is the number that matters
-/// when someone reports a protocol bug.
-const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
-
-/// Where this client comes from, and the one place the address is written.
-///
-/// The footer draws the two lines below as links rather than as URLs, because
-/// a footer is three short lines and an address is longer than any of them.
-const REPOSITORY: &str = "https://github.com/oxidezap/client";
 
 pub fn render_settings_view(
     app: &mut WhatsAppApp,
@@ -54,6 +40,7 @@ pub fn render_settings_view(
         return div().into_any_element();
     };
     let section = settings.section;
+    let account = app.account_summary();
     // A fixed column beside a pane needs a window with room to spare. On a
     // phone it left the Appearance previews a few characters wide, so the
     // sections become a strip above the pane instead and the screen is one
@@ -65,7 +52,7 @@ pub fn render_settings_view(
         .flex()
         .bg(cx.theme().background)
         .when(!is_mobile, |el| {
-            el.child(render_nav(section, entity.clone(), metrics, cx))
+            el.child(render_nav(section, account, entity.clone(), metrics, cx))
         })
         .child(
             parts::detail_stack()
@@ -86,12 +73,18 @@ pub fn render_settings_view(
                         .min_h_0()
                         .overflow_y_scroll()
                         .p(metrics.space_xxl())
-                        .child(match section {
-                            SettingsSection::Appearance => {
-                                appearance::render(settings, entity, metrics, cx).into_any_element()
-                            }
-                            other => panes::render(other, app, entity, metrics, cx),
-                        }),
+                        // Keyed by section, so choosing another fades it in
+                        // and a repaint of the same one does not.
+                        .child(crate::motion::fade_in(
+                            div().w_full().child(match section {
+                                SettingsSection::Appearance => {
+                                    appearance::render(settings, entity, metrics, cx)
+                                        .into_any_element()
+                                }
+                                other => panes::render(other, app, entity, metrics, cx),
+                            }),
+                            gpui::SharedString::from(format!("settings-pane-{section:?}")),
+                        )),
                 ),
         )
         .into_any_element()
@@ -99,6 +92,7 @@ pub fn render_settings_view(
 
 fn render_nav(
     section: SettingsSection,
+    account: Option<crate::components::AccountSummary>,
     entity: Entity<WhatsAppApp>,
     metrics: Metrics,
     cx: &App,
@@ -143,17 +137,74 @@ fn render_nav(
         )
         .child(
             div()
+                .id("settings-nav-list")
                 .flex_1()
                 .min_h_0()
+                .overflow_y_scroll()
                 .flex()
                 .flex_col()
                 .gap(metrics.space_xxs())
                 .px(metrics.space_md())
+                .pb(metrics.space_lg())
+                .children(account.map(|account| render_profile(account, metrics, cx)))
                 .children(SettingsSection::ALL.into_iter().map(|item| {
                     render_nav_item(item, item == section, entity.clone(), metrics, cx)
                 })),
         )
-        .child(render_versions(metrics, cx))
+}
+
+/// Who this device is linked to, at the top of Settings: the account's name
+/// large, and whether the link is healthy beneath it.
+fn render_profile(
+    account: crate::components::AccountSummary,
+    metrics: Metrics,
+    cx: &App,
+) -> impl IntoElement + use<> {
+    let dot = if account.is_healthy {
+        cx.theme().success
+    } else {
+        cx.theme().warning
+    };
+    div()
+        .flex()
+        .items_center()
+        .gap(metrics.space_lg())
+        .mx(metrics.space_xs())
+        .mt(metrics.space_xs())
+        .mb(metrics.space_lg())
+        .p(metrics.space_lg())
+        .rounded(metrics.radius_lg())
+        .bg(cx.theme().secondary)
+        .child(
+            crate::components::Avatar::new(
+                account.name.clone(),
+                &account.name,
+                metrics.avatar_row(),
+            )
+            .picture(account.avatar_key.clone(), None)
+            .on(cx.theme().secondary),
+        )
+        .child(
+            parts::detail_stack()
+                .gap(metrics.space_xxs())
+                .child(
+                    parts::one_line()
+                        .text_size(metrics.text_strong())
+                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .text_color(cx.theme().foreground)
+                        .child(account.name),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(metrics.space_sm())
+                        .text_size(metrics.text_small())
+                        .text_color(cx.theme().muted_foreground)
+                        .child(div().size(metrics.space_sm()).rounded_full().bg(dot))
+                        .child(account.status),
+                ),
+        )
 }
 
 /// One destination in the side nav.
@@ -190,7 +241,8 @@ fn render_nav_item(
                 .ghost()
                 .selected(is_selected)
                 .w_full()
-                .h(metrics.nav_item_height())
+                .h_auto()
+                .py(metrics.space_md())
                 // Room for the bar, and the same room on every row, so the
                 // labels line up whether or not one is selected.
                 .pl(metrics.space_xl())
@@ -206,10 +258,31 @@ fn render_nav_item(
                         .gap(metrics.space_lg())
                         .child(
                             Icon::new(icon_for(section))
-                                .size(metrics.icon_small())
-                                .flex_shrink_0(),
+                                .size(metrics.icon())
+                                .flex_shrink_0()
+                                .text_color(if is_selected {
+                                    cx.theme().primary
+                                } else {
+                                    cx.theme().muted_foreground
+                                }),
                         )
-                        .child(section.label()),
+                        .child(
+                            parts::detail_stack()
+                                .gap(metrics.space_xxs())
+                                .child(
+                                    parts::one_line()
+                                        .text_size(metrics.text_body())
+                                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                                        .text_color(cx.theme().foreground)
+                                        .child(section.label()),
+                                )
+                                .child(
+                                    parts::one_line()
+                                        .text_size(metrics.text_small())
+                                        .text_color(cx.theme().muted_foreground)
+                                        .child(summary_for(section)),
+                                ),
+                        ),
                 )
                 .cursor_pointer()
                 .on_click(move |_, _window, cx| {
@@ -337,68 +410,6 @@ fn render_header(
         )
 }
 
-fn render_versions(metrics: Metrics, cx: &App) -> impl IntoElement + use<> {
-    let subtle = parts::subtle(cx);
-
-    div()
-        .flex_shrink_0()
-        .flex()
-        .flex_col()
-        .gap(metrics.space_xxs())
-        .px(metrics.space_xl())
-        .py(metrics.space_lg())
-        .border_t_1()
-        .border_color(cx.theme().border)
-        .font_family(cx.theme().mono_font_family.clone())
-        .text_size(metrics.text_micro())
-        .text_color(subtle)
-        // The version and the build it came from, on one line, because they
-        // answer one question. A nightly moves every push while the version
-        // does not, so the hash is what names *this* build — and it is a link
-        // to the commit, which is where somebody reading a bug report wants
-        // to end up.
-        .child(
-            div()
-                .flex()
-                .flex_row()
-                .items_center()
-                .gap(metrics.space_xs())
-                .child(format!("oxidezap {APP_VERSION}"))
-                .children(build_revision().map(|rev| {
-                    Link::new("settings-revision")
-                        .href(format!("{REPOSITORY}/commit/{rev}"))
-                        .text_size(metrics.text_micro())
-                        .child(format!("({rev})"))
-                })),
-        )
-        .child(format!("whatsapp-rust {}", library_version()))
-        .child(
-            Link::new("settings-repository")
-                .href(REPOSITORY)
-                .text_size(metrics.text_micro())
-                .child("github.com/oxidezap/client"),
-        )
-}
-
-/// The commit this binary was built from, if the build knew one.
-///
-/// `build.rs` sets it from the environment or from the checkout, and sets
-/// nothing where there is neither — a source archive unpacked with no `.git`
-/// around it. Absent rather than `unknown`, so the line simply does not
-/// appear.
-fn build_revision() -> Option<&'static str> {
-    option_env!("OXIDEZAP_REV").filter(|rev| !rev.is_empty())
-}
-
-/// The library revision this binary was built against.
-///
-/// A git dependency has no version to read at runtime, so this reports the
-/// branch the workspace pins rather than inventing a number that would go
-/// stale silently.
-fn library_version() -> &'static str {
-    option_env!("OXIDEZAP_LIB_REV").unwrap_or("git")
-}
-
 fn description_for(section: SettingsSection) -> Option<&'static str> {
     match section {
         SettingsSection::Appearance => {
@@ -418,6 +429,21 @@ fn description_for(section: SettingsSection) -> Option<&'static str> {
             }
         }),
         _ => None,
+    }
+}
+
+/// The line under each section's name in the side nav: what is inside it,
+/// so the right section is found by reading rather than by opening each.
+fn summary_for(section: SettingsSection) -> &'static str {
+    match section {
+        SettingsSection::Account => "Linked device and chat history",
+        SettingsSection::Appearance => "Theme, wallpaper, text size, language",
+        SettingsSection::Notifications => "Alerts, sounds, start with Windows",
+        SettingsSection::AudioVideo => "Microphone, speakers, camera, ringtone",
+        SettingsSection::Privacy => "Encryption keys and this device",
+        SettingsSection::Storage => "Downloads, cache and disk use",
+        SettingsSection::Plugins => "Add-ons and what they may do",
+        SettingsSection::Advanced => "Diagnostics and keyboard shortcuts",
     }
 }
 

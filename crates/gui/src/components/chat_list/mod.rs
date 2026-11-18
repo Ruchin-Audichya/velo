@@ -13,7 +13,7 @@ use gpui::{
 use gpui_component::ActiveTheme as _;
 use gpui_component::button::{Button, ButtonVariants as _};
 use gpui_component::input::{Input, InputState};
-use gpui_component::{Disableable as _, Icon, IconName, Sizable as _, VirtualListScrollHandle};
+use gpui_component::{Icon, IconName, Sizable as _, VirtualListScrollHandle};
 use gpui_component::{scroll::Scrollbar, v_virtual_list};
 
 use crate::app::{
@@ -42,8 +42,10 @@ pub struct ChatListProps<'a> {
     /// list means.
     pub is_searching: bool,
     pub search_input: Option<&'a Entity<InputState>>,
-    pub account: Option<AccountSummary>,
     pub media: Option<Arc<dyn crate::session::MediaCache>>,
+    /// Messages from every chat that match the search, when one is running.
+    pub message_hits: Vec<crate::app::global_search::GlobalHit>,
+    pub message_hits_loading: bool,
 }
 
 /// The linked-device row at the foot of the sidebar.
@@ -51,6 +53,8 @@ pub struct AccountSummary {
     pub name: String,
     pub status: String,
     pub is_healthy: bool,
+    /// The account's own profile picture, from its own chat, when loaded.
+    pub avatar_key: Option<String>,
 }
 
 /// One size per row, reused while the geometry and the count hold.
@@ -141,6 +145,18 @@ pub fn render_chat_list(
                 cx,
             ))
         })
+        .when(
+            props.is_searching && (props.message_hits_loading || !props.message_hits.is_empty()),
+            |el| {
+                el.child(render_message_hits(
+                    &props.message_hits,
+                    props.message_hits_loading,
+                    entity.clone(),
+                    metrics,
+                    cx,
+                ))
+            },
+        )
         .child(render_rows(
             &props,
             scroll_handle,
@@ -149,11 +165,6 @@ pub fn render_chat_list(
             metrics,
             cx,
         ))
-        .children(
-            props
-                .account
-                .map(|account| render_account(account, metrics, cx)),
-        )
 }
 
 fn render_title_bar(
@@ -184,14 +195,15 @@ fn render_title_bar(
                 .flex()
                 .gap(metrics.space_xxs())
                 .child(
-                    // No flow behind it yet, and a button that answers a
-                    // click with nothing is a bug report waiting to be filed.
                     Button::new("new-chat")
                         .icon(IconName::Plus)
                         .ghost()
                         .small()
-                        .disabled(true)
-                        .tooltip(crate::tr!(StartingANewConversationIsNotAvailableYet)),
+                        .tooltip("New chat (Ctrl+N)")
+                        .cursor_pointer()
+                        .on_click(|_, window, cx| {
+                            window.dispatch_action(Box::new(crate::app::forward::NewChat), cx);
+                        }),
                 )
                 .child(
                     Button::new("open-settings")
@@ -229,7 +241,7 @@ fn render_search(
                         .rounded(metrics.radius_sm())
                         .border_1()
                         .border_color(cx.theme().border)
-                        .font_family(cx.theme().mono_font_family.clone())
+                        .font_features(crate::components::parts::tabular())
                         .text_size(metrics.text_meta())
                         .text_color(parts::faint(cx))
                         // Naming the shortcut is how anyone finds out it exists.
@@ -264,7 +276,14 @@ fn render_rows(
     // draw a dozen rows, which is the opposite of what a virtual list is for.
     let item_sizes = row_sizes(rows.len(), layout.sidebar_width(), row_height);
 
-    div().size_full().overflow_hidden().relative().map(|el| {
+    // A filter chip changes the whole list at once; it fades in rather than
+    // swapping under the pointer. Keyed by filter, so new messages arriving
+    // in the same list do not replay it.
+    let fade_key = gpui::SharedString::from(format!(
+        "chat-list-{:?}-{:?}",
+        props.destination, props.filter
+    ));
+    let list = div().size_full().overflow_hidden().relative().map(|el| {
         if rows.is_empty() {
             el.child(render_empty(props, entity, metrics, cx))
         } else {
@@ -317,7 +336,8 @@ fn render_rows(
                     .child(Scrollbar::vertical(scroll_handle)),
             )
         }
-    })
+    });
+    crate::motion::fade_in(list, fade_key)
 }
 
 /// An empty list means different things depending on why it is empty, and the
@@ -375,50 +395,104 @@ fn render_empty(
         .child(empty.compact(true))
 }
 
-fn render_account(account: AccountSummary, metrics: Metrics, cx: &App) -> impl IntoElement + use<> {
+/// Messages from any chat that say what was searched for.
+///
+/// Above the chat rows, because a search for a word is more often a search
+/// for something somebody said than for a chat with that word in its name,
+/// and bounded so the matching chats below stay in reach.
+fn render_message_hits(
+    hits: &[crate::app::global_search::GlobalHit],
+    loading: bool,
+    entity: Entity<WhatsAppApp>,
+    metrics: Metrics,
+    cx: &App,
+) -> impl IntoElement + use<> {
+    let rows = hits.iter().map(|hit| {
+        let entity = entity.clone();
+        let jid = hit.chat_jid.clone();
+        let id = hit.message_id.clone();
+        let line = match &hit.sender {
+            Some(sender) => format!("{sender}: {}", hit.snippet),
+            None => hit.snippet.clone(),
+        };
+        div()
+            .id(gpui::SharedString::from(format!(
+                "hit-{}-{}",
+                hit.chat_jid, hit.message_id
+            )))
+            .flex()
+            .flex_col()
+            .gap(metrics.space_xxs())
+            .px(metrics.space_lg())
+            .py(metrics.space_sm())
+            .rounded(metrics.radius_md())
+            .cursor_pointer()
+            .hover(|row| row.bg(cx.theme().list_hover))
+            .on_click(move |_, window, cx| {
+                let (jid, id) = (jid.clone(), id.clone());
+                entity.update(cx, |app, cx| app.open_search_hit(jid, id, window, cx));
+            })
+            .child(
+                div()
+                    .flex()
+                    .justify_between()
+                    .gap(metrics.space_sm())
+                    .child(
+                        div()
+                            .min_w_0()
+                            .truncate()
+                            .text_size(metrics.text_secondary())
+                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .text_color(cx.theme().foreground)
+                            .child(hit.chat_name.clone()),
+                    )
+                    .child(
+                        div()
+                            .flex_shrink_0()
+                            .text_size(metrics.text_meta())
+                            .text_color(cx.theme().muted_foreground)
+                            .child(hit.when.clone()),
+                    ),
+            )
+            .child(
+                div()
+                    .min_w_0()
+                    .truncate()
+                    .text_size(metrics.text_small())
+                    .text_color(cx.theme().muted_foreground)
+                    .child(line),
+            )
+    });
     div()
         .flex_shrink_0()
-        .h(metrics.sidebar_footer_height())
         .flex()
-        .items_center()
-        .gap(metrics.space_lg())
-        .px(metrics.space_xl())
-        .border_t_1()
+        .flex_col()
+        .pb(metrics.space_sm())
+        .border_b_1()
         .border_color(cx.theme().border)
         .child(
-            super::Avatar::new(account.name.clone(), &account.name, metrics.avatar_inline())
-                .on(cx.theme().sidebar),
+            div()
+                .flex()
+                .items_center()
+                .gap(metrics.space_sm())
+                .px(metrics.space_xl())
+                .py(metrics.space_xs())
+                .text_size(metrics.text_micro())
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .text_color(cx.theme().muted_foreground)
+                .child(if loading && hits.is_empty() {
+                    "SEARCHING ALL CHATS…".to_string()
+                } else {
+                    format!("MESSAGES IN ALL CHATS · {}", hits.len())
+                }),
         )
         .child(
-            parts::detail_stack()
-                .child(
-                    parts::one_line()
-                        .text_size(metrics.text_secondary())
-                        .font_weight(gpui::FontWeight::MEDIUM)
-                        .text_color(cx.theme().foreground)
-                        .child(account.name),
-                )
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap(metrics.space_sm())
-                        .font_family(cx.theme().mono_font_family.clone())
-                        .text_size(metrics.text_micro())
-                        .text_color(parts::subtle(cx))
-                        .child(
-                            div()
-                                .size(metrics.space_sm())
-                                .rounded_full()
-                                .flex_shrink_0()
-                                .bg(if account.is_healthy {
-                                    cx.theme().success
-                                } else {
-                                    cx.theme().warning
-                                }),
-                        )
-                        .child(parts::one_line().min_w_0().child(account.status)),
-                ),
+            div()
+                .id("message-hits")
+                .max_h(metrics.space_xxxl() * 9.0)
+                .overflow_y_scroll()
+                .px(metrics.space_sm())
+                .children(rows),
         )
 }
 

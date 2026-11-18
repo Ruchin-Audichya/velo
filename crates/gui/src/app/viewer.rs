@@ -250,11 +250,28 @@ impl MediaViewer {
 /// no decoder of its own — opening one would show the "cannot be shown"
 /// placeholder for something it had just called viewable. Video plays in its
 /// bubble until the viewer grows a player.
+///
+/// A thumbnail that can still fetch its full picture is viewable too: the
+/// viewer opens on the blurry preview at once and sharpens when the bytes
+/// arrive, so looking at a photo never requires saving it first.
 fn is_viewable(message: &ChatMessage) -> bool {
     message.media.as_ref().is_some_and(|media| {
         !message.revoked
             && media.media_type == MediaType::Image
-            && (media.cache_key.is_some() || (!media.data.is_empty() && !media.data_is_preview))
+            && (media.cache_key.is_some()
+                || (!media.data.is_empty() && !media.data_is_preview)
+                || (media.data_is_preview && media.downloadable.is_some()))
+    })
+}
+
+/// The full picture still has to be fetched for this message to be shown
+/// sharply in the viewer.
+pub(super) fn needs_full_fetch(message: &ChatMessage) -> bool {
+    message.media.as_ref().is_some_and(|media| {
+        media.media_type == MediaType::Image
+            && media.downloadable.is_some()
+            && (media.data_is_preview || media.data.is_empty())
+            && media.cache_key.is_none()
     })
 }
 
@@ -353,6 +370,31 @@ mod tests {
     fn a_thumbnail_is_not_something_to_open() {
         assert!(MediaViewer::open("chat".into(), "thumb", &history()).is_none());
         assert!(MediaViewer::open("chat".into(), "text", &history()).is_none());
+    }
+
+    #[test]
+    fn a_thumbnail_that_can_fetch_its_picture_opens_for_preview() {
+        let mut fetchable = image(true, true);
+        fetchable.downloadable = Some(oxidezap_core::DownloadableMedia {
+            direct_path: "/synthetic-photo".into(),
+            media_key: vec![],
+            file_enc_sha256: vec![],
+            file_sha256: vec![],
+            static_url: None,
+            is_thumbnail: false,
+            file_length: 0,
+            mime_type: "image/jpeg".into(),
+            duration_secs: None,
+            download_type: wacore::download::MediaType::Image,
+        });
+        let messages = vec![message("fetchable", Some(fetchable))];
+        let viewer = MediaViewer::open("chat".into(), "fetchable", &messages);
+        assert!(viewer.is_some(), "the preview is shown while it downloads");
+        assert!(needs_full_fetch(&messages[0]));
+        assert!(!needs_full_fetch(&message(
+            "photo",
+            Some(image(false, true))
+        )));
     }
 
     #[test]

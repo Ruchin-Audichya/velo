@@ -707,6 +707,7 @@ struct Bridge {
     /// The call history the wire reports: finalized calls with their
     /// outcome, fed by the same events the hub folds.
     calls: call_log::CallLog,
+    call_history_refresh: Option<wacore::time::Instant>,
     /// Points the session's durable store at cached avatar bytes.
     ///
     /// The bridge does the byte write through [`crate::avatar`]; the store
@@ -755,6 +756,7 @@ impl Bridge {
             in_flight: Arc::new(Semaphore::new(MAX_IN_FLIGHT)),
             downloads: downloads::Downloads::default(),
             calls: call_log::CallLog::new(),
+            call_history_refresh: None,
             avatar_recorder,
         }
     }

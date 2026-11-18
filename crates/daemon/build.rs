@@ -15,7 +15,16 @@
 //! devices — the same split that makes a call keep working with the window
 //! closed.
 
+include!("../../packaging/windows/version_resource.rs");
+
 fn main() {
+    // On Windows: the same icon and version block as the window, so the
+    // background process is named in Task Manager rather than listed bare.
+    embed_windows_resources(
+        "../../packaging/windows/velo.ico",
+        "Velo background service",
+        "oxidezapd.exe",
+    );
     println!("cargo:rerun-if-changed=oxidezapd.plist");
     // The *target* OS: a build script runs on the host, and cross-compiling
     // for macOS from anything else must still embed it.

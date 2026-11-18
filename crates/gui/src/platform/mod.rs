@@ -34,6 +34,7 @@ pub mod clipboard;
 pub mod clock;
 pub mod download;
 pub mod drop;
+pub mod files;
 pub mod fonts;
 pub mod identity;
 pub mod keyboard;
@@ -62,3 +63,4 @@ pub use notifications::{
 };
 pub use plugins::Home as PluginHome;
 pub use startup::{application, clocks, logging};
+pub(crate) mod window_placement;

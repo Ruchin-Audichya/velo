@@ -10,7 +10,7 @@ use std::collections::{HashMap, VecDeque};
 
 use wacore_binary::jid::{Jid, JidExt as _};
 
-use oxidezap_core::UiEvent;
+use oxidezap_core::{CallHistoryEntry, UiEvent};
 use oxidezap_wire::dto::CallEventDto;
 
 use crate::state::StateHub;
@@ -135,12 +135,52 @@ impl CallLog {
             .collect()
     }
 
+    pub(crate) fn desktop_history(&self, limit: usize, hub: &StateHub) -> Vec<CallHistoryEntry> {
+        let own = own_jid(hub);
+        self.list(limit)
+            .into_iter()
+            .map(|call| CallHistoryEntry {
+                id: call.id,
+                from_me: own.as_ref().map(|jid| jid == &call.caller_jid),
+                chat_jid: Some(call.chat_jid),
+                caller_jid: (!call.caller_jid.is_empty()).then_some(call.caller_jid),
+                started_ms: Some(call.timestamp_ms),
+                video: Some(call.is_video),
+                group: call.is_group,
+                duration_seconds: call.duration_seconds,
+                outcome: Some(call.outcome),
+                synced: false,
+            })
+            .collect()
+    }
+
     fn push(&mut self, entry: CallEventDto) {
         self.entries.push_back(entry);
         while self.entries.len() > RING_CAPACITY {
             self.entries.pop_front();
         }
     }
+}
+
+pub(super) fn merge(
+    mut synced: Vec<CallHistoryEntry>,
+    desktop: Vec<CallHistoryEntry>,
+    limit: usize,
+) -> Vec<CallHistoryEntry> {
+    let synced_ids: std::collections::HashSet<_> =
+        synced.iter().map(|call| call.id.clone()).collect();
+    synced.extend(
+        desktop
+            .into_iter()
+            .filter(|call| !synced_ids.contains(&call.id)),
+    );
+    synced.sort_by(|a, b| {
+        b.started_ms
+            .cmp(&a.started_ms)
+            .then_with(|| b.id.cmp(&a.id))
+    });
+    synced.truncate(limit);
+    synced
 }
 
 /// An ended call as the protocol's call event.

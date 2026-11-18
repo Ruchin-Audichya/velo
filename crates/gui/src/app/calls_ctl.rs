@@ -1297,7 +1297,12 @@ impl WhatsAppApp {
         log::debug!("keyboard: {:?} -> {wanted:?}", self.keyboard_owner);
         match &wanted {
             KeyboardOwner::RingingCall(_) => window.focus(&self.call_focus, cx),
-            KeyboardOwner::MessageDelete => window.focus(&self.message_delete_focus, cx),
+            // The forward picker shares the confirmation's surface but is
+            // typed into: its search box takes the caret, inside the trap.
+            KeyboardOwner::MessageDelete => match self.forward_picker.as_ref() {
+                Some(picker) => window.focus(&picker.input.read(cx).focus_handle(cx), cx),
+                None => window.focus(&self.message_delete_focus, cx),
+            },
             KeyboardOwner::MessageEdit => {
                 if let Some(input) = self.input_area.as_ref() {
                     window.focus(&input.read(cx).focus_handle(cx), cx);

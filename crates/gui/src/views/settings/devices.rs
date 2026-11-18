@@ -2,7 +2,9 @@
 use super::panes::{group, label};
 use crate::app::WhatsAppApp;
 use crate::theme::Metrics;
-use gpui::{App, Entity, IntoElement, ParentElement, Styled, div, img};
+use gpui::{
+    App, Entity, IntoElement, ParentElement, Styled, div, img, prelude::FluentBuilder as _,
+};
 use gpui_component::button::{Button, ButtonVariants as _};
 use gpui_component::{ActiveTheme as _, Disableable as _, Selectable as _, Sizable as _};
 use oxidezap_core::{CallDevice, CallDevicePreferences, CameraMode, Ringtone};
@@ -66,21 +68,67 @@ fn choices(
     }
     group(
         label(title, m, cx),
+        // A list in one card, left-aligned, with a radio mark: what a choice
+        // of one-of-several looks like in a native settings page. Buttons,
+        // still, so every device stays reachable from the keyboard.
         div()
             .flex()
             .flex_col()
-            .gap(m.space_sm())
+            .rounded(m.radius_lg())
+            .overflow_hidden()
+            .border_1()
+            .border_color(cx.theme().border)
+            .bg(cx.theme().secondary)
             .children(options.into_iter().enumerate().map(|(index, (id, text))| {
                 let entity = entity.clone();
                 let chosen = selected == id;
                 let mut preferences = preferences.clone();
                 kind.assign(&mut preferences, id);
+                let ring = if chosen {
+                    cx.theme().primary
+                } else {
+                    cx.theme().muted_foreground
+                };
                 Button::new(gpui::SharedString::from(format!("device-{title}-{index}")))
-                    .label(text)
-                    .outline()
-                    .small()
-                    .selected(chosen)
+                    .ghost()
+                    .w_full()
+                    .h_auto()
+                    .px(m.space_lg())
+                    .py(m.space_md())
+                    .rounded_none()
                     .disabled(busy)
+                    .child(
+                        div()
+                            .w_full()
+                            .flex()
+                            .items_center()
+                            .justify_start()
+                            .gap(m.space_lg())
+                            .child(
+                                div()
+                                    .flex_shrink_0()
+                                    .size(m.icon_small())
+                                    .rounded_full()
+                                    .border_2()
+                                    .border_color(ring)
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .when(chosen, |el| {
+                                        el.child(div().size(m.space_sm()).rounded_full().bg(ring))
+                                    }),
+                            )
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .truncate()
+                                    .text_size(m.text_secondary())
+                                    .text_color(cx.theme().foreground)
+                                    .when(chosen, |el| el.font_weight(gpui::FontWeight::MEDIUM))
+                                    .child(text),
+                            ),
+                    )
                     .on_click(move |_, _, cx| {
                         let p = preferences.clone();
                         entity.update(cx, |app, cx| app.save_call_devices(p, cx));
@@ -134,24 +182,24 @@ pub fn render(
     }
     let mut content = div().flex().flex_col().gap(m.space_xl())
         .child(div().text_size(m.text_small()).text_color(cx.theme().muted_foreground).child(crate::tr!(PreferencesApplyToYourNextCallTestEachDeviceBeforeCallingDeviceTestsAccessOnlyTheDeviceYou)))
-        .child(Button::new("refresh-call-devices").label(crate::tr!(RefreshDevices)).outline().disabled(busy || active).on_click(move |_, _, cx| refresh.update(cx, |app, cx| app.refresh_call_devices(cx))))
+        .child(div().flex().child(Button::new("refresh-call-devices").label(crate::tr!(RefreshDevices)).outline().disabled(busy || active).on_click(move |_, _, cx| refresh.update(cx, |app, cx| app.refresh_call_devices(cx)))))
         .child(choices(crate::tr!(Microphone), Kind::Microphone, &inventory.microphones, &preferences, entity.clone(), edits_disabled, m, cx))
-        .child(Button::new("test-call-microphone").label(crate::tr!(TestMicrophone)).outline().disabled(busy).on_click(move |_, _, cx| mic_test.update(cx, |app, cx| app.test_call_microphone(cx))))
+        .child(div().flex().child(Button::new("test-call-microphone").label(crate::tr!(TestMicrophone)).outline().disabled(busy).on_click(move |_, _, cx| mic_test.update(cx, |app, cx| app.test_call_microphone(cx)))))
         .child(choices(crate::tr!(Speaker), Kind::Speaker, &inventory.speakers, &preferences, entity.clone(), edits_disabled, m, cx))
-        .child(Button::new("test-call-speaker").label(crate::tr!(TestSpeaker)).outline().disabled(busy).on_click(move |_, _, cx| speaker_test.update(cx, |app, cx| app.test_call_speaker(cx))))
+        .child(div().flex().child(Button::new("test-call-speaker").label(crate::tr!(TestSpeaker)).outline().disabled(busy).on_click(move |_, _, cx| speaker_test.update(cx, |app, cx| app.test_call_speaker(cx)))))
         .child(choices(crate::tr!(RingtoneOutput), Kind::RingtoneOutput, &inventory.speakers, &preferences, entity.clone(), edits_disabled, m, cx))
         .child(group(label(crate::tr!(Ringtone), m, cx), div().flex().gap(m.space_sm()).children([(Ringtone::Silent, crate::tr!(Silent)), (Ringtone::Classic, crate::tr!(Classic)), (Ringtone::Gentle, crate::tr!(Gentle))].into_iter().map(|(tone, label)| {
             let entity = entity.clone(); let mut p = preferences.clone(); p.ringtone = tone;
             Button::new(gpui::SharedString::from(format!("ringtone-{label}"))).label(label).outline().small().selected(preferences.ringtone == tone).disabled(edits_disabled).on_click(move |_, _, cx| { let p = p.clone(); entity.update(cx, |app, cx| app.save_call_devices(p, cx)); })
         })), m))
-        .child(Button::new("test-call-ringtone").label(crate::tr!(TestRingtone)).outline().disabled(busy).on_click(move |_, _, cx| ringtone_test.update(cx, |app, cx| app.test_call_ringtone(cx))))
+        .child(div().flex().child(Button::new("test-call-ringtone").label(crate::tr!(TestRingtone)).outline().disabled(busy).on_click(move |_, _, cx| ringtone_test.update(cx, |app, cx| app.test_call_ringtone(cx)))))
         .child(choices(crate::tr!(Camera), Kind::Camera, &inventory.cameras, &preferences, entity.clone(), edits_disabled, m, cx))
         .child(group(label(crate::tr!(ResolutionAndFrameRate), m, cx), div().flex().flex_wrap().gap(m.space_sm()).children(modes.into_iter().enumerate().map(|(index, mode)| {
             let entity = entity.clone(); let mut p = preferences.clone(); p.camera_mode = mode;
             Button::new(gpui::SharedString::from(format!("camera-mode-{index}"))).label(format!("{} × {} · {} FPS", mode.width, mode.height, mode.fps)).outline().small().selected(preferences.camera_mode == mode).disabled(edits_disabled).on_click(move |_, _, cx| { let p = p.clone(); entity.update(cx, |app, cx| app.save_call_devices(p, cx)); })
         })), m))
         .child(div().text_size(m.text_small()).child(crate::tr!(requested_camera, preferences.camera_mode.width, preferences.camera_mode.height, preferences.camera_mode.fps)))
-        .child(Button::new("camera-preview").label(if active { crate::tr!(StopCameraPreview) } else { crate::tr!(PreviewCamera) }).outline().disabled((busy || !ready) && !active).on_click(move |_, _, cx| preview.update(cx, |app, cx| if active { app.cancel_camera_preview(cx); } else { app.start_camera_preview(cx); })));
+        .child(div().flex().child(Button::new("camera-preview").label(if active { crate::tr!(StopCameraPreview) } else { crate::tr!(PreviewCamera) }).outline().disabled((busy || !ready) && !active).on_click(move |_, _, cx| preview.update(cx, |app, cx| if active { app.cancel_camera_preview(cx); } else { app.start_camera_preview(cx); }))));
     if let Some(image) = app.camera_preview_image(cx) {
         content = content.child(
             img(crate::video::video_image(image))

@@ -106,11 +106,17 @@ pub(super) fn render_audio_player(
     let elapsed = audio
         .filter(|audio| audio.fraction > 0.0)
         .map(|audio| audio.elapsed_secs as u32);
-    let duration = media_content.duration_secs;
+    let duration = media_content.duration_secs.or_else(|| {
+        audio
+            .map(|audio| audio.total_secs as u32)
+            .filter(|seconds| *seconds > 0)
+    });
     let bars = resample(media_content.waveform.as_ref().map(|w| w.as_slice()), BARS);
 
     div()
         .flex()
+        .min_w_0()
+        .flex_wrap()
         .items_center()
         .gap(metrics.space_lg())
         .child(render_play_button(
@@ -137,7 +143,7 @@ pub(super) fn render_audio_player(
                 .flex_col()
                 .items_end()
                 .flex_shrink_0()
-                .font_family(cx.theme().mono_font_family.clone())
+                .font_features(crate::components::parts::tabular())
                 .text_size(metrics.text_meta())
                 .text_color(cx.theme().muted_foreground)
                 // Counts up while playing, shows the total at rest — the same
@@ -321,7 +327,7 @@ fn render_speed_chip(
     .xsmall()
     .rounded_full()
     .flex_shrink_0()
-    .font_family(cx.theme().mono_font_family.clone())
+    .font_features(crate::components::parts::tabular())
     .text_size(metrics.text_micro())
     // Quiet at 1×, lit once it departs from it: the chip only needs to draw
     // attention when it is doing something.

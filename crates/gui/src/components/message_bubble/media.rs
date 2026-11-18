@@ -16,7 +16,6 @@ use gpui_component::{Disableable as _, Icon, IconName};
 use image::{AnimationDecoder as _, ImageDecoder as _};
 
 use crate::app::WhatsAppApp;
-use crate::components::ProductIcon;
 use crate::components::parts;
 use crate::theme::ActiveProductTheme as _;
 use crate::utils::{mime_to_image_format, scale_media_dimensions};
@@ -95,21 +94,54 @@ pub(super) fn render_media_content(
                 if media_content.data_is_preview
                     && let Some(dl) = media_content.downloadable.clone()
                 {
-                    // Only the fallback thumbnail is local: tapping it fetches
-                    // the full image, same path as the empty placeholder
+                    // Only the fallback thumbnail is local. Tapping it opens
+                    // the viewer on that thumbnail and fetches the full
+                    // picture into memory behind it: a preview, not a save.
+                    let _ = chat_jid;
                     let preview_id: SharedString = format!("img-preview-{}", message_id).into();
+                    let size = format_bytes(dl.file_length);
+                    let metrics = cx.product().metrics;
                     el.child(
                         div()
                             .id(preview_id)
+                            .relative()
                             .cursor_pointer()
-                            .on_click(move |_, _window, cx| {
+                            .on_click(move |_, window, cx| {
                                 let msg_id = message_id.clone();
-                                let dl = dl.clone();
                                 entity.update(cx, |app, cx| {
-                                    app.download_image(chat_jid.to_string(), msg_id, dl, cx);
+                                    app.open_media_viewer(&msg_id, window, cx);
                                 });
                             })
-                            .child(image),
+                            .child(image)
+                            .child(
+                                // What a tap does and what it costs, on the
+                                // picture itself.
+                                div()
+                                    .absolute()
+                                    .bottom(metrics.space_sm())
+                                    .left(metrics.space_sm())
+                                    .flex()
+                                    .items_center()
+                                    .gap(metrics.space_xs())
+                                    .px(metrics.space_sm())
+                                    .py(metrics.space_xxs())
+                                    .rounded_full()
+                                    .bg(parts::scrim(cx).opacity(0.6))
+                                    .text_size(metrics.text_micro())
+                                    .text_color(parts::on_scrim(cx))
+                                    .child(
+                                        Icon::new(IconName::Eye)
+                                            .size(metrics.icon_small())
+                                            .text_color(parts::on_scrim(cx)),
+                                    )
+                                    .child(crate::tr!(TapToPreview))
+                                    .children(size.map(|size| {
+                                        div()
+                                            .font_features(crate::components::parts::tabular())
+                                            .opacity(0.8)
+                                            .child(size)
+                                    })),
+                            ),
                     )
                 } else {
                     // The bytes are real, so the picture can be looked at.
@@ -301,14 +333,37 @@ pub(super) fn render_media_content(
             entity,
             cx,
         )),
-        MediaType::Document => el.child(render_document_placeholder(
-            media_content,
-            message_id,
-            entity,
-            is_downloading,
-            saved_document_path,
-            cx,
-        )),
+        MediaType::Document => {
+            let audio_controls = media_content.is_audio_attachment().then(|| {
+                super::audio::render_audio_player(
+                    media_content.clone(),
+                    message_id.clone(),
+                    None,
+                    is_playing,
+                    audio,
+                    playback_speed,
+                    is_downloading,
+                    is_preparing,
+                    entity.clone(),
+                    cx,
+                )
+            });
+            el.child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(cx.product().metrics.space_sm())
+                    .child(render_document_placeholder(
+                        media_content,
+                        message_id,
+                        entity,
+                        is_downloading,
+                        saved_document_path,
+                        cx,
+                    ))
+                    .children(audio_controls),
+            )
+        }
     }
 }
 /// Media whose bytes are not local yet.
@@ -388,7 +443,7 @@ fn render_download_placeholder(
                         .child(label)
                         .children(format_bytes(size).map(|size| {
                             div()
-                                .font_family(cx.theme().mono_font_family.clone())
+                                .font_features(crate::components::parts::tabular())
                                 .text_size(metrics.text_micro())
                                 .text_color(parts::subtle(cx))
                                 .child(size)
@@ -627,30 +682,18 @@ fn render_document_placeholder(
         .bg(cx.theme().secondary)
         .border_1()
         .border_color(cx.theme().border)
-        .child(
-            // The extension in the tile, because that is what identifies a
-            // document at a glance in any file manager.
-            div()
-                .flex_shrink_0()
-                .size(metrics.avatar_header())
-                .rounded(metrics.radius_sm())
-                .bg(cx.theme().background)
-                .flex()
-                .items_center()
-                .justify_center()
-                .map(|el| match &extension {
-                    Some(ext) if ext.len() <= 4 => el
-                        .font_family(cx.theme().mono_font_family.clone())
-                        .text_size(metrics.text_micro())
-                        .text_color(cx.theme().muted_foreground)
-                        .child(ext.clone()),
-                    _ => el.child(
-                        Icon::new(ProductIcon::FileText)
-                            .size(metrics.icon_small())
-                            .text_color(cx.theme().muted_foreground),
-                    ),
-                }),
-        )
+        .child({
+            // The extension on a tile in its family's colour, the way a
+            // file manager — and every desktop messenger — shows a document.
+            let label =
+                crate::components::file_badge::extension_label(&name, &media_content.mime_type);
+            crate::components::file_badge::file_badge(
+                crate::components::file_badge::FileKind::Document,
+                label.as_deref(),
+                metrics.avatar_header(),
+                cx,
+            )
+        })
         .child(
             parts::detail_stack()
                 .child(
@@ -661,7 +704,7 @@ fn render_document_placeholder(
                 )
                 .child(
                     div()
-                        .font_family(cx.theme().mono_font_family.clone())
+                        .font_features(crate::components::parts::tabular())
                         .text_size(metrics.text_micro())
                         .text_color(parts::subtle(cx))
                         .child(if is_downloading {

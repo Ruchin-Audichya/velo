@@ -321,9 +321,32 @@ impl Settings {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        use crate::theme::accent::Accent;
         if let Some(settings) = &mut self.open {
+            // Between the two Classic presets the accent travels with the
+            // switch: someone who chose violet wants violet in the light
+            // theme too. Other presets carry an accent of their own.
+            let carried = is_classic(settings.draft.preset)
+                .then(|| Accent::of(&settings.draft.palette, settings.draft.preset.is_dark()))
+                .flatten();
             settings.draft.preset = preset;
             settings.draft.palette = preset.palette();
+            if let Some(accent) = carried.filter(|_| is_classic(preset)) {
+                accent.apply(&mut settings.draft.palette, preset.is_dark());
+            }
+        }
+        self.apply_draft(window, cx);
+    }
+
+    pub(super) fn set_accent(
+        &mut self,
+        accent: crate::theme::accent::Accent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(settings) = &mut self.open {
+            let dark = settings.draft.preset.is_dark();
+            accent.apply(&mut settings.draft.palette, dark);
         }
         self.apply_draft(window, cx);
     }
@@ -348,6 +371,18 @@ impl Settings {
     ) {
         if let Some(settings) = &mut self.open {
             settings.draft.density = density;
+        }
+        self.apply_draft(window, cx);
+    }
+
+    pub(super) fn set_wallpaper(
+        &mut self,
+        wallpaper: crate::theme::wallpaper::Wallpaper,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(settings) = &mut self.open {
+            settings.draft.wallpaper = wallpaper;
         }
         self.apply_draft(window, cx);
     }
@@ -434,6 +469,10 @@ impl Settings {
 }
 
 impl WhatsAppApp {
+    pub(crate) fn report_desktop_setting_error(&mut self, error: String, cx: &mut Context<Self>) {
+        self.notify_user(error, super::notices::Tone::Problem, cx);
+    }
+
     /// The Settings screen, when it is open.
     pub fn settings<'a>(&self, cx: &'a App) -> Option<&'a SettingsState> {
         self.settings.read(cx).state()
@@ -635,6 +674,15 @@ impl WhatsAppApp {
         })
         .detach();
     }
+}
+
+/// The presets the accent picker is offered for: the ones whose accent is
+/// the messenger green, which the accents were measured against.
+pub(crate) fn is_classic(preset: crate::theme::Preset) -> bool {
+    matches!(
+        preset,
+        crate::theme::Preset::ClassicDark | crate::theme::Preset::ClassicLight
+    )
 }
 
 #[cfg(test)]

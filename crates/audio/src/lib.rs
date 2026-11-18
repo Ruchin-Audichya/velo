@@ -26,6 +26,8 @@ pub mod call_ending;
 pub mod devices;
 pub use devices::{RingtonePlayback, start_ringtone, start_ringtone_cancellable};
 mod encoder;
+#[cfg(not(target_family = "wasm"))]
+mod file_decode;
 /// Opus packets, in the OGG stream WhatsApp expects. The container is not the
 /// codec, and only the codec was ever the problem here.
 mod ogg_opus;

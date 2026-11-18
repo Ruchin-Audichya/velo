@@ -135,7 +135,7 @@ pub fn format_date_divider(timestamp: &DateTime<Utc>) -> String {
     match (today - local.date_naive()).num_days() {
         0 => crate::tr!(Today).to_string(),
         1 => crate::tr!(YesterdayText).to_string(),
-        2..=6 => weekday(local.weekday(), false).to_uppercase(),
+        2..=6 => weekday(local.weekday(), false).to_string(),
         _ => local
             .format(
                 if crate::i18n::Language::current() == crate::i18n::Language::Portuguese {
@@ -144,8 +144,7 @@ pub fn format_date_divider(timestamp: &DateTime<Utc>) -> String {
                     "%d %b %Y"
                 },
             )
-            .to_string()
-            .to_uppercase(),
+            .to_string(),
     }
 }
 

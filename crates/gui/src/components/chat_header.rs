@@ -3,7 +3,8 @@
 use std::sync::Arc;
 
 use gpui::{
-    App, Entity, IntoElement, ParentElement, SharedString, Styled, div, prelude::FluentBuilder as _,
+    App, Entity, InteractiveElement as _, IntoElement, ParentElement, SharedString,
+    StatefulInteractiveElement as _, Styled, div, prelude::FluentBuilder as _,
 };
 use gpui_component::ActiveTheme as _;
 use gpui_component::button::{Button, ButtonVariants as _};
@@ -248,34 +249,52 @@ fn render_identity(
                     }),
             )
         })
-        .child(
-            Avatar::new(chat.jid.clone(), &chat.name, metrics.avatar_header())
-                .group(chat.is_group)
-                .picture(chat.avatar_cache_key.clone(), media)
-                .presence(presence)
-                .on(cx.theme().sidebar),
-        )
-        .child(
-            parts::detail_stack()
-                .gap(metrics.space_xxs())
+        .child({
+            // The picture and the name open Contact info, as in WhatsApp.
+            let info_entity = entity.clone();
+            div()
+                .id("chat-identity")
+                .flex()
+                .flex_1()
+                .min_w_0()
+                .items_center()
+                .gap(metrics.space_lg())
+                .cursor_pointer()
+                .tooltip(|window, cx| {
+                    gpui_component::tooltip::Tooltip::new("Contact info").build(window, cx)
+                })
+                .on_click(move |_, _, cx| {
+                    info_entity.update(cx, |app, cx| app.toggle_contact_info(cx))
+                })
                 .child(
-                    parts::one_line()
-                        .text_size(metrics.text_strong())
-                        .text_color(cx.theme().foreground)
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
-                        .child(name),
+                    Avatar::new(chat.jid.clone(), &chat.name, metrics.avatar_header())
+                        .group(chat.is_group)
+                        .picture(chat.avatar_cache_key.clone(), media)
+                        .presence(presence)
+                        .on(cx.theme().sidebar),
                 )
-                .children(subtitle.map(|(text, is_typing)| {
-                    parts::one_line()
-                        .text_size(metrics.text_small())
-                        .text_color(if is_typing {
-                            cx.theme().primary
-                        } else {
-                            cx.theme().muted_foreground
-                        })
-                        .child(text)
-                })),
-        )
+                .child(
+                    parts::detail_stack()
+                        .gap(metrics.space_xxs())
+                        .child(
+                            parts::one_line()
+                                .text_size(metrics.text_strong())
+                                .text_color(cx.theme().foreground)
+                                .font_weight(gpui::FontWeight::SEMIBOLD)
+                                .child(name),
+                        )
+                        .children(subtitle.map(|(text, is_typing)| {
+                            parts::one_line()
+                                .text_size(metrics.text_small())
+                                .text_color(if is_typing {
+                                    cx.theme().primary
+                                } else {
+                                    cx.theme().muted_foreground
+                                })
+                                .child(text)
+                        })),
+                )
+        })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -371,6 +390,14 @@ fn render_actions(
             callable,
             overflow_jid,
             overflow_entity,
+            HeaderChatState {
+                is_group: chat.is_group,
+                pinned: chat.pinned_at.is_some(),
+                muted: chat
+                    .muted_until
+                    .is_some_and(|until| until > wacore::time::now_utc()),
+                archived: chat.archived,
+            },
             layout,
         ))
 }
@@ -381,12 +408,23 @@ fn render_actions(
 /// does, so narrowing the window changes where a command lives and never
 /// whether it exists. Below the breakpoint this is the only route to them,
 /// which is exactly why it cannot be a subset.
+/// What the menu needs to know to name each toggle the right way round.
+#[derive(Clone, Copy)]
+struct HeaderChatState {
+    is_group: bool,
+    pinned: bool,
+    muted: bool,
+    archived: bool,
+}
+
 fn render_overflow_menu(
     callable: bool,
     jid: String,
     entity: Entity<WhatsAppApp>,
+    state: HeaderChatState,
     layout: ResponsiveLayout,
 ) -> impl IntoElement + use<> {
+    let info_entity = entity.clone();
     let search_entity = entity.clone();
     let video_entity = entity.clone();
     let call_entity = entity;
@@ -405,13 +443,28 @@ fn render_overflow_menu(
         let video_jid = jid.clone();
         let jid = jid.clone();
 
-        let menu = menu.item(
-            PopupMenuItem::new(crate::tr!(SearchInConversation))
-                .icon(IconName::Search)
-                .on_click(move |_, window, cx| {
-                    search_entity.update(cx, |app, cx| app.toggle_conversation_search(window, cx));
+        let info_entity = info_entity.clone();
+        let menu = menu
+            .item(
+                PopupMenuItem::new(if state.is_group {
+                    "Group info"
+                } else {
+                    "Contact info"
+                })
+                .icon(IconName::Info)
+                .on_click(move |_, _window, cx| {
+                    info_entity.update(cx, |app, cx| app.toggle_contact_info(cx));
                 }),
-        );
+            )
+            .item(
+                PopupMenuItem::new(crate::tr!(SearchInConversation))
+                    .icon(IconName::Search)
+                    .on_click(move |_, window, cx| {
+                        search_entity
+                            .update(cx, |app, cx| app.toggle_conversation_search(window, cx));
+                    }),
+            );
+        let menu = chat_action_items(menu, &jid, state);
 
         if !callable {
             return menu;
@@ -433,6 +486,76 @@ fn render_overflow_menu(
                     }),
             )
     })
+}
+
+/// The row menu's commands, in the header too: WhatsApp offers both, and
+/// the open chat is the one most likely to be muted or cleared.
+fn chat_action_items(
+    menu: gpui_component::menu::PopupMenu,
+    jid: &str,
+    state: HeaderChatState,
+) -> gpui_component::menu::PopupMenu {
+    use crate::app::chat_actions::{
+        ArchiveChat, ClearChat, DeleteChat, MUTE_EIGHT_HOURS, MUTE_ONE_WEEK, MuteChat, PinChat,
+    };
+    let jid: SharedString = jid.to_owned().into();
+    let menu = menu.separator();
+    let menu = if state.muted {
+        menu.menu(
+            "Unmute notifications",
+            Box::new(MuteChat {
+                jid: jid.clone(),
+                seconds: Some(0),
+            }),
+        )
+    } else {
+        menu.menu(
+            "Mute for 8 hours",
+            Box::new(MuteChat {
+                jid: jid.clone(),
+                seconds: Some(MUTE_EIGHT_HOURS),
+            }),
+        )
+        .menu(
+            "Mute for 1 week",
+            Box::new(MuteChat {
+                jid: jid.clone(),
+                seconds: Some(MUTE_ONE_WEEK),
+            }),
+        )
+        .menu(
+            "Mute always",
+            Box::new(MuteChat {
+                jid: jid.clone(),
+                seconds: None,
+            }),
+        )
+    };
+    menu.menu(
+        if state.pinned {
+            "Unpin chat"
+        } else {
+            "Pin chat"
+        },
+        Box::new(PinChat {
+            jid: jid.clone(),
+            pin: !state.pinned,
+        }),
+    )
+    .menu(
+        if state.archived {
+            "Unarchive chat"
+        } else {
+            "Archive chat"
+        },
+        Box::new(ArchiveChat {
+            jid: jid.clone(),
+            archive: !state.archived,
+        }),
+    )
+    .separator()
+    .menu("Clear chat", Box::new(ClearChat { jid: jid.clone() }))
+    .menu("Delete chat", Box::new(DeleteChat { jid }))
 }
 
 #[cfg(test)]

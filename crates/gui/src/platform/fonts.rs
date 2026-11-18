@@ -138,13 +138,37 @@ static DOWNLOADED: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
 #[cfg(any(target_family = "wasm", test))]
 const EMOJI: &str = "NotoEmoji-Regular.ttf";
 
+/// The family the interface is set in: the operating system's own.
+///
+/// The way the Mac and Windows messengers do it — San Francisco on macOS,
+/// Segoe UI on Windows — so Velo's text renders, hints and scales exactly
+/// like the rest of the desktop, and nothing is bundled. On Windows 11 the
+/// variable Segoe UI is named outright, because `.SystemUIFont` resolves to
+/// the older static Segoe UI; elsewhere the system font is asked for by its
+/// virtual name and gpui resolves it (SF on macOS, the desktop's sans on
+/// Linux). Scripts the face lacks — emoji, Devanagari, Arabic, CJK — fall
+/// through to the platform's own font fallback.
+///
+/// Apple's San Francisco may only be used on Apple platforms, which is why
+/// this is "the system's font" rather than one face shipped everywhere.
+pub fn ui_family(cx: &gpui::App) -> gpui::SharedString {
+    const SEGOE_VARIABLE: &str = "Segoe UI Variable Text";
+    if cfg!(windows)
+        && cx
+            .text_system()
+            .all_font_names()
+            .iter()
+            .any(|name| name == SEGOE_VARIABLE)
+    {
+        return SEGOE_VARIABLE.into();
+    }
+    ".SystemUIFont".into()
+}
+
 #[cfg(not(target_family = "wasm"))]
 mod imp {
-    /// Nothing to add: the system's own families are what font-kit reads, and
-    /// a binary that embedded its own would draw in a font the rest of the
-    /// desktop does not use. Emoji included — a desktop that draws them is
-    /// one with an emoji font installed, and gpui takes swash's colour path
-    /// for exactly one PostScript name, `NotoColorEmoji`.
+    /// Nothing to add: the system's own families are what the platform text
+    /// system reads, emoji included.
     pub(super) fn fonts(_cx: &mut gpui::App) {}
 
     /// Nothing to wait for either.

@@ -25,6 +25,26 @@ mod camera;
 mod convert;
 #[cfg(not(target_family = "wasm"))]
 mod encoder;
+#[cfg(not(target_family = "wasm"))]
+mod gif;
+
+/// Prepare a GIF as a looping-video attachment.
+pub fn gif_to_mp4(bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
+    gif_transcode::convert(bytes)
+}
+
+#[cfg(not(target_family = "wasm"))]
+mod gif_transcode {
+    pub(super) use super::gif::to_mp4 as convert;
+}
+#[cfg(target_family = "wasm")]
+mod gif_transcode {
+    pub(super) fn convert(_: &[u8]) -> anyhow::Result<Vec<u8>> {
+        anyhow::bail!(
+            "GIF conversion is available in the desktop client. Send an MP4 GIF or the original as a document."
+        )
+    }
+}
 #[cfg(target_family = "wasm")]
 mod web;
 

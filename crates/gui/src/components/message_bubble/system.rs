@@ -67,7 +67,7 @@ pub fn render_call_record(
                 )
                 .child(
                     div()
-                        .font_family(cx.theme().mono_font_family.clone())
+                        .font_features(crate::components::parts::tabular())
                         .text_size(metrics.text_micro())
                         .text_color(accent)
                         .child(crate::i18n::Language::current().call_detail(&record)),

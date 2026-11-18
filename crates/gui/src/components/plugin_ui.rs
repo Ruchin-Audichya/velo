@@ -208,7 +208,7 @@ fn widget(
             .when(!node.label.is_empty(), |el| {
                 el.child(
                     div()
-                        .font_family(cx.theme().mono_font_family.clone())
+                        .font_features(crate::components::parts::tabular())
                         .text_size(metrics.text_micro())
                         .text_color(parts::subtle(cx))
                         .child(node.label.to_uppercase()),
@@ -431,7 +431,7 @@ fn heading(
                         .gap(metrics.space_sm())
                         .child(
                             div()
-                                .font_family(cx.theme().mono_font_family.clone())
+                                .font_features(crate::components::parts::tabular())
                                 .text_size(metrics.text_micro())
                                 .text_color(subtle)
                                 .child(id.to_owned()),

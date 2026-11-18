@@ -47,7 +47,8 @@ pub fn render_notices<F: Fn(u64, &mut App) + Clone + 'static>(
             };
             let id = notice.id;
             let dismiss = on_dismiss.clone();
-            div()
+            let rise = metrics.space_lg();
+            let line = div()
                 // Keyed by the notice's own id: gpui tracks interaction state
                 // per id, and reusing one across notices would carry a hover
                 // from a line that has already gone.
@@ -67,7 +68,11 @@ pub fn render_notices<F: Fn(u64, &mut App) + Clone + 'static>(
                 .border_1()
                 .border_color(theme.border)
                 .cursor_pointer()
+                .shadow_md()
                 .on_click(move |_, _, cx| dismiss(id, cx))
-                .child(notice.text.clone())
+                .child(notice.text.clone());
+            // Keyed by the notice, so each rises once when it is raised and
+            // the ones already showing stay put as another joins them.
+            crate::motion::rise_in(line, ("notice-in", id as usize), rise)
         }))
 }

@@ -389,6 +389,24 @@ impl WhatsAppApp {
         self.ensure_timeline_page(oxidezap_core::STATUS_BROADCAST_JID, cx);
     }
 
+    pub(crate) fn can_load_older_shared_files(&self, jid: &str, cx: &App) -> bool {
+        self.client.is_some()
+            && self.pages.read(cx).timelines.get(jid).is_some_and(|state| {
+                matches!(state, Paging::Stalled { .. }) || state.to_ask().is_some()
+            })
+    }
+
+    pub(crate) fn load_older_shared_files(&mut self, jid: &str, cx: &mut App) {
+        self.pages.update(cx, |pages, _| {
+            if let Some(Paging::Stalled { from }) = pages.timelines.get(jid) {
+                pages
+                    .timelines
+                    .insert(jid.to_owned(), Paging::More(from.clone()));
+            }
+        });
+        self.want_older_messages(jid, cx);
+    }
+
     /// Whether the status feed has a page that can be requested or retried.
     pub fn status_can_load_more(&self, cx: &App) -> bool {
         self.client.is_some()

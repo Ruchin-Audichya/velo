@@ -311,7 +311,18 @@ fn connect_or_start() -> std::io::Result<Endpoint> {
                     path.display()
                 )));
             }
-            Err(_) => {}
+            // A daemon is there and every pipe instance is momentarily in
+            // use — another front end, the CLI, a status probe connecting at
+            // the same moment. That is "wait", never "start another": a
+            // second daemon loses the per-user lock, and the window that
+            // started it had been seen to lose its connection with it.
+            Err(e) if is_pipe_busy(&e) => {
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                continue;
+            }
+            Err(e) => {
+                info!("could not reach the daemon on {}: {e}", path.display());
+            }
         }
 
         // Only if the last one is not still coming up. The connect above can
@@ -344,6 +355,13 @@ fn connect_or_start() -> std::io::Result<Endpoint> {
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
     }
+}
+
+/// Whether a connect failed only because the daemon's pipe has no free
+/// instance right now (Windows `ERROR_PIPE_BUSY`). Never true elsewhere.
+fn is_pipe_busy(error: &std::io::Error) -> bool {
+    const ERROR_PIPE_BUSY: i32 = 231;
+    cfg!(windows) && error.raw_os_error() == Some(ERROR_PIPE_BUSY)
 }
 
 /// Wait for a daemon this process started, in a thread of its own.

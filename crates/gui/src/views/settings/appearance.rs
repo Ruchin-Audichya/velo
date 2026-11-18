@@ -30,6 +30,11 @@ pub fn render(
         .max_w(metrics.reading_width())
         .child(render_language(settings, entity.clone(), metrics, cx))
         .child(render_presets(settings, entity.clone(), metrics, cx))
+        .when(
+            crate::app::settings::is_classic(settings.draft.preset),
+            |el| el.child(render_accents(settings, entity.clone(), metrics, cx)),
+        )
+        .child(render_wallpapers(settings, entity.clone(), metrics, cx))
         // Each control group gets the reading column. Translated descriptions
         // must wrap within it instead of sizing a neighbouring flex column.
         .child(render_density(settings, entity.clone(), metrics, cx))
@@ -49,8 +54,16 @@ fn render_presets(
 ) -> impl IntoElement + use<> {
     let active = settings.draft.preset;
     // A palette that no longer matches its preset is a custom theme, whether
-    // it got that way through this screen or through the file.
-    let is_custom = settings.draft.palette != active.palette();
+    // it got that way through this screen or through the file. An accent
+    // chosen below is not: it is the preset wearing one of its own colours,
+    // and calling that "edited by hand" would unselect the theme it is on.
+    let is_custom = settings.draft.palette != active.palette()
+        && !(crate::app::settings::is_classic(active)
+            && crate::theme::accent::Accent::ALL.into_iter().any(|accent| {
+                let mut base = active.palette();
+                accent.apply(&mut base, active.is_dark());
+                base == settings.draft.palette
+            }));
 
     group(
         label(crate::tr!(ThemePreset), metrics, cx),
@@ -138,6 +151,191 @@ fn render_preset_card(
         })
 }
 
+/// The accent: one swatch per colour, each a sent bubble in that colour so
+/// the choice shows what it changes.
+fn render_accents(
+    settings: &SettingsState,
+    entity: Entity<WhatsAppApp>,
+    metrics: Metrics,
+    cx: &App,
+) -> impl IntoElement + use<> {
+    use crate::theme::accent::Accent;
+    let dark = settings.draft.preset.is_dark();
+    let active = Accent::of(&settings.draft.palette, dark);
+    let ground = settings.draft.palette.background;
+    group(
+        label("Accent colour", metrics, cx),
+        div()
+            .flex()
+            .flex_wrap()
+            .gap(metrics.space_lg())
+            .children(Accent::ALL.into_iter().map(|accent| {
+                let selected = Some(accent) == active;
+                let entity = entity.clone();
+                let swatch = accent.swatch(dark);
+                Button::new(SharedString::from(format!("accent-{}", accent.id())))
+                    .ghost()
+                    .selected(selected)
+                    .h_auto()
+                    .p(metrics.space_sm())
+                    .rounded(metrics.radius_lg())
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .items_center()
+                            .gap(metrics.space_sm())
+                            .child(
+                                // A ring of the accent around a gap of the
+                                // ground when chosen: the selection reads in
+                                // the colour itself, not in a second one.
+                                div()
+                                    .size(metrics.avatar_inline() + metrics.space_sm())
+                                    .rounded_full()
+                                    .p(metrics.space_xxs())
+                                    .border_2()
+                                    .border_color(if selected {
+                                        hsla_of(swatch)
+                                    } else {
+                                        gpui::transparent_black()
+                                    })
+                                    .child(
+                                        div()
+                                            .size_full()
+                                            .rounded_full()
+                                            .bg(hsla_of(swatch))
+                                            .flex()
+                                            .items_center()
+                                            .justify_center()
+                                            .when(selected, |el| {
+                                                el.child(
+                                                    Icon::new(IconName::Check)
+                                                        .size(metrics.icon_small())
+                                                        .text_color(hsla_of(ground)),
+                                                )
+                                            }),
+                                    ),
+                            )
+                            .child(
+                                div()
+                                    .text_size(metrics.text_small())
+                                    .text_color(if selected {
+                                        cx.theme().foreground
+                                    } else {
+                                        cx.theme().muted_foreground
+                                    })
+                                    .child(accent.label()),
+                            ),
+                    )
+                    .cursor_pointer()
+                    .on_click(move |_, window, cx| {
+                        entity.update(cx, |app, cx| app.set_accent(accent, window, cx));
+                    })
+            })),
+        metrics,
+    )
+}
+
+/// The chat wallpapers, each drawn as itself under a pair of bubbles, in
+/// the colours of the theme being edited.
+fn render_wallpapers(
+    settings: &SettingsState,
+    entity: Entity<WhatsAppApp>,
+    metrics: Metrics,
+    cx: &App,
+) -> impl IntoElement + use<> {
+    use crate::theme::wallpaper::Wallpaper;
+    let active = settings.draft.wallpaper;
+    let palette = settings.draft.palette;
+    let dark = settings.draft.preset.is_dark();
+    group(
+        label("Chat wallpaper", metrics, cx),
+        div()
+            .flex()
+            .flex_wrap()
+            .gap(metrics.space_lg())
+            .children(Wallpaper::ALL.into_iter().map(|wallpaper| {
+                let selected = wallpaper == active;
+                let entity = entity.clone();
+                let bubble = |colour, right: bool| {
+                    div().flex().when(right, |el| el.justify_end()).child(
+                        div()
+                            .w(metrics.space_xxxl() * 1.6)
+                            .h(metrics.space_lg())
+                            .rounded(metrics.radius_md())
+                            .bg(hsla_of(colour)),
+                    )
+                };
+                Button::new(SharedString::from(format!("wallpaper-{}", wallpaper.id())))
+                    .ghost()
+                    .selected(selected)
+                    .w(metrics.preset_card_width() * 0.75)
+                    .h_auto()
+                    .p(metrics.space_sm())
+                    .rounded(metrics.radius_lg())
+                    .border_1()
+                    .border_color(if selected {
+                        cx.theme().primary
+                    } else {
+                        cx.theme().border
+                    })
+                    .child(
+                        div()
+                            .w_full()
+                            .flex()
+                            .flex_col()
+                            .gap(metrics.space_sm())
+                            .child(
+                                div()
+                                    .relative()
+                                    .w_full()
+                                    .h(metrics.space_xxxl() * 2.4)
+                                    .rounded(metrics.radius_md())
+                                    .overflow_hidden()
+                                    .child(wallpaper.swatch(&palette, dark).absolute().inset_0())
+                                    .child(
+                                        div()
+                                            .relative()
+                                            .size_full()
+                                            .flex()
+                                            .flex_col()
+                                            .justify_center()
+                                            .gap(metrics.space_sm())
+                                            .px(metrics.space_md())
+                                            .child(bubble(palette.message_received, false))
+                                            .child(bubble(palette.message_sent, true)),
+                                    ),
+                            )
+                            .child(
+                                div()
+                                    .w_full()
+                                    .flex()
+                                    .justify_between()
+                                    .text_size(metrics.text_small())
+                                    .text_color(cx.theme().foreground)
+                                    .child(wallpaper.label())
+                                    .when(selected, |el| {
+                                        el.child(
+                                            Icon::new(IconName::Check)
+                                                .size(metrics.icon_small())
+                                                .text_color(cx.theme().primary),
+                                        )
+                                    }),
+                            ),
+                    )
+                    .cursor_pointer()
+                    .on_click(move |_, window, cx| {
+                        entity.update(cx, |app, cx| app.set_wallpaper(wallpaper, window, cx));
+                    })
+            })),
+        metrics,
+    )
+}
+
+fn hsla_of(colour: crate::theme::palette::Rgb) -> Hsla {
+    gpui::rgb(colour.0).into()
+}
+
 /// A miniature of the app: panel, two bubbles, accent.
 fn render_swatch(palette: &Palette, metrics: Metrics, cx: &App) -> impl IntoElement + use<> {
     let product = cx.product();
@@ -221,7 +419,7 @@ fn render_custom_card(metrics: Metrics, cx: &App) -> impl IntoElement + use<> {
                 )
                 .child(
                     div()
-                        .font_family(cx.theme().mono_font_family.clone())
+                        .font_features(crate::components::parts::tabular())
                         .text_size(metrics.text_micro())
                         .text_color(cx.theme().muted_foreground)
                         .child(crate::tr!(EditedByHand)),
@@ -298,7 +496,7 @@ fn render_font_size(
             .child(label(crate::tr!(BaseFontSize), metrics, cx))
             .child(
                 div()
-                    .font_family(cx.theme().mono_font_family.clone())
+                    .font_features(crate::components::parts::tabular())
                     .text_size(metrics.text_meta())
                     .text_color(cx.theme().foreground)
                     .child(format!("{size:.0}px")),
@@ -452,7 +650,7 @@ fn render_theme_file(
                     .bg(cx.theme().background)
                     .border_1()
                     .border_color(cx.theme().border)
-                    .font_family(cx.theme().mono_font_family.clone())
+                    .font_features(crate::components::parts::tabular())
                     .text_size(metrics.text_meta())
                     .text_color(cx.theme().muted_foreground)
                     .child(path),
@@ -472,7 +670,7 @@ fn render_theme_file(
                     .bg(cx.theme().background)
                     .border_1()
                     .border_color(cx.theme().border)
-                    .font_family(cx.theme().mono_font_family.clone())
+                    .font_features(crate::components::parts::tabular())
                     .text_size(metrics.text_micro())
                     .text_color(cx.theme().muted_foreground)
                     .child(settings.draft_json()),
@@ -508,7 +706,7 @@ fn render_theme_file(
                         )
                         .children(problems.into_iter().map(|problem| {
                             div()
-                                .font_family(cx.theme().mono_font_family.clone())
+                                .font_features(crate::components::parts::tabular())
                                 .text_size(metrics.text_micro())
                                 .text_color(cx.theme().muted_foreground)
                                 .child(problem)

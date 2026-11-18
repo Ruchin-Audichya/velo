@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="180 180 664 664">
+  <!-- Velo's mark in one colour: the logo's bubble with its V cut out, so it
+       can be tinted like any other icon. The tile is left to the app icon. -->
+  <defs>
+    <mask id="v">
+      <rect x="0" y="0" width="1024" height="1024" fill="white"/>
+      <path d="M 382 404 L 512 640 L 650 384" fill="none" stroke="black"
+            stroke-width="84" stroke-linecap="round" stroke-linejoin="round"/>
+    </mask>
+  </defs>
+  <path mask="url(#v)" fill="black" d="
+    M 512 196
+    C 686.5 196 828 337.5 828 512
+    C 828 686.5 686.5 828 512 828
+    C 462 828 414.8 816.4 372.8 795.6
+    L 236 836
+    L 276.6 704.2
+    C 245.8 655.6 196 590 196 512
+    C 196 337.5 337.5 196 512 196 Z"/>
+</svg>

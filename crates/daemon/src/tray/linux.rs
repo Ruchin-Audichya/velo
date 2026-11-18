@@ -54,7 +54,7 @@ impl KsniTray for Item {
     }
 
     fn title(&self) -> String {
-        "oxidezap".into()
+        "Velo".into()
     }
 
     /// Named from the icon theme rather than shipping pixels: a themed name
@@ -255,7 +255,7 @@ mod tests {
         assert_eq!(offline.icon_name(), "user-offline");
         assert_eq!(offline.status(), Status::Active);
         assert_eq!(offline.tool_tip().description, "Disconnected");
-        assert_eq!(offline.tool_tip().title, "oxidezap");
+        assert_eq!(offline.tool_tip().title, "Velo");
     }
 
     /// The number itself has nowhere on the icon to live: SNI carries no
@@ -263,8 +263,8 @@ mod tests {
     /// the description, since a host may render only the first line.
     #[test]
     fn the_tooltip_carries_the_count() {
-        assert_eq!(item(true, 0).tool_tip().title, "oxidezap");
-        assert_eq!(item(true, 1).tool_tip().title, "oxidezap (1)");
+        assert_eq!(item(true, 0).tool_tip().title, "Velo");
+        assert_eq!(item(true, 1).tool_tip().title, "Velo (1)");
         assert_eq!(item(true, 1).tool_tip().description, "1 unread message");
         assert_eq!(item(true, 4).tool_tip().description, "4 unread messages");
         assert_eq!(

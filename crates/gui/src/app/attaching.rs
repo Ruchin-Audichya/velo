@@ -472,7 +472,15 @@ fn echo_of(
         // No poster frame, and no duration: both are read from the
         // container by the side that builds the message, and this one is
         // about to hand the bytes over rather than parse them again.
-        OutgoingMedia::Video => MediaContent::video(Arc::new(Vec::new()), None),
+        OutgoingMedia::Sticker => MediaContent::sticker(
+            Arc::new(file.bytes.clone()),
+            file.mime_type.clone(),
+            false,
+            false,
+        ),
+        OutgoingMedia::Video | OutgoingMedia::Gif => {
+            MediaContent::video(Arc::new(Vec::new()), None)
+        }
         OutgoingMedia::Document => {
             MediaContent::document(file.mime_type.clone(), Some(file.file_name.clone()))
         }

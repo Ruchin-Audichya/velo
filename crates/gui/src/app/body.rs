@@ -69,10 +69,77 @@ impl Render for Body {
                         if gpui_base::TextSelection::has_selection(window, cx) {
                             super::clear_window_message_selection(window, cx);
                         }
-                        render_settings_view(app, window, cx).into_any_element()
+                        crate::motion::fade_in(
+                            div()
+                                .size_full()
+                                .child(render_settings_view(app, window, cx)),
+                            "view-settings",
+                        )
+                        .into_any_element()
                     }
                     AppState::Connected | AppState::Offline | AppState::OfflineLoggedOut { .. } => {
-                        render_connected_view(app, &self.calls, window, cx).into_any_element()
+                        if let Some(view) = app.call_history_view.clone().filter(|_| app.calls_open)
+                        {
+                            app.note_visible_conversation(None, window, cx);
+                            let layout = app.responsive_layout(window, cx);
+                            div()
+                                .size_full()
+                                .flex()
+                                .child(crate::views::render_rail(app, entity.clone(), layout, cx))
+                                .child(crate::motion::fade_in(
+                                    div().flex_1().min_w_0().h_full().child(view),
+                                    "view-calls",
+                                ))
+                                .into_any_element()
+                        } else if app.files_open {
+                            app.note_visible_conversation(None, window, cx);
+                            if app.files_view.is_none() {
+                                let owner = cx.entity().downgrade();
+                                app.files_view = Some(cx.new(|cx| {
+                                    crate::components::files_view::FilesView::new(owner, window, cx)
+                                }));
+                            }
+                            let layout = app.responsive_layout(window, cx);
+                            let files = app.files_view.clone().unwrap();
+                            div()
+                                .size_full()
+                                .flex()
+                                .child(crate::views::render_rail(app, entity.clone(), layout, cx))
+                                .child(crate::motion::fade_in(
+                                    div().flex_1().min_w_0().h_full().child(files),
+                                    "view-files",
+                                ))
+                                .into_any_element()
+                        } else {
+                            if app.shared_files_search.is_none() {
+                                use gpui_component::input::{InputEvent, InputState};
+                                let input = cx.new(|cx| {
+                                    InputState::new(window, cx)
+                                        .placeholder("Search files in this chat…")
+                                });
+                                cx.subscribe(&input, |_, _, event: &InputEvent, cx| {
+                                    if matches!(event, InputEvent::Change) {
+                                        cx.notify();
+                                    }
+                                })
+                                .detach();
+                                app.shared_files_search = Some(input);
+                            }
+                            // Keyed by destination: Chats, Status, Channels
+                            // and Communities each settle in when chosen,
+                            // and switching chats inside one does not.
+                            let key = format!("view-{:?}", app.destination);
+                            crate::motion::fade_in(
+                                div().size_full().child(render_connected_view(
+                                    app,
+                                    &self.calls,
+                                    window,
+                                    cx,
+                                )),
+                                gpui::SharedString::from(key),
+                            )
+                            .into_any_element()
+                        }
                     }
                     AppState::Error(fault) => render_error_view(
                         fault,
@@ -731,7 +798,7 @@ pub(super) mod tests {
         cx.read(|cx| assert_eq!(app.read(cx).destination(), Destination::Channels));
         cx.update(|window, cx| {
             window.blur(cx);
-            for _ in 0..6 {
+            for _ in 0..7 {
                 window.focus_next(cx);
             }
         });

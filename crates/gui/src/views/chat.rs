@@ -1,9 +1,11 @@
 //! The connected view: sidebar, conversation, and whatever floats over them.
 
 use gpui::{
-    AnyElement, App, Context, Entity, InteractiveElement, IntoElement, ParentElement, SharedString,
-    Styled, Window, div, prelude::FluentBuilder as _,
+    AnyElement, App, AppContext, Axis, Context, DragMoveEvent, Entity, InteractiveElement,
+    IntoElement, ParentElement, Render, SharedString, Styled, Window, div,
+    prelude::FluentBuilder as _,
 };
+use gpui_base::{HandleEdge, InteractiveElementExt as _, resize_handle};
 use gpui_component::ActiveTheme as _;
 use gpui_component::button::{Button, ButtonVariants as _};
 use gpui_component::{Icon, IconName};
@@ -19,6 +21,14 @@ use crate::responsive::ResponsiveLayout;
 use crate::theme::Metrics;
 
 use oxidezap_core::{CallState, Chat};
+
+struct ResizeSidebar;
+
+impl Render for ResizeSidebar {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        div()
+    }
+}
 
 pub fn render_connected_view(
     app: &mut WhatsAppApp,
@@ -43,13 +53,33 @@ pub fn render_connected_view(
         entity: entity.clone(),
         metrics: *layout.metrics(),
     };
-    let plugin_actions = plugin_ui::slot(
+    let mut plugin_actions = plugin_ui::slot(
         app.plugins(cx),
         oxidezap_core::PluginSlot::ChatHeader,
         app,
         &plugin_ctx,
         cx,
     );
+    let show_details_toggle = layout.can_show_details() && app.destination().has_conversations();
+    if show_details_toggle {
+        let entity = entity.clone();
+        plugin_actions.push(
+            Button::new("shared-files-toggle")
+                .ghost()
+                .icon(ProductIcon::FileText)
+                .tooltip("Shared files")
+                .on_click(move |_, _, cx| {
+                    entity.update(cx, |app, cx| {
+                        app.shared_files_open = !app.shared_files_open;
+                        if app.shared_files_open {
+                            app.contact_info_open = false;
+                        }
+                        cx.notify();
+                    })
+                })
+                .into_any_element(),
+        );
+    }
     let selected_jid = app.selected_destination_jid();
     // Cloned rather than borrowed: building the timeline's rows below needs
     // the app mutably, and these are handles — a clone is a refcount.
@@ -99,8 +129,9 @@ pub fn render_connected_view(
         unread_count: app.unread_chat_count(),
         is_searching: app.is_searching(cx),
         search_input: chat_search_input.as_ref(),
-        account: app.account_summary(),
         media: media.clone(),
+        message_hits: app.global_search.hits.clone(),
+        message_hits_loading: app.global_search.loading,
     };
     // A filter that matches none of the chats this window holds is not the
     // same as one that matches nothing: the rest of the list has not been
@@ -126,6 +157,12 @@ pub fn render_connected_view(
     let message_cache = open_chat
         .as_ref()
         .map(|jid| app.get_message_list_cache(jid, typing.clone(), layout, cx));
+    // A search hit picked before its chat's messages had loaded: the cache
+    // just built is what the jump scrolls through, so this is the first
+    // moment it can land.
+    if message_cache.is_some() && app.global_search.pending_jump.is_some() {
+        app.retry_pending_search_jump(cx);
+    }
     // A call in a chat other than the one on screen is what the return banner
     // is for; a call in *this* chat is already obvious from the card.
     // Body observes state changes separately from video-frame notifications.
@@ -139,12 +176,15 @@ pub fn render_connected_view(
     // search belongs to the conversation pane, and only this level has both
     // the app and the entity to drive it from.
     let search_bar = app.conversation_search(cx).map(|search| {
-        render_conversation_search(
-            search,
-            app.conversation_search_input(cx),
-            entity.clone(),
-            *layout.metrics(),
-            cx,
+        crate::motion::fade_in(
+            div().w_full().child(render_conversation_search(
+                search,
+                app.conversation_search_input(cx),
+                entity.clone(),
+                *layout.metrics(),
+                cx,
+            )),
+            "conversation-search-in",
         )
         .into_any_element()
     });
@@ -156,19 +196,25 @@ pub fn render_connected_view(
         let image = (!media.data.is_empty() && !media.data_is_preview)
             .then(|| app.get_decoded_image(&message.id, media, cx))
             .flatten();
+        // The thumbnail, drawn large while the full picture downloads.
+        let preview = (image.is_none() && media.data_is_preview && !media.data.is_empty())
+            .then(|| app.get_decoded_image(&message.id, media, cx))
+            .flatten();
         let frame = app.video_current_frame(&message.id);
         let author = if message.is_from_me {
             SharedString::from(crate::tr!(You))
         } else {
             SharedString::from(app.author_label(open_chat.as_deref(), &message))
         };
-        let is_loading = app.awaiting_cached_media(&viewer.jid, &message);
+        let is_loading =
+            app.awaiting_cached_media(&viewer.jid, &message) || app.is_downloading(&message.id);
         Some(
             render_media_viewer(
                 viewer,
                 ViewerProps {
                     message,
                     image,
+                    preview,
                     frame,
                     is_loading,
                     author,
@@ -237,8 +283,6 @@ pub fn render_connected_view(
         selected: StatusSelection::of(app.status_pane().author()),
         scroll: app.status_list_scroll().clone(),
     });
-    let unseen_status = app.status_unseen();
-    let unread_chats = app.unread_chat_count();
     // Read-only: the user stopped waiting for a connection. The composer is
     // replaced rather than disabled in place, because the interesting part is
     // the way out, not the field.
@@ -269,18 +313,7 @@ pub fn render_connected_view(
         call_card: false,
     });
 
-    let rail = render_nav_rail(
-        destination,
-        [
-            unread_chats,
-            unseen_status,
-            app.unread_destination_count(Destination::Channels),
-            app.unread_destination_count(Destination::Communities),
-        ],
-        entity.clone(),
-        layout,
-        cx,
-    );
+    let rail = render_rail(app, entity.clone(), layout, cx);
 
     // Borrowed last, once nothing else needs `app` mutably: the header and
     // the empty state are the only readers of the chat itself, and everything
@@ -297,16 +330,62 @@ pub fn render_connected_view(
         .min_h_0()
         .min_w_0()
         .bg(cx.theme().sidebar)
-        .when(layout.show_sidebar(), |el| match status_list {
-            Some(props) => el.child(render_status_list(props, entity.clone(), layout, cx)),
-            None => el.child(render_chat_list(
-                list_props,
-                &chat_list_scroll,
-                &chat_list_focus,
-                entity.clone(),
-                layout,
-                cx,
-            )),
+        .when(layout.show_sidebar(), |el| {
+            let sidebar = match status_list {
+                Some(props) => {
+                    render_status_list(props, entity.clone(), layout, cx).into_any_element()
+                }
+                None => render_chat_list(
+                    list_props,
+                    &chat_list_scroll,
+                    &chat_list_focus,
+                    entity.clone(),
+                    layout,
+                    cx,
+                )
+                .into_any_element(),
+            };
+            el.child(
+                div()
+                    .relative()
+                    .h_full()
+                    .flex_shrink_0()
+                    .child(sidebar)
+                    .when(!layout.is_mobile(), |sidebar| {
+                        let drag_entity = entity.clone();
+                        let reset_entity = entity.clone();
+                        sidebar
+                            .on_drag_move(
+                                move |event: &DragMoveEvent<ResizeSidebar>, window, cx| {
+                                    drag_entity.update(cx, |app, cx| {
+                                        let layout = app.responsive_layout(window, cx);
+                                        if !layout.is_mobile() {
+                                            let width =
+                                                event.event.position.x - layout.rail_width();
+                                            let wanted = Some(
+                                                f32::from(width) / layout.metrics().rem_size(),
+                                            );
+                                            if app.sidebar_preference_rem != wanted {
+                                                app.sidebar_preference_rem = wanted;
+                                                cx.notify();
+                                            }
+                                        }
+                                    });
+                                },
+                            )
+                            .child(
+                                resize_handle("chat-sidebar-divider", Axis::Horizontal)
+                                    .inside(HandleEdge::Trailing)
+                                    .on_drag(ResizeSidebar, |_, _, _, cx| cx.new(|_| ResizeSidebar))
+                                    .on_double_click(move |_, _, cx| {
+                                        reset_entity.update(cx, |app, cx| {
+                                            app.sidebar_preference_rem = None;
+                                            cx.notify();
+                                        });
+                                    }),
+                            )
+                    }),
+            )
         })
         .when(layout.show_chat_area(), |el| {
             if destination == Destination::Status {
@@ -336,6 +415,56 @@ pub fn render_connected_view(
             }
         });
 
+    let info_open = app.contact_info_open && layout.can_show_details() && layout.show_chat_area();
+    let panes = panes.when(info_open, |el| {
+        el.children(selected_chat.map(|chat| {
+            crate::motion::slide_in_right(
+                div()
+                    .flex()
+                    .h_full()
+                    .flex_shrink_0()
+                    .child(super::contact_info::render(
+                        chat,
+                        app.group_members(&chat.jid),
+                        &|jid| app.find_chat(jid).and_then(|c| c.avatar_cache_key.clone()),
+                        app.is_own_number(&chat.jid),
+                        app.is_connected() && !chat.is_group,
+                        entity.clone(),
+                        media.clone(),
+                        *layout.metrics(),
+                        cx,
+                    )),
+                "contact-info-in",
+                layout.metrics().space_xxl(),
+            )
+        }))
+    });
+    let panes = panes.when(
+        !info_open && show_details_toggle && app.shared_files_open && layout.show_chat_area(),
+        |el| {
+            el.children(selected_chat.map(|chat| {
+                // Slides in from the edge it lives on when opened.
+                crate::motion::slide_in_right(
+                    div()
+                        .flex()
+                        .h_full()
+                        .flex_shrink_0()
+                        .child(super::shared_files::render(
+                            app,
+                            chat,
+                            app.shared_files_filter,
+                            app.can_load_older_shared_files(&chat.jid, cx),
+                            entity.clone(),
+                            *layout.metrics(),
+                            cx,
+                        )),
+                    "shared-files-in",
+                    layout.metrics().space_xxl(),
+                )
+            }))
+        },
+    );
+
     // A strip down the side where there is width for one, a bar across the
     // foot where there is not — and on a phone only while the list is on
     // screen, because a conversation there is the whole window.
@@ -360,6 +489,32 @@ pub fn render_connected_view(
 /// to ring at the far end with no card, no Accept and no Decline anywhere in
 /// the window. It floats and takes no input of its own, so the screen
 /// underneath stays usable for the whole call.
+/// The navigation strip, with its unread counts and the account photo.
+///
+/// Its own function so the screens that replace the chat panes — Calls,
+/// Files — keep it: a full-window screen with no way back but a text link
+/// is a dead end, which the desktop messengers never are.
+pub fn render_rail(
+    app: &WhatsAppApp,
+    entity: Entity<WhatsAppApp>,
+    layout: crate::responsive::ResponsiveLayout,
+    cx: &App,
+) -> impl IntoElement + use<> {
+    render_nav_rail(
+        app.destination(),
+        [
+            app.unread_chat_count(),
+            app.status_unseen(),
+            app.unread_destination_count(Destination::Channels),
+            app.unread_destination_count(Destination::Communities),
+        ],
+        app.account_summary(),
+        entity,
+        layout,
+        cx,
+    )
+}
+
 pub fn render_call_overlay(
     app: &mut WhatsAppApp,
     window: &mut Window,
@@ -443,26 +598,29 @@ fn render_chat_area(
             // Centred by the same container the startup screens use, which
             // is also the one that does not clip what it centres: an empty
             // state is short, but not shorter than a pane on a handheld.
-            None => el.child(
-                super::centered_view("empty-conversation", metrics.space_xxxl())
-                    .surface(cx.theme().background)
-                    .child(
-                        EmptyState::new(crate::tr!(PickAConversation))
-                            .icon(ProductIcon::MessageSquare)
-                            .description(crate::tr!(
-                                ChooseAChatOnTheLeftOrSearchForOneByNameOrMessage
-                            ))
-                            .shortcut(
-                                if cfg!(target_os = "macos") {
-                                    "⌘K"
-                                } else {
-                                    "Ctrl K"
-                                },
-                                crate::tr!(Search),
-                            )
-                            .shortcut("↑ ↓", crate::tr!(MoveBetweenChats)),
-                    ),
-            ),
+            None => el.child(crate::motion::fade_in(
+                div().size_full().child(
+                    super::centered_view("empty-conversation", metrics.space_xxxl())
+                        .surface(cx.theme().background)
+                        .child(
+                            EmptyState::new(crate::tr!(PickAConversation))
+                                .icon(ProductIcon::MessageSquare)
+                                .description(crate::tr!(
+                                    ChooseAChatOnTheLeftOrSearchForOneByNameOrMessage
+                                ))
+                                .shortcut(
+                                    if cfg!(target_os = "macos") {
+                                        "⌘K"
+                                    } else {
+                                        "Ctrl K"
+                                    },
+                                    crate::tr!(Search),
+                                )
+                                .shortcut("↑ ↓", crate::tr!(MoveBetweenChats)),
+                        ),
+                ),
+                "empty-conversation-in",
+            )),
             Some(chat) => {
                 let is_group = chat.is_group;
                 el.child(render_chat_header(
@@ -483,15 +641,25 @@ fn render_chat_area(
                     render_return_banner(name, elapsed, entity.clone(), metrics, cx)
                 }))
                 .children(message_cache.map(|cache| {
-                    render_message_list(
-                        cache,
-                        message_list,
-                        entity.clone(),
-                        SharedString::from(chat.jid.clone()),
-                        is_group,
-                        is_own_number,
-                        layout,
-                        cx,
+                    // Keyed by the chat, so switching conversations fades the
+                    // new one in rather than cutting to it.
+                    crate::motion::fade_in(
+                        div()
+                            .flex_1()
+                            .min_h_0()
+                            .flex()
+                            .flex_col()
+                            .child(render_message_list(
+                                cache,
+                                message_list,
+                                entity.clone(),
+                                SharedString::from(chat.jid.clone()),
+                                is_group,
+                                is_own_number,
+                                layout,
+                                cx,
+                            )),
+                        gpui::ElementId::Name(format!("chat-in-{}", chat.jid).into()),
                     )
                 }))
                 .map(|el| {
@@ -601,7 +769,7 @@ fn render_return_banner(
         )
         .child(
             div()
-                .font_family(cx.theme().mono_font_family.clone())
+                .font_features(crate::components::parts::tabular())
                 .text_size(metrics.text_meta())
                 .text_color(cx.theme().primary)
                 .child(elapsed),

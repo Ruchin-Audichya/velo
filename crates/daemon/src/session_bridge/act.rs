@@ -103,6 +103,142 @@ impl Bridge {
         reply: tokio::sync::oneshot::Sender<CommandOutcome>,
     ) -> Option<(Action, tokio::sync::oneshot::Sender<CommandOutcome>)> {
         match action {
+            Action::LoadCallHistory {
+                id,
+                refresh,
+                answer_to,
+            } => {
+                let Some(permit) = self.permit() else {
+                    let _ = reply.send(too_busy());
+                    return None;
+                };
+                if refresh && !self.hub.connection().is_connected() {
+                    let _ = reply.send(CommandOutcome::NoSession(
+                        "Connect to WhatsApp before syncing call history.".into(),
+                    ));
+                    return None;
+                }
+                if refresh
+                    && self
+                        .call_history_refresh
+                        .is_some_and(|last| last.elapsed().as_secs() < 60)
+                {
+                    let _ = reply.send(CommandOutcome::Refused(
+                        "Wait a minute before syncing the call history again.".into(),
+                    ));
+                    return None;
+                }
+                if refresh {
+                    self.call_history_refresh = Some(wacore::time::Instant::now());
+                }
+                let task = client.load_call_history(500, refresh);
+                let local = self.calls.desktop_history(500, &self.hub);
+                let hub = self.hub.clone();
+                let generation = hub.account_generation();
+                oxidezap_session::spawn(async move {
+                    let result = task
+                        .await
+                        .map_err(|error| error.to_string())
+                        .and_then(|result| result)
+                        .and_then(|synced| {
+                            if generation != hub.account_generation() {
+                                return Err("The linked account changed.".into());
+                            }
+                            Ok(super::call_log::merge(synced, local, 500))
+                        });
+                    answer_now(
+                        &answer_to,
+                        answered(id, Ok(DaemonMessage::CallHistory { id, result })),
+                    );
+                    let _ = reply.send(CommandOutcome::Accepted);
+                    drop(permit);
+                });
+                None
+            }
+            Action::ForwardMessage {
+                id,
+                source_jid,
+                message_id,
+                target_jid,
+                answer_to,
+            } => {
+                let Some(permit) = self.permit() else {
+                    let _ = reply.send(too_busy());
+                    return None;
+                };
+                let task = client.forward_message(source_jid, message_id, target_jid);
+                oxidezap_session::spawn(async move {
+                    let result = task
+                        .await
+                        .map_err(|error| error.to_string())
+                        .and_then(|result| result.map(|_| ()));
+                    answer_now(
+                        &answer_to,
+                        answered(id, Ok(DaemonMessage::ChatActed { id, result })),
+                    );
+                    let _ = reply.send(CommandOutcome::Accepted);
+                    drop(permit);
+                });
+                None
+            }
+            Action::ChatAction {
+                id,
+                jid,
+                action,
+                answer_to,
+            } => {
+                let Some(permit) = self.permit() else {
+                    let _ = reply.send(too_busy());
+                    return None;
+                };
+                use oxidezap_ipc::ChatAction as Do;
+                let task = match action {
+                    Do::Pin(pin) => client.pin_chat(jid, pin),
+                    Do::Mute(seconds) => client.mute_chat(jid, seconds),
+                    Do::Archive(archive) => client.archive_chat(jid, archive),
+                    Do::MarkUnread => client.mark_chat_unread(jid),
+                    Do::Clear => client.clear_chat(jid),
+                    Do::Delete => client.delete_chat(jid),
+                };
+                oxidezap_session::spawn(async move {
+                    let result = task
+                        .await
+                        .map_err(|error| error.to_string())
+                        .and_then(|result| result);
+                    answer_now(
+                        &answer_to,
+                        answered(id, Ok(DaemonMessage::ChatActed { id, result })),
+                    );
+                    let _ = reply.send(CommandOutcome::Accepted);
+                    drop(permit);
+                });
+                None
+            }
+            Action::SearchEverywhere {
+                id,
+                query,
+                limit,
+                answer_to,
+            } => {
+                let Some(permit) = self.permit() else {
+                    let _ = reply.send(too_busy());
+                    return None;
+                };
+                let task = client.search_everywhere(query, i64::from(limit));
+                oxidezap_session::spawn(async move {
+                    let result = task
+                        .await
+                        .map_err(|error| error.to_string())
+                        .and_then(|result| result);
+                    answer_now(
+                        &answer_to,
+                        answered(id, Ok(DaemonMessage::SearchResults { id, result })),
+                    );
+                    let _ = reply.send(CommandOutcome::Accepted);
+                    drop(permit);
+                });
+                None
+            }
             Action::MarkAudioPlayed(request) => {
                 let Some(permit) = self.permit() else {
                     let _ = reply.send(too_busy());
@@ -1637,6 +1773,10 @@ impl Bridge {
             Action::MarkAudioPlayed(_)
             | Action::MarkStatusWatched(_)
             | Action::LoadMessages { .. }
+            | Action::LoadCallHistory { .. }
+            | Action::SearchEverywhere { .. }
+            | Action::ChatAction { .. }
+            | Action::ForwardMessage { .. }
             | Action::LoadChats { .. }
             | Action::GroupMembers { .. } => {
                 CommandOutcome::Refused("a store read reached the wrong path".to_string())
