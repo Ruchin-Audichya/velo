@@ -31,8 +31,8 @@ param(
     # $env:WINDOWS_SIGNING_PFX_PASSWORD.
     [string]$PfxBase64 = $env:WINDOWS_SIGNING_PFX_BASE64,
     [string]$TimestampUrl = $(if ($env:WINDOWS_SIGNING_TIMESTAMP_URL) { $env:WINDOWS_SIGNING_TIMESTAMP_URL } else { 'http://timestamp.digicert.com' }),
-    [string]$Description = 'Lightweight Rust-Based WhatsApp Desktop Client',
-    [string]$DescriptionUrl = $env:WINDOWS_SIGNING_DESCRIPTION_URL
+    [string]$Description = 'Velo',
+    [string]$DescriptionUrl = $(if ($env:WINDOWS_SIGNING_DESCRIPTION_URL) { $env:WINDOWS_SIGNING_DESCRIPTION_URL } else { 'https://github.com/Ruchin-Audichya/velo' })
 )
 
 $ErrorActionPreference = 'Stop'

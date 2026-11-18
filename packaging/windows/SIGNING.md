@@ -9,7 +9,7 @@ as coming from **Ruchin Audichya** instead of "Unknown publisher".
 
 - **Version metadata.** Every build embeds a version block
   (`packaging/windows/version_resource.rs`): Company *Ruchin Audichya*,
-  description *Lightweight Rust-Based WhatsApp Desktop Client*, copyright
+  description *Velo* (the service: *Velo background service*), copyright
   *© 2026 Ruchin Audichya*, and the version from `Cargo.toml`. It shows in the
   file's Properties → Details and in Task Manager. **It is not a signature**:
   any file can claim any company name, so Windows never uses this field to
@@ -51,13 +51,37 @@ today — check current eligibility and prices with each provider:
 | --- | --- | --- |
 | **Individual OV code-signing certificate** from a public CA (e.g. Sectigo, DigiCert, SSL.com, Certum) | Ruchin Audichya | Identity check with government ID. Since June 2023 the key must live on a hardware token or the CA's cloud HSM, so you usually receive a USB token or a cloud-signing account rather than a `.pfx` file. Certum offers a lower-cost certificate aimed at open-source developers. |
 | **Microsoft Artifact Signing** (formerly Trusted Signing) | Your validated identity | Cheapest and integrates with GitHub Actions, but **public-trust certificates for individuals are only available to developers located in the US or Canada** (organizations in more countries). Not open to an individual in India at the time of writing. |
-| **SignPath Foundation** (free for OSS) | SignPath Foundation | Free signing for qualifying open-source projects, but the publisher shown is the foundation, not you. |
+| **SignPath Foundation** (free for OSS) | SignPath Foundation | Free signing for qualifying open-source projects, but the publisher shown is the foundation, not you, and the source must be public and built on CI. |
+| **Microsoft Store (MSIX)** | Microsoft re-signs | Free for individuals, but Store policy 10.1.6 requires permission under the connected service's terms, and WhatsApp's terms do not allow third-party clients. Not a realistic route for Velo. |
+
+**Recommended for an individual in India:** a standard individual code-signing
+certificate from Certum, using its SimplySign cloud signing so no hardware
+token has to be shipped. Prices and eligibility change; check on the CA's site.
 
 A self-signed certificate is not an option: Windows does not trust it, Smart
 App Control still blocks the file, and presenting it as trusted would be
 misleading. `sign.ps1` refuses one.
 
-## Signing locally
+## Signing a release
+
+`build-release.ps1` signs when it is given a certificate. With SimplySign
+logged in (or the token plugged in):
+
+```powershell
+pwsh packaging/windows/build-release.ps1 -Thumbprint <THUMBPRINT>
+```
+
+It signs the three programs before they are packed into the installer and the
+portable zip, then signs the installer (the uninstaller is a copy of it), and
+verifies every signature with `signtool verify /pa`; a failure stops the
+release. The checksums are computed after signing. Without `-Thumbprint` (or
+the `WINDOWS_SIGNING_*` variables) the release builds unsigned and says so.
+
+After a signed build, upload the new files to the GitHub release and update
+the winget manifest's `InstallerSha256` — the hash changes when a file is
+signed.
+
+## Signing individual files
 
 With the certificate available in your Windows certificate store (token
 plugged in, or the CA's signing client logged in), get its thumbprint:
