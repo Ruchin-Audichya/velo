@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <title>Velo</title>
+  <!-- Logo direction A, "Bubble V", in messenger green: one flat green tile, a white speech
+       bubble, and the V cut out of the bubble in the tile's own colour.
+       Flat on purpose — it holds at 16 px in the taskbar and the tray, where
+       a gradient turns to mud. The green is the app's own default accent,
+       so the icon, the buttons and the badges are one colour. The V and the
+       bubble's tail keep the mark Velo's, not a copy of anyone else's.
+       The bubble-with-V is also `crates/gui/assets/icons/velo-mark.svg`, the
+       one-colour mark in the window's title strip. -->
+  <rect x="32" y="32" width="960" height="960" rx="236" fill="#21c063"/>
+
+  <!-- Speech bubble: a circle with a short tail to the lower left. -->
+  <path fill="#ffffff" d="
+    M 512 196
+    C 686.5 196 828 337.5 828 512
+    C 828 686.5 686.5 828 512 828
+    C 462 828 414.8 816.4 372.8 795.6
+    L 236 836
+    L 276.6 704.2
+    C 245.8 655.6 196 590 196 512
+    C 196 337.5 337.5 196 512 196 Z"/>
+
+  <!-- The V: one rounded stroke, a little heavier on the right arm so the
+       mark leans forward, the way a chevron for "go" would. -->
+  <path d="M 382 404 L 512 640 L 650 384" fill="none" stroke="#21c063"
+        stroke-width="84" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
