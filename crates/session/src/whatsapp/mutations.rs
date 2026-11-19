@@ -558,6 +558,27 @@ impl WhatsAppClient {
         })
     }
 
+    /// Save a contact to the phone's address book, the way WhatsApp's own
+    /// "New contact" does. The number must be a phone-number address.
+    pub fn save_contact(&self, jid: String, full_name: String) -> Task<Result<(), String>> {
+        let session = self.session.clone();
+        self.exec.spawn(async move {
+            let contact: Jid = jid
+                .parse()
+                .map_err(|_| "not a phone number address".to_string())?;
+            let Some(live) = session.lock().await.clone() else {
+                return Err("no session yet".to_string());
+            };
+            let full_name = full_name.trim().to_owned();
+            let first_name = full_name.split_whitespace().next().map(str::to_owned);
+            live.client
+                .chat_actions()
+                .save_contact(&contact, Some(full_name), first_name, true)
+                .await
+                .map_err(|e| e.to_string())
+        })
+    }
+
     /// Mark a conversation unread, keeping whatever is behind it unread too.
     pub fn mark_chat_unread(&self, chat_jid: String) -> Task<Result<(), String>> {
         let session = self.session.clone();

@@ -1208,6 +1208,17 @@ impl WhatsAppApp {
             .map(|client| client.call_history(refresh))
     }
 
+    /// Ask the file-name index for shared documents matching `query`.
+    pub(crate) fn search_files_request(
+        &self,
+        query: String,
+        limit: u32,
+    ) -> Option<tokio::sync::oneshot::Receiver<Result<Vec<oxidezap_ipc::FileMatch>, String>>> {
+        self.client
+            .as_ref()
+            .map(|client| client.search_files(query, limit))
+    }
+
     pub(crate) fn open_call_history(&mut self, cx: &mut Context<Self>) {
         self.calls_open = true;
         self.files_open = false;

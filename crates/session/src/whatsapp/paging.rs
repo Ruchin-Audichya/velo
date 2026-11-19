@@ -280,6 +280,58 @@ impl WhatsAppClient {
         })
     }
 
+    /// Saved contacts, by name, for the new-chat list: address-book entries
+    /// with a phone number, not everyone whose push name the store has seen.
+    pub fn list_contacts(
+        &self,
+        query: Option<String>,
+        limit: i64,
+    ) -> Task<Result<Vec<(String, String)>, String>> {
+        let session = self.session.clone();
+        self.exec.spawn(async move {
+            let Some(live) = session.lock().await.clone() else {
+                return Err("no session yet".to_string());
+            };
+            let entries = live
+                .chat_store
+                .contacts(query, limit.clamp(1, 5000))
+                .await
+                .map_err(|e| format!("contacts failed: {e}"))?;
+            let mut contacts: Vec<(String, String)> = entries
+                .into_iter()
+                .filter(|entry| entry.jid.server == "s.whatsapp.net")
+                .filter_map(|entry| {
+                    let name = entry
+                        .full_name
+                        .or(entry.first_name)
+                        .or(entry.business_name)
+                        .filter(|name| !name.trim().is_empty())?;
+                    Some((entry.jid.to_string(), name))
+                })
+                .collect();
+            contacts.sort_by_key(|(_, name)| name.to_lowercase());
+            Ok(contacts)
+        })
+    }
+
+    /// Shared documents whose file name contains `query`, newest first.
+    pub fn search_files(
+        &self,
+        query: String,
+        limit: i64,
+    ) -> Task<Result<Vec<oxidezap_chat_store::FileHit>, String>> {
+        let session = self.session.clone();
+        self.exec.spawn(async move {
+            let Some(live) = session.lock().await.clone() else {
+                return Err("no session yet".to_string());
+            };
+            live.chat_store
+                .search_file_names(&query, limit)
+                .await
+                .map_err(|e| format!("file search failed: {e}"))
+        })
+    }
+
     /// Fetch a single message by ID.
     pub fn get_message(
         &self,

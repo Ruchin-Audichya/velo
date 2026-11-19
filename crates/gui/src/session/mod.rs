@@ -311,6 +311,8 @@ enum Awaiting {
     CallHistory(oneshot::Sender<Result<Vec<oxidezap_core::CallHistoryEntry>, String>>),
     SearchResults(oneshot::Sender<Result<Vec<(String, oxidezap_core::ChatMessage)>, String>>),
     ChatActed(oneshot::Sender<Result<(), String>>),
+    Contacts(oneshot::Sender<Result<Vec<oxidezap_ipc::ContactSummary>, String>>),
+    FileMatches(oneshot::Sender<Result<Vec<oxidezap_ipc::FileMatch>, String>>),
     CallDevices(oneshot::Sender<Result<oxidezap_ipc::CallDeviceReply, String>>),
     /// A message drawn before it was sent. On refusal it has to stop being
     /// pending, and the front end is the side that knows which bubble it is.
@@ -388,6 +390,8 @@ impl Awaiting {
             Self::CallHistory(tx) => tx.is_closed(),
             Self::SearchResults(tx) => tx.is_closed(),
             Self::ChatActed(tx) => tx.is_closed(),
+            Self::Contacts(tx) => tx.is_closed(),
+            Self::FileMatches(tx) => tx.is_closed(),
             Self::Acted(tx) => tx.is_closed(),
             Self::Installed { tell, .. } => tell.is_closed(),
             Self::Removed(tx) => tx.is_closed(),
@@ -428,6 +432,12 @@ impl Awaiting {
                 let _ = tx.send(Err(detail.to_string()));
             }
             Self::ChatActed(tx) => {
+                let _ = tx.send(Err(detail.to_string()));
+            }
+            Self::Contacts(tx) => {
+                let _ = tx.send(Err(detail.to_string()));
+            }
+            Self::FileMatches(tx) => {
                 let _ = tx.send(Err(detail.to_string()));
             }
             Self::CallDevices(tx) => {
@@ -1785,6 +1795,48 @@ impl SessionHandle {
         self.ask(
             ClientRequest::ChatAction { jid, action },
             Awaiting::ChatActed(tx),
+        );
+        rx
+    }
+
+    /// Saved contacts, by name.
+    pub fn list_contacts(
+        &self,
+        query: Option<String>,
+        limit: u32,
+    ) -> oneshot::Receiver<Result<Vec<oxidezap_ipc::ContactSummary>, String>> {
+        let (tx, rx) = oneshot::channel();
+        self.ask(
+            ClientRequest::ListContacts { query, limit },
+            Awaiting::Contacts(tx),
+        );
+        rx
+    }
+
+    /// Save a contact to the phone's address book.
+    pub fn save_contact(
+        &self,
+        jid: String,
+        full_name: String,
+    ) -> oneshot::Receiver<Result<(), String>> {
+        let (tx, rx) = oneshot::channel();
+        self.ask(
+            ClientRequest::SaveContact { jid, full_name },
+            Awaiting::ChatActed(tx),
+        );
+        rx
+    }
+
+    /// Shared documents whose file name contains `query`.
+    pub fn search_files(
+        &self,
+        query: String,
+        limit: u32,
+    ) -> oneshot::Receiver<Result<Vec<oxidezap_ipc::FileMatch>, String>> {
+        let (tx, rx) = oneshot::channel();
+        self.ask(
+            ClientRequest::SearchFiles { query, limit },
+            Awaiting::FileMatches(tx),
         );
         rx
     }

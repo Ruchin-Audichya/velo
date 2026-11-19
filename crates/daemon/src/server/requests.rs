@@ -192,6 +192,60 @@ pub(super) async fn handle_request(
             )
             .await
         }
+        ClientRequest::ListContacts { query, limit } => {
+            let id = match addressed(id, "a contact list needs an id") {
+                Ok(id) => id,
+                Err(answer) => return answer,
+            };
+            out_of_band(
+                hub,
+                commands,
+                id,
+                Action::ListContacts {
+                    id,
+                    query,
+                    limit,
+                    answer_to: outbox.clone(),
+                },
+            )
+            .await
+        }
+        ClientRequest::SaveContact { jid, full_name } => {
+            let id = match addressed(id, "saving a contact needs an id") {
+                Ok(id) => id,
+                Err(answer) => return answer,
+            };
+            out_of_band(
+                hub,
+                commands,
+                id,
+                Action::SaveContact {
+                    id,
+                    jid,
+                    full_name,
+                    answer_to: outbox.clone(),
+                },
+            )
+            .await
+        }
+        ClientRequest::SearchFiles { query, limit } => {
+            let id = match addressed(id, "a file search needs an id") {
+                Ok(id) => id,
+                Err(answer) => return answer,
+            };
+            out_of_band(
+                hub,
+                commands,
+                id,
+                Action::SearchFiles {
+                    id,
+                    query,
+                    limit,
+                    answer_to: outbox.clone(),
+                },
+            )
+            .await
+        }
         ClientRequest::ChatAction { jid, action } => {
             let id = match addressed(id, "a chat action needs an id") {
                 Ok(id) => id,

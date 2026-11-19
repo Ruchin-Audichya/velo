@@ -155,6 +155,100 @@ impl Bridge {
                 });
                 None
             }
+            Action::ListContacts {
+                id,
+                query,
+                limit,
+                answer_to,
+            } => {
+                let Some(permit) = self.permit() else {
+                    let _ = reply.send(too_busy());
+                    return None;
+                };
+                let task = client.list_contacts(query, i64::from(limit));
+                oxidezap_session::spawn(async move {
+                    let result = task
+                        .await
+                        .map_err(|error| error.to_string())
+                        .and_then(|result| result)
+                        .map(|contacts| {
+                            contacts
+                                .into_iter()
+                                .map(|(jid, name)| oxidezap_ipc::ContactSummary { jid, name })
+                                .collect()
+                        });
+                    answer_now(
+                        &answer_to,
+                        answered(id, Ok(DaemonMessage::Contacts { id, result })),
+                    );
+                    let _ = reply.send(CommandOutcome::Accepted);
+                    drop(permit);
+                });
+                None
+            }
+            Action::SaveContact {
+                id,
+                jid,
+                full_name,
+                answer_to,
+            } => {
+                let Some(permit) = self.permit() else {
+                    let _ = reply.send(too_busy());
+                    return None;
+                };
+                let task = client.save_contact(jid, full_name);
+                oxidezap_session::spawn(async move {
+                    let result = task
+                        .await
+                        .map_err(|error| error.to_string())
+                        .and_then(|result| result);
+                    answer_now(
+                        &answer_to,
+                        answered(id, Ok(DaemonMessage::ChatActed { id, result })),
+                    );
+                    let _ = reply.send(CommandOutcome::Accepted);
+                    drop(permit);
+                });
+                None
+            }
+            Action::SearchFiles {
+                id,
+                query,
+                limit,
+                answer_to,
+            } => {
+                let Some(permit) = self.permit() else {
+                    let _ = reply.send(too_busy());
+                    return None;
+                };
+                let task = client.search_files(query, i64::from(limit));
+                oxidezap_session::spawn(async move {
+                    let result = task
+                        .await
+                        .map_err(|error| error.to_string())
+                        .and_then(|result| result)
+                        .map(|hits| {
+                            hits.into_iter()
+                                .map(|hit| oxidezap_ipc::FileMatch {
+                                    chat_jid: hit.chat_jid,
+                                    msg_id: hit.msg_id,
+                                    file_name: hit.file_name,
+                                    mime: hit.mime,
+                                    size: hit.size,
+                                    timestamp_ms: hit.timestamp_ms,
+                                    from_me: hit.from_me,
+                                })
+                                .collect()
+                        });
+                    answer_now(
+                        &answer_to,
+                        answered(id, Ok(DaemonMessage::FileMatches { id, result })),
+                    );
+                    let _ = reply.send(CommandOutcome::Accepted);
+                    drop(permit);
+                });
+                None
+            }
             Action::ForwardMessage {
                 id,
                 source_jid,
@@ -1777,6 +1871,9 @@ impl Bridge {
             | Action::SearchEverywhere { .. }
             | Action::ChatAction { .. }
             | Action::ForwardMessage { .. }
+            | Action::ListContacts { .. }
+            | Action::SaveContact { .. }
+            | Action::SearchFiles { .. }
             | Action::LoadChats { .. }
             | Action::GroupMembers { .. } => {
                 CommandOutcome::Refused("a store read reached the wrong path".to_string())

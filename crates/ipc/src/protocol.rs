@@ -435,6 +435,16 @@ pub enum DaemonMessage {
         id: RequestId,
         result: Result<Box<CallDeviceReply>, String>,
     },
+    /// The answer to [`ClientRequest::ListContacts`].
+    Contacts {
+        id: RequestId,
+        result: Result<Vec<ContactSummary>, String>,
+    },
+    /// The answer to [`ClientRequest::SearchFiles`].
+    FileMatches {
+        id: RequestId,
+        result: Result<Vec<FileMatch>, String>,
+    },
     /// The answer to [`ClientRequest::ChatAction`].
     ChatActed {
         id: RequestId,
@@ -950,6 +960,25 @@ pub struct EnsureAvatars {
     pub items: Vec<AvatarDemand>,
 }
 
+/// One saved contact, as the new-chat list shows it.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ContactSummary {
+    pub jid: String,
+    pub name: String,
+}
+
+/// One shared document whose file name matched a search.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct FileMatch {
+    pub chat_jid: String,
+    pub msg_id: String,
+    pub file_name: String,
+    pub mime: Option<String>,
+    pub size: Option<u64>,
+    pub timestamp_ms: i64,
+    pub from_me: bool,
+}
+
 /// What a chat's menu can do to it. Each is an app-state change WhatsApp
 /// carries to the phone and every linked device.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1079,6 +1108,24 @@ pub enum ClientRequest {
     ChatAction {
         jid: String,
         action: ChatAction,
+    },
+    /// The account's saved contacts whose name or number contains `query`
+    /// (all of them for none). Answered with [`DaemonMessage::Contacts`].
+    ListContacts {
+        query: Option<String>,
+        limit: u32,
+    },
+    /// Save a contact to the phone's address book under `full_name`.
+    /// Answered with [`DaemonMessage::ChatActed`].
+    SaveContact {
+        jid: String,
+        full_name: String,
+    },
+    /// Shared documents whose file name contains `query`, newest first,
+    /// from the trigram index. Answered with [`DaemonMessage::FileMatches`].
+    SearchFiles {
+        query: String,
+        limit: u32,
     },
     /// Forward one stored message to another chat. Answered with
     /// [`DaemonMessage::ChatActed`].

@@ -8,9 +8,17 @@ use gpui_component::{ActiveTheme as _, Disableable as _, IconName, Sizable as _}
 use crate::app::WhatsAppApp;
 use crate::platform::files::{self, Category, Entry};
 use crate::theme::ActiveProductTheme as _;
+use chrono::TimeZone as _;
 
 pub struct FilesView {
+    owner: WeakEntity<WhatsAppApp>,
     search: Entity<InputState>,
+    /// Documents shared in any chat whose name matches the search, from the
+    /// daemon's trigram index: found whether or not they were downloaded.
+    shared: Vec<SharedFile>,
+    /// Bumped by every keystroke, so a slower, older answer never replaces
+    /// a newer one.
+    search_generation: u64,
     entries: Vec<Entry>,
     category: Category,
     sort: usize,
@@ -19,25 +27,35 @@ pub struct FilesView {
     error: Option<String>,
 }
 
+/// One document from the index, with the chat it was shared in.
+struct SharedFile {
+    found: oxidezap_ipc::FileMatch,
+    chat_name: String,
+}
+
 impl FilesView {
     pub fn new(
-        // Kept in the signature for the caller; the rail, not a back
-        // button here, is now the way out, so nothing reads it.
-        _owner: WeakEntity<WhatsAppApp>,
+        owner: WeakEntity<WhatsAppApp>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let search =
-            cx.new(|cx| InputState::new(window, cx).placeholder("Search downloaded files…"));
+        let search = cx.new(|cx| {
+            InputState::new(window, cx)
+                .placeholder("Search files in every chat — any part of the name")
+        });
         cx.subscribe(&search, |view, _, event: &InputEvent, cx| {
             if matches!(event, InputEvent::Change) {
                 view.visible = 100;
+                view.search_shared(cx);
                 cx.notify();
             }
         })
         .detach();
         let mut view = Self {
+            owner,
             search,
+            shared: Vec::new(),
+            search_generation: 0,
             entries: Vec::new(),
             category: Category::All,
             sort: 0,
@@ -46,7 +64,59 @@ impl FilesView {
             error: None,
         };
         view.refresh(cx);
+        view.search_shared(cx);
         view
+    }
+
+    /// Query the index for what is typed, a moment after typing stops.
+    fn search_shared(&mut self, cx: &mut Context<Self>) {
+        self.search_generation += 1;
+        let generation = self.search_generation;
+        let query = self.search.read(cx).value().trim().to_string();
+        let owner = self.owner.clone();
+        cx.spawn(async move |view, cx| {
+            cx.background_executor()
+                .timer(std::time::Duration::from_millis(120))
+                .await;
+            let current = view
+                .read_with(cx, |view, _| view.search_generation == generation)
+                .unwrap_or(false);
+            if !current {
+                return;
+            }
+            let Some(request) = owner
+                .read_with(cx, |app, _| app.search_files_request(query, 100))
+                .ok()
+                .flatten()
+            else {
+                return;
+            };
+            let Ok(Ok(found)) = request.await else {
+                return;
+            };
+            let shared: Vec<SharedFile> = owner
+                .read_with(cx, |app, _| {
+                    found
+                        .into_iter()
+                        .map(|found| SharedFile {
+                            chat_name: app
+                                .chat_named(&found.chat_jid)
+                                .map(|chat| chat.name.clone())
+                                .filter(|name| !name.trim().is_empty())
+                                .unwrap_or_else(|| "A chat".into()),
+                            found,
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            let _ = view.update(cx, |view, cx| {
+                if view.search_generation == generation {
+                    view.shared = shared;
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
     }
 
     pub fn refresh(&mut self, cx: &mut Context<Self>) {
@@ -167,6 +237,106 @@ impl Render for FilesView {
             })
             .collect::<Vec<_>>();
 
+        // Documents from the index: everything shared in any chat, which the
+        // downloads folder alone cannot list. Shown for All and Documents,
+        // the two filters a document belongs to.
+        let show_shared = matches!(self.category, Category::All | Category::Documents);
+        let shared_rows: Vec<AnyElement> = if show_shared {
+            self.shared
+                .iter()
+                .enumerate()
+                .map(|(index, item)| {
+                    let found = &item.found;
+                    let label = crate::components::file_badge::extension_label(
+                        &found.file_name,
+                        found.mime.as_deref().unwrap_or(""),
+                    );
+                    let when = chrono::Local
+                        .timestamp_millis_opt(found.timestamp_ms)
+                        .single()
+                        .map(|time| time.format("%-d %b %Y").to_string())
+                        .unwrap_or_default();
+                    let mut detail = format!("{} · {when}", item.chat_name);
+                    if let Some(size) = found.size {
+                        detail.push_str(&format!(" · {}", files::size_label(size)));
+                    }
+                    let owner = self.owner.clone();
+                    let chat = found.chat_jid.clone();
+                    let message = found.msg_id.clone();
+                    let hover = cx.theme().list_hover;
+                    div()
+                        .id(("shared-file", index))
+                        .flex()
+                        .items_center()
+                        .gap(metrics.space_lg())
+                        .h(metrics.chat_row_height())
+                        .px(metrics.space_lg())
+                        .rounded(metrics.radius_lg())
+                        .cursor_pointer()
+                        .hover(move |style| style.bg(hover))
+                        .on_click(move |_, window, cx| {
+                            let chat = chat.clone();
+                            let message = message.clone();
+                            let _ = owner.update(cx, |app, cx| {
+                                app.files_open = false;
+                                app.open_search_hit(chat, message, window, cx);
+                            });
+                        })
+                        .child(crate::components::file_badge::file_badge(
+                            crate::components::file_badge::FileKind::Document,
+                            label.as_deref(),
+                            metrics.avatar_row(),
+                            cx,
+                        ))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .flex()
+                                .flex_col()
+                                .child(div().truncate().child(found.file_name.clone()))
+                                .child(
+                                    div()
+                                        .truncate()
+                                        .text_size(metrics.text_small())
+                                        .text_color(cx.theme().muted_foreground)
+                                        .child(detail),
+                                ),
+                        )
+                        .into_any_element()
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let searching = !self.search.read(cx).value().trim().is_empty();
+        let shared_heading = if searching {
+            "In your chats"
+        } else {
+            "Recently shared in your chats"
+        };
+        let section = |label: String| {
+            div()
+                .pt(metrics.space_md())
+                .pb(metrics.space_xs())
+                .px(metrics.space_lg())
+                .text_size(metrics.text_small())
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_color(cx.theme().muted_foreground)
+                .child(label)
+                .into_any_element()
+        };
+        let mut list: Vec<AnyElement> = Vec::new();
+        if !rows.is_empty() {
+            list.push(section(format!("Downloaded · {count}")));
+            list.extend(rows.into_iter().map(IntoElement::into_any_element));
+        }
+        if !shared_rows.is_empty() {
+            list.push(section(format!("{shared_heading} · {}", shared_rows.len())));
+            list.extend(shared_rows);
+        }
+        let nothing = list.is_empty();
+
         div().size_full().flex().flex_col().gap(metrics.space_md()).px(metrics.space_xl()).pb(metrics.space_lg())
             .bg(cx.theme().background).text_color(cx.theme().foreground)
             // The rail is the way back, as on every other screen.
@@ -191,10 +361,11 @@ impl Render for FilesView {
                     .on_click(cx.listener(|view, _, _, cx| { view.sort = (view.sort + 1) % 3; cx.notify(); }))))
             .children(self.error.clone().map(|error| div().text_color(cx.theme().danger).child(error)))
             .when(self.loading, |view| view.child("Loading downloads…"))
-            .when(count == 0 && !self.loading && self.error.is_none(), |view| view.child(
-                "Saved attachments appear here automatically. Download a file from a conversation to get started."))
+            .when(nothing && !self.loading && self.error.is_none(), |view| view.child(
+                div().px(metrics.space_lg()).text_color(cx.theme().muted_foreground).child(
+                    "No files match. Every document shared in your chats can be found here by any part of its name.")))
             .child(div().id("files-list").flex_1().min_h_0().overflow_y_scroll().flex().flex_col()
-                .children(rows)
+                .children(list)
                 .when(count > self.visible, |list| list.child(Button::new("files-more").label("Show more").outline()
                     .on_click(cx.listener(|view, _, _, cx| { view.visible += 100; cx.notify(); })))))
     }

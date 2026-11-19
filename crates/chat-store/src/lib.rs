@@ -35,6 +35,8 @@
 mod contacts_text;
 mod error;
 #[cfg(feature = "search")]
+mod file_index;
+#[cfg(feature = "search")]
 mod fts;
 mod lid;
 mod materialize;
@@ -48,6 +50,8 @@ pub mod types;
 
 pub use contacts_text::shared_contacts_text;
 pub use error::{ChatStoreError, Result, db_err};
+#[cfg(feature = "search")]
+pub use file_index::FileHit;
 pub use materialize::{
     is_control_only, message_kind, normalized_message, poll_creation_message,
     supported_poll_creation_message,

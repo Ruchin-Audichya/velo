@@ -165,6 +165,16 @@ impl<'a> Frames<'a> {
                     let _ = tx.send(result);
                 }
             }
+            DaemonMessage::Contacts { id, result } => {
+                if let Some(Awaiting::Contacts(tx)) = take_pending(self.pending, id) {
+                    let _ = tx.send(result);
+                }
+            }
+            DaemonMessage::FileMatches { id, result } => {
+                if let Some(Awaiting::FileMatches(tx)) = take_pending(self.pending, id) {
+                    let _ = tx.send(result);
+                }
+            }
             DaemonMessage::ChatActed { id, result } => {
                 if let Some(Awaiting::ChatActed(tx)) = take_pending(self.pending, id) {
                     let _ = tx.send(result);

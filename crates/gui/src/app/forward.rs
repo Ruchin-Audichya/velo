@@ -10,6 +10,7 @@ use super::*;
 use gpui::{AnyElement, SharedString};
 use gpui_component::ActiveTheme as _;
 use gpui_component::FocusTrapElement as _;
+use gpui_component::button::ButtonVariants as _;
 use gpui_component::input::{Input, InputEvent, InputState};
 
 /// Forward one message. Opens the picker; nothing is sent until a chat is
@@ -40,7 +41,23 @@ pub(super) struct ForwardPicker {
     pub purpose: Purpose,
     pub preview: String,
     pub input: Entity<InputState>,
+    /// Saved contacts, for New chat; loaded once when it opens.
+    pub contacts: Vec<oxidezap_ipc::ContactSummary>,
+    pub contacts_loading: bool,
+    /// The "New contact" form, while it is open in place of the list.
+    pub new_contact: Option<NewContactForm>,
 }
+
+/// A name and a number, saved to the phone's address book through WhatsApp.
+pub(super) struct NewContactForm {
+    pub name: Entity<InputState>,
+    pub number: Entity<InputState>,
+    pub saving: bool,
+    pub error: Option<String>,
+}
+
+/// How many contacts the list draws before a search narrows it.
+const CONTACTS_SHOWN: usize = 300;
 
 /// A typed phone number as a WhatsApp address: digits only, with the country
 /// code, the way WhatsApp itself asks for one. `None` for anything that is
@@ -111,6 +128,151 @@ impl WhatsAppApp {
             window,
             cx,
         );
+        self.load_picker_contacts(cx);
+    }
+
+    /// Fetch the saved contacts for New chat. The list shows chats until
+    /// they arrive, so a slow store never leaves it empty.
+    fn load_picker_contacts(&mut self, cx: &mut Context<Self>) {
+        let Some(client) = self.client.as_ref() else {
+            return;
+        };
+        if let Some(picker) = self.forward_picker.as_mut() {
+            picker.contacts_loading = true;
+        }
+        let answer = client.list_contacts(None, 5000);
+        cx.spawn(async move |entity: WeakEntity<Self>, cx| {
+            let result = answer.await;
+            let _ = entity.update(cx, |app, cx| {
+                if let Some(picker) = app.forward_picker.as_mut() {
+                    picker.contacts_loading = false;
+                    if let Ok(Ok(contacts)) = result {
+                        picker.contacts = contacts;
+                    }
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
+    }
+
+    /// Swap the list for the New contact form, the number pre-filled when a
+    /// number was already typed into the search.
+    pub(super) fn open_new_contact_form(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(picker) = self.forward_picker.as_ref() else {
+            return;
+        };
+        let typed = picker.input.read(cx).value().to_string();
+        let prefill = phone_jid(&typed).map(|_| typed.trim().to_owned());
+        let name = cx.new(|cx| InputState::new(window, cx).placeholder("Name"));
+        let number = cx.new(|cx| {
+            let state = InputState::new(window, cx)
+                .placeholder("Phone number with country code, e.g. +91 98765 43210");
+            match prefill {
+                Some(value) => state.default_value(value),
+                None => state,
+            }
+        });
+        for input in [&name, &number] {
+            cx.subscribe(input, |app, _, event: &InputEvent, cx| match event {
+                InputEvent::Change => cx.notify(),
+                InputEvent::PressEnter { .. } => app.save_new_contact(cx),
+                _ => {}
+            })
+            .detach();
+        }
+        window.focus(&name.read(cx).focus_handle(cx), cx);
+        if let Some(picker) = self.forward_picker.as_mut() {
+            picker.new_contact = Some(NewContactForm {
+                name,
+                number,
+                saving: false,
+                error: None,
+            });
+        }
+        cx.notify();
+    }
+
+    pub(super) fn close_new_contact_form(&mut self, cx: &mut Context<Self>) {
+        if let Some(picker) = self.forward_picker.as_mut() {
+            picker.new_contact = None;
+        }
+        cx.notify();
+    }
+
+    /// Save the form's contact, then open a chat with them.
+    pub(super) fn save_new_contact(&mut self, cx: &mut Context<Self>) {
+        let Some(form) = self
+            .forward_picker
+            .as_mut()
+            .and_then(|picker| picker.new_contact.as_mut())
+        else {
+            return;
+        };
+        if form.saving {
+            return;
+        }
+        let name = form.name.read(cx).value().trim().to_string();
+        let number = form.number.read(cx).value().to_string();
+        let error = if name.is_empty() {
+            Some("Enter a name.")
+        } else if phone_jid(&number).is_none() {
+            Some("Enter the number with its country code, like +91 98765 43210.")
+        } else {
+            None
+        };
+        if let Some(error) = error {
+            form.error = Some(error.into());
+            cx.notify();
+            return;
+        }
+        let Some(jid) = phone_jid(&number) else {
+            return;
+        };
+        let Some(client) = self.client.as_ref() else {
+            form.error = Some("Velo is not connected yet. Try again in a moment.".into());
+            cx.notify();
+            return;
+        };
+        form.saving = true;
+        form.error = None;
+        let answer = client.save_contact(jid.clone(), name.clone());
+        let window = self.modal_window;
+        cx.spawn(async move |entity: WeakEntity<Self>, cx| {
+            let result = answer.await;
+            let saved = matches!(result, Ok(Ok(())));
+            let _ = entity.update(cx, |app, cx| {
+                if saved {
+                    app.notify_user(
+                        format!("Saved {name} to your contacts"),
+                        notices::Tone::Info,
+                        cx,
+                    );
+                    return;
+                }
+                if let Some(form) = app
+                    .forward_picker
+                    .as_mut()
+                    .and_then(|picker| picker.new_contact.as_mut())
+                {
+                    form.saving = false;
+                    form.error = Some(match &result {
+                        Ok(Err(failure)) => format!("Couldn't save this contact. {failure}"),
+                        _ => "Velo lost its connection before the contact was saved.".into(),
+                    });
+                }
+                cx.notify();
+            });
+            if saved && let Some(window) = window {
+                let _ = cx.update_window(window, |_, window, cx| {
+                    let _ = entity.update(cx, |app, cx| {
+                        app.pick_contact(jid, Some(name), window, cx);
+                    });
+                });
+            }
+        })
+        .detach();
+        cx.notify();
     }
 
     fn open_picker(
@@ -132,6 +294,9 @@ impl WhatsAppApp {
             purpose,
             preview,
             input,
+            contacts: Vec::new(),
+            contacts_loading: false,
+            new_contact: None,
         });
         cx.notify();
     }
@@ -140,6 +305,18 @@ impl WhatsAppApp {
     pub(super) fn pick_chat(
         &mut self,
         target: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.pick_contact(target, None, window, cx);
+    }
+
+    /// As [`Self::pick_chat`], naming a chat that does not exist yet after
+    /// the contact rather than their number.
+    pub(super) fn pick_contact(
+        &mut self,
+        target: String,
+        name: Option<String>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -152,7 +329,9 @@ impl WhatsAppApp {
                     // learns of it with the first message; until then the
                     // window holds it so there is somewhere to type.
                     let mut chat = Chat::new(target.clone());
-                    chat.name = format!("+{}", target.split('@').next().unwrap_or_default());
+                    chat.name = name.unwrap_or_else(|| {
+                        format!("+{}", target.split('@').next().unwrap_or_default())
+                    });
                     self.chats.insert(0, Arc::new(chat));
                     self.invalidate_chat_cache();
                 }
@@ -345,11 +524,207 @@ impl WhatsAppApp {
                     .into_any_element(),
             );
         }
+        let is_new_chat = matches!(picker.purpose, Purpose::NewChat);
+        let section = |label: &'static str| {
+            div()
+                .px(metrics.space_lg())
+                .pt(metrics.space_md())
+                .pb(metrics.space_xs())
+                .text_size(metrics.text_small())
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .text_color(theme.muted_foreground)
+                .child(label)
+                .into_any_element()
+        };
+        if is_new_chat {
+            let trimmed = query.trim().to_lowercase();
+            let digits: String = trimmed.chars().filter(char::is_ascii_digit).collect();
+            let contact_rows: Vec<AnyElement> = picker
+                .contacts
+                .iter()
+                .filter(|contact| {
+                    trimmed.is_empty()
+                        || contact.name.to_lowercase().contains(&trimmed)
+                        || (digits.len() >= 3 && contact.jid.contains(&digits))
+                })
+                .take(CONTACTS_SHOWN)
+                .map(|contact| {
+                    let entity = entity.clone();
+                    let target = contact.jid.clone();
+                    let name = contact.name.clone();
+                    let number = format!("+{}", contact.jid.split('@').next().unwrap_or_default());
+                    let picture = self
+                        .find_chat(&contact.jid)
+                        .and_then(|chat| chat.avatar_cache_key.clone());
+                    div()
+                        .id(SharedString::from(format!("contact-{}", contact.jid)))
+                        .w_full()
+                        .flex()
+                        .items_center()
+                        .gap(metrics.space_lg())
+                        .px(metrics.space_lg())
+                        .py(metrics.space_sm())
+                        .rounded(metrics.radius_lg())
+                        .cursor_pointer()
+                        .hover(move |style| style.bg(hover))
+                        .on_click(move |_, window, cx| {
+                            let target = target.clone();
+                            let name = name.clone();
+                            entity.update(cx, |app, cx| {
+                                app.pick_contact(target, Some(name), window, cx)
+                            });
+                        })
+                        .child(
+                            crate::components::Avatar::new(
+                                contact.jid.clone(),
+                                &contact.name,
+                                avatar_size,
+                            )
+                            .picture(picture, media.clone()),
+                        )
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .flex()
+                                .flex_col()
+                                .child(
+                                    div()
+                                        .truncate()
+                                        .text_size(metrics.text_body())
+                                        .text_color(theme.foreground)
+                                        .child(contact.name.clone()),
+                                )
+                                .child(
+                                    div()
+                                        .text_size(metrics.text_small())
+                                        .text_color(theme.muted_foreground)
+                                        .child(number),
+                                ),
+                        )
+                        .into_any_element()
+                })
+                .collect();
+            let have_contacts = !contact_rows.is_empty();
+            let mut list: Vec<AnyElement> = Vec::new();
+            // "New contact" leads, as on the phone, whatever is typed.
+            let add_entity = entity.clone();
+            list.push(
+                div()
+                    .id("new-contact")
+                    .w_full()
+                    .flex()
+                    .items_center()
+                    .gap(metrics.space_lg())
+                    .px(metrics.space_lg())
+                    .py(metrics.space_sm())
+                    .rounded(metrics.radius_lg())
+                    .cursor_pointer()
+                    .hover(move |style| style.bg(hover))
+                    .on_click(move |_, window, cx| {
+                        add_entity.update(cx, |app, cx| app.open_new_contact_form(window, cx));
+                    })
+                    .child(
+                        div()
+                            .size(avatar_size)
+                            .flex_shrink_0()
+                            .rounded_full()
+                            .bg(theme.primary)
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .child(
+                                gpui_component::Icon::new(gpui_component::IconName::Plus)
+                                    .text_color(theme.primary_foreground),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .text_size(metrics.text_body())
+                            .text_color(theme.foreground)
+                            .child("New contact"),
+                    )
+                    .into_any_element(),
+            );
+            // While searching: the number row and matching chats (groups
+            // included) first, then contacts. With no search: contacts,
+            // A to Z, the way the phone lists them.
+            if trimmed.is_empty() && have_contacts {
+                list.push(section("Contacts on WhatsApp"));
+                list.extend(contact_rows);
+            } else {
+                if !rows.is_empty() {
+                    list.push(section(if trimmed.is_empty() {
+                        "Recent chats"
+                    } else {
+                        "Chats"
+                    }));
+                    list.extend(rows);
+                }
+                if have_contacts {
+                    list.push(section("Contacts"));
+                    list.extend(contact_rows);
+                }
+            }
+            rows = list;
+        }
         let empty = rows.is_empty();
         let title = match picker.purpose {
             Purpose::Forward { .. } => "Forward message to",
+            Purpose::NewChat if picker.new_contact.is_some() => "New contact",
             Purpose::NewChat => "New chat",
         };
+        // The New contact form, drawn in place of the search and the list.
+        let form = picker.new_contact.as_ref().map(|form| {
+            let back = entity.clone();
+            let save = entity.clone();
+            div()
+                .flex()
+                .flex_col()
+                .gap(metrics.space_md())
+                .px(metrics.space_xl())
+                .pb(metrics.space_xl())
+                .child(Input::new(&form.name).w_full())
+                .child(Input::new(&form.number).w_full())
+                .child(
+                    div()
+                        .text_size(metrics.text_small())
+                        .text_color(theme.muted_foreground)
+                        .child("Saved to your phone's contacts through WhatsApp, like adding them on the phone."),
+                )
+                .children(form.error.clone().map(|error| {
+                    div()
+                        .text_size(metrics.text_secondary())
+                        .text_color(theme.danger)
+                        .child(error)
+                }))
+                .child(
+                    div()
+                        .flex()
+                        .justify_end()
+                        .gap(metrics.space_md())
+                        .child(
+                            gpui_component::button::Button::new("new-contact-back")
+                                .label("Back")
+                                .ghost()
+                                .on_click(move |_, _, cx| {
+                                    back.update(cx, |app, cx| app.close_new_contact_form(cx));
+                                }),
+                        )
+                        .child({
+                            use gpui_component::Disableable as _;
+                            gpui_component::button::Button::new("new-contact-save")
+                                .label(if form.saving { "Saving…" } else { "Save" })
+                                .primary()
+                                .disabled(form.saving)
+                                .on_click(move |_, _, cx| {
+                                    save.update(cx, |app, cx| app.save_new_contact(cx));
+                                })
+                        }),
+                )
+                .into_any_element()
+        });
+        let showing_form = form.is_some();
 
         div()
             .id("forward-modal")
@@ -422,9 +797,12 @@ impl WhatsAppApp {
                                         .child(picker.preview.clone()),
                                 )
                             })
-                            .child(Input::new(&picker.input).w_full()),
+                            .when(!showing_form, |el| {
+                                el.child(Input::new(&picker.input).w_full())
+                            }),
                     )
-                    .child(
+                    .children(form)
+                    .when(!showing_form, |el| el.child(
                         div()
                             .id("forward-list")
                             .flex_1()
@@ -442,7 +820,7 @@ impl WhatsAppApp {
                                         .child("No chats match. To start one, type the number with its country code."),
                                 )
                             }),
-                    ),
+                    )),
                 "forward-card",
             ))
             .focus_trap("forward-trap", focus)

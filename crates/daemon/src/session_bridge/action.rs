@@ -59,6 +59,24 @@ pub enum Action {
         action: oxidezap_ipc::ChatAction,
         answer_to: Outbox,
     },
+    ListContacts {
+        id: RequestId,
+        query: Option<String>,
+        limit: u32,
+        answer_to: Outbox,
+    },
+    SaveContact {
+        id: RequestId,
+        jid: String,
+        full_name: String,
+        answer_to: Outbox,
+    },
+    SearchFiles {
+        id: RequestId,
+        query: String,
+        limit: u32,
+        answer_to: Outbox,
+    },
     ForwardMessage {
         id: RequestId,
         source_jid: String,
@@ -267,6 +285,8 @@ impl Action {
                     | Self::LoadMessages { .. }
                     | Self::LoadCallHistory { refresh: false, .. }
                     | Self::SearchEverywhere { .. }
+                    | Self::ListContacts { .. }
+                    | Self::SearchFiles { .. }
                     | Self::LoadChats { .. }
                     | Self::RefreshAvatars
                     | Self::Download { .. }
