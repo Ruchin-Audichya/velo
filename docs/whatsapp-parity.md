@@ -100,3 +100,9 @@ Still open:
 - Group members who have no chat with you never get a photo: WhatsApp gives
   pictures by chat, and there is none to ask through.
 - Business messages' buttons are text only.
+- Files search: a document from a chat not loaded in the window shows its
+  chat as "A chat" instead of the chat's name.
+- Files: the "N files" count above the list counts downloads only, not the
+  documents found in chats.
+- New chat: your own number is listed among contacts without "(You)".
+- Notifications show a generic icon instead of the Velo logo (Phase 3).
