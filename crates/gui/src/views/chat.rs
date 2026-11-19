@@ -88,6 +88,7 @@ pub fn render_connected_view(
     let chat_search_input = app.chat_search_input(cx).cloned();
 
     let message_list = app.message_list().clone();
+    let away_from_latest = app.away_from_latest;
     let input_area = app.input_area();
     // The composer draws itself into the slot the layout gave it, and only
     // this side knows what that is: left to its own defaults it used the
@@ -278,6 +279,14 @@ pub fn render_connected_view(
     });
     app.note_media_surface(cx);
     let status_list = status_feed.map(|feed| StatusListProps {
+        pictures: feed
+            .authors()
+            .iter()
+            .filter_map(|author| {
+                let key = app.chat_named(&author.jid)?.avatar_cache_key.clone()?;
+                Some((author.jid.clone(), key))
+            })
+            .collect(),
         feed,
         can_load_more: app.status_can_load_more(cx),
         selected: StatusSelection::of(app.status_pane().author()),
@@ -406,6 +415,7 @@ pub fn render_connected_view(
                         is_own_number,
                         plugin_actions,
                         media: media.clone(),
+                        away_from_latest,
                     },
                     &message_list,
                     entity.clone(),
@@ -500,8 +510,16 @@ pub fn render_rail(
     layout: crate::responsive::ResponsiveLayout,
     cx: &App,
 ) -> impl IntoElement + use<> {
+    let screen = if app.calls_open {
+        Some(crate::components::RailScreen::Calls)
+    } else if app.files_open {
+        Some(crate::components::RailScreen::Files)
+    } else {
+        None
+    };
     render_nav_rail(
         app.destination(),
+        screen,
         [
             app.unread_chat_count(),
             app.status_unseen(),
@@ -559,6 +577,8 @@ struct ChatAreaProps<'a> {
     /// case.
     plugin_actions: Vec<gpui::AnyElement>,
     media: Option<std::sync::Arc<dyn crate::session::MediaCache>>,
+    /// Scrolled up from the newest message: show the jump-back button.
+    away_from_latest: bool,
 }
 
 fn render_chat_area(
@@ -581,6 +601,7 @@ fn render_chat_area(
         offline_recovery,
         is_own_number,
         plugin_actions,
+        away_from_latest,
         media,
     } = props;
     let metrics = *layout.metrics();
@@ -643,12 +664,14 @@ fn render_chat_area(
                 .children(message_cache.map(|cache| {
                     // Keyed by the chat, so switching conversations fades the
                     // new one in rather than cutting to it.
+                    let jump_entity = entity.clone();
                     crate::motion::fade_in(
                         div()
                             .flex_1()
                             .min_h_0()
                             .flex()
                             .flex_col()
+                            .relative()
                             .child(render_message_list(
                                 cache,
                                 message_list,
@@ -658,7 +681,31 @@ fn render_chat_area(
                                 is_own_number,
                                 layout,
                                 cx,
-                            )),
+                            ))
+                            // Scrolled up: a round button back to the newest
+                            // message, where WhatsApp keeps its own.
+                            .when(away_from_latest, |el| {
+                                el.child(
+                                    div()
+                                        .absolute()
+                                        .right(metrics.space_xl())
+                                        .bottom(metrics.space_lg())
+                                        .child(crate::motion::pop_in(
+                                            gpui_component::button::Button::new("jump-to-latest")
+                                                .icon(gpui_component::IconName::ChevronDown)
+                                                .tooltip("Jump to the latest message")
+                                                .rounded_full()
+                                                .size(metrics.icon_button() * 1.15)
+                                                .shadow_md()
+                                                .on_click(move |_, _, cx| {
+                                                    jump_entity.update(cx, |app, cx| {
+                                                        app.jump_to_latest(cx)
+                                                    });
+                                                }),
+                                            "jump-to-latest-in",
+                                        )),
+                                )
+                            }),
                         gpui::ElementId::Name(format!("chat-in-{}", chat.jid).into()),
                     )
                 }))

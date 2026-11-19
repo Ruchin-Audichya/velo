@@ -17,8 +17,18 @@ use crate::components::parts;
 use crate::responsive::ResponsiveLayout;
 use crate::theme::Metrics;
 
+/// A full-window screen the rail opens over the destinations.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum RailScreen {
+    Calls,
+    Files,
+}
+
 pub fn render_nav_rail(
     current: Destination,
+    // Calls or Files when one of them is on screen. Then it, and not the
+    // destination underneath, is what the rail shows as selected.
+    screen: Option<RailScreen>,
     unread: [usize; 4],
     // Who is signed in, drawn as the photo at the foot of the strip — the
     // way into your profile and Settings, as in the desktop messengers.
@@ -85,7 +95,7 @@ pub fn render_nav_rail(
             .map(|(destination, badge)| {
                 render_destination(
                     destination,
-                    destination == current,
+                    screen.is_none() && destination == current,
                     badge,
                     target,
                     entity.clone(),
@@ -97,6 +107,7 @@ pub fn render_nav_rail(
     .child(
         Button::new("nav-calls")
             .ghost()
+            .selected(screen == Some(RailScreen::Calls))
             .icon(crate::components::ProductIcon::Phone)
             .tooltip("Calls")
             .accessibility_label("Calls")
@@ -106,12 +117,15 @@ pub fn render_nav_rail(
     .child(
         Button::new("nav-files")
             .ghost()
+            .selected(screen == Some(RailScreen::Files))
             .icon(crate::components::ProductIcon::FileText)
             .tooltip("Files & downloads")
             .accessibility_label("Files and downloads")
             .size(target)
             .on_click(move |_, _, cx| {
                 files_entity.update(cx, |app, cx| {
+                    // One screen at a time: Files replaces Calls.
+                    app.calls_open = false;
                     app.files_open = true;
                     if let Some(view) = &app.files_view {
                         view.update(cx, |view, cx| view.refresh(cx));

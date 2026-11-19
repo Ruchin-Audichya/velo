@@ -189,7 +189,16 @@ impl WhatsAppApp {
         window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) {
+        // Choosing a destination leaves Calls and Files, including the one
+        // already underneath them: clicking Status from Calls opened over
+        // Status used to do nothing at all.
+        let leaving_screen = self.calls_open || self.files_open;
+        self.calls_open = false;
+        self.files_open = false;
         if self.destination == destination {
+            if leaving_screen {
+                cx.notify();
+            }
             return;
         }
         // Switching the destination hides the conversation surface. Keep any
@@ -216,6 +225,8 @@ impl WhatsAppApp {
         // an oversized initial snapshot reduced the history budget.
         if destination == Destination::Status {
             self.ensure_timeline_page(STATUS_BROADCAST_JID, cx);
+            // The rings show people's photos; ask for the ones not yet here.
+            self.demand_status_avatars();
         }
         self.search
             .update(cx, |search, cx| search.clear_list_query(window, cx));

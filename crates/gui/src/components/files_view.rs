@@ -3,14 +3,13 @@
 use gpui::{prelude::*, *};
 use gpui_component::button::{Button, ButtonVariants as _};
 use gpui_component::input::{Input, InputEvent, InputState};
-use gpui_component::{ActiveTheme as _, Disableable as _, IconName, Selectable as _, Sizable as _};
+use gpui_component::{ActiveTheme as _, Disableable as _, IconName, Sizable as _};
 
 use crate::app::WhatsAppApp;
 use crate::platform::files::{self, Category, Entry};
 use crate::theme::ActiveProductTheme as _;
 
 pub struct FilesView {
-    owner: WeakEntity<WhatsAppApp>,
     search: Entity<InputState>,
     entries: Vec<Entry>,
     category: Category,
@@ -22,7 +21,9 @@ pub struct FilesView {
 
 impl FilesView {
     pub fn new(
-        owner: WeakEntity<WhatsAppApp>,
+        // Kept in the signature for the caller; the rail, not a back
+        // button here, is now the way out, so nothing reads it.
+        _owner: WeakEntity<WhatsAppApp>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -36,7 +37,6 @@ impl FilesView {
         })
         .detach();
         let mut view = Self {
-            owner,
             search,
             entries: Vec::new(),
             category: Category::All,
@@ -75,7 +75,6 @@ impl FilesView {
 impl Render for FilesView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let metrics = cx.product().metrics;
-        let owner = self.owner.clone();
         let query = self.search.read(cx).value().to_lowercase();
         let mut entries: Vec<_> = self
             .entries
@@ -104,15 +103,33 @@ impl Render for FilesView {
                     entry.category.label(),
                     files::size_label(entry.size)
                 );
+                // The same coloured type tile the chat's own Files panel and
+                // document bubbles use, so a spreadsheet looks like one here
+                // too, instead of every file being the same grey page.
+                let kind = match entry.category {
+                    Category::Images => crate::components::file_badge::FileKind::Image,
+                    Category::Videos => crate::components::file_badge::FileKind::Video,
+                    Category::Audio => crate::components::file_badge::FileKind::Audio,
+                    Category::Stickers => crate::components::file_badge::FileKind::Sticker,
+                    _ => crate::components::file_badge::FileKind::Document,
+                };
+                let label = crate::components::file_badge::extension_label(&entry.name, "");
+                let hover = cx.theme().list_hover;
                 div()
                     .id(SharedString::from(key.clone()))
                     .flex()
                     .items_center()
                     .gap(metrics.space_lg())
-                    .p(metrics.space_md())
-                    .rounded(metrics.radius_md())
-                    .bg(cx.theme().secondary)
-                    .child(gpui_component::Icon::new(IconName::File).size(metrics.icon()))
+                    .h(metrics.chat_row_height())
+                    .px(metrics.space_lg())
+                    .rounded(metrics.radius_lg())
+                    .hover(move |style| style.bg(hover))
+                    .child(crate::components::file_badge::file_badge(
+                        kind,
+                        label.as_deref(),
+                        metrics.avatar_row(),
+                        cx,
+                    ))
                     .child(
                         div()
                             .flex_1()
@@ -129,7 +146,8 @@ impl Render for FilesView {
                     )
                     .child(
                         Button::new(SharedString::from(format!("open-{key}")))
-                            .label("Open")
+                            .icon(IconName::ExternalLink)
+                            .tooltip("Open")
                             .ghost()
                             .small()
                             .on_click(move |_, _, cx| {
@@ -138,7 +156,8 @@ impl Render for FilesView {
                     )
                     .child(
                         Button::new(SharedString::from(format!("reveal-{key}")))
-                            .label("Show in folder")
+                            .icon(IconName::FolderOpen)
+                            .tooltip("Show in folder")
                             .ghost()
                             .small()
                             .on_click(move |_, _, cx| {
@@ -148,22 +167,22 @@ impl Render for FilesView {
             })
             .collect::<Vec<_>>();
 
-        div().size_full().flex().flex_col().gap(metrics.space_lg()).p(metrics.space_xl())
+        div().size_full().flex().flex_col().gap(metrics.space_md()).px(metrics.space_xl()).pb(metrics.space_lg())
             .bg(cx.theme().background).text_color(cx.theme().foreground)
-            .child(div().flex().flex_wrap().items_center().gap(metrics.space_md())
-                .child(Button::new("files-back").label("Back to chats").ghost().on_click(move |_, _, cx| {
-                    let _ = owner.update(cx, |app, cx| { app.files_open = false; cx.notify(); });
-                }))
-                .child(div().flex_1().min_w(metrics.space_xxxl() * 3.0).text_size(metrics.text_title()).child("Files & downloads"))
-                .child(Button::new("files-folder").label("Downloads folder").outline().on_click(|_, _, cx| {
-                    if let Ok(path) = files::root() { cx.open_with_system(&path); }
-                }))
-                .child(Button::new("files-refresh").label("Refresh").outline().disabled(self.loading)
-                    .on_click(cx.listener(|view, _, _, cx| view.refresh(cx)))))
+            // The rail is the way back, as on every other screen.
+            .child(div().h(metrics.sidebar_header_height()).flex_shrink_0().flex().items_center().justify_between()
+                .child(div().text_size(metrics.text_title()).font_weight(FontWeight::SEMIBOLD).child("Files"))
+                .child(div().flex().gap(metrics.space_xs())
+                    .child(Button::new("files-folder").icon(IconName::FolderOpen).tooltip("Open the downloads folder").ghost().small()
+                        .on_click(|_, _, cx| { if let Ok(path) = files::root() { cx.open_with_system(&path); } }))
+                    .child(Button::new("files-refresh").icon(IconName::Redo).tooltip("Refresh").ghost().small().disabled(self.loading)
+                        .on_click(cx.listener(|view, _, _, cx| view.refresh(cx))))))
             .child(Input::new(&self.search))
             .child(div().flex().flex_wrap().gap(metrics.space_sm())
                 .children(Category::ALL.into_iter().map(|category| {
-                    Button::new(category.label()).label(category.label()).ghost().selected(self.category == category)
+                    let selected = self.category == category;
+                    Button::new(category.label()).label(category.label()).small().rounded(metrics.radius_xl())
+                        .when(selected, |b| b.primary()).when(!selected, |b| b.ghost())
                         .on_click(cx.listener(move |view, _, _, cx| { view.category = category; view.visible = 100; cx.notify(); }))
                 })))
             .child(div().flex().items_center().justify_between()
@@ -175,7 +194,7 @@ impl Render for FilesView {
             .when(count == 0 && !self.loading && self.error.is_none(), |view| view.child(
                 "Saved attachments appear here automatically. Download a file from a conversation to get started."))
             .child(div().id("files-list").flex_1().min_h_0().overflow_y_scroll().flex().flex_col()
-                .gap(metrics.space_sm()).children(rows)
+                .children(rows)
                 .when(count > self.visible, |list| list.child(Button::new("files-more").label("Show more").outline()
                     .on_click(cx.listener(|view, _, _, cx| { view.visible += 100; cx.notify(); })))))
     }

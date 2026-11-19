@@ -35,6 +35,9 @@ pub struct StatusListProps {
     /// Where this list is scrolled to, which is also what its scrollbar
     /// paints itself over.
     pub scroll: gpui::ScrollHandle,
+    /// Each author's profile picture, by JID, when their chat has one. The
+    /// ring drew a silhouette for everyone before, photo or not.
+    pub pictures: std::collections::HashMap<String, String>,
 }
 
 /// Whose run the reader has open.
@@ -217,6 +220,7 @@ fn render_rows(
                             author,
                             props.selected.is(&author.jid),
                             None,
+                            props.pictures.get(&author.jid).cloned(),
                             rows_entity.clone(),
                             layout,
                             cx,
@@ -317,6 +321,7 @@ fn render_mine(
                 author,
                 props.selected == StatusSelection::Mine,
                 Some(subtitle.clone()),
+                props.pictures.get(&author.jid).cloned(),
                 entity,
                 layout,
                 cx,
@@ -360,7 +365,16 @@ fn render_recent(
     rows.push(section_label(crate::tr!(Recent), metrics, cx).into_any_element());
     rows.extend(authors.iter().map(|author| {
         let is_selected = props.selected.is(&author.jid);
-        render_author_row(author, is_selected, None, entity.clone(), layout, cx).into_any_element()
+        render_author_row(
+            author,
+            is_selected,
+            None,
+            props.pictures.get(&author.jid).cloned(),
+            entity.clone(),
+            layout,
+            cx,
+        )
+        .into_any_element()
     }));
     rows
 }
@@ -382,6 +396,7 @@ fn render_author_row(
     author: &StatusAuthor,
     is_selected: bool,
     subtitle: Option<SharedString>,
+    picture: Option<String>,
     entity: Entity<WhatsAppApp>,
     layout: ResponsiveLayout,
     cx: &App,
@@ -438,6 +453,7 @@ fn render_author_row(
         .child(status_ring(
             &author.jid,
             &author.name,
+            picture,
             avatar,
             author.count(),
             author.unseen,
@@ -605,6 +621,7 @@ mod visible_cost {
                     can_load_more: false,
                     selected: self.selected.clone(),
                     scroll: self.scroll.clone(),
+                    pictures: Default::default(),
                 },
                 self.app.clone(),
                 layout,

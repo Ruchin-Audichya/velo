@@ -937,6 +937,10 @@ pub struct WhatsAppApp {
     /// position, both of which belong to what is on screen. Switching chats
     /// resets it, which is also what puts the reader at the newest message.
     message_list: ListState,
+    /// The reader has scrolled up, away from the newest message; the
+    /// conversation shows a button back down. Set by the list's own scroll
+    /// handler, and only when it flips, so scrolling costs no extra frames.
+    pub(crate) away_from_latest: bool,
     /// What `message_list` was last reset or spliced for, so a new message
     /// extends it and a new conversation replaces it.
     timeline_anchor: Option<TimelineAnchor>,
@@ -1576,7 +1580,23 @@ impl WhatsAppApp {
             viewer: cx.new(viewer::Viewer::new),
             // The window's own base font is not known until it has been laid
             // out; the reference scale is what it starts from.
-            message_list: new_timeline_state(0, crate::theme::Metrics::default()),
+            message_list: {
+                let state = new_timeline_state(0, crate::theme::Metrics::default());
+                let weak = cx.entity().downgrade();
+                state.set_scroll_handler(move |event, _window, cx| {
+                    // A few messages of slack, so the button does not flicker
+                    // in and out at the very foot of the conversation.
+                    let away = event.visible_range.end + 2 < event.count;
+                    let _ = weak.update(cx, |app, cx| {
+                        if app.away_from_latest != away {
+                            app.away_from_latest = away;
+                            cx.notify();
+                        }
+                    });
+                });
+                state
+            },
+            away_from_latest: false,
             timeline_anchor: None,
             input_area: None,
             file_drop_listener: None,
@@ -2003,6 +2023,31 @@ impl WhatsAppApp {
     /// cache key to land under and a row that already knows how to show it.
     /// Bounded, because a group can have a thousand members and the panel
     /// shows the first screenful before anyone scrolls.
+    /// Ask for the pictures of the people whose updates the Status list
+    /// shows, the way a chat row asks for its own when it scrolls into view.
+    pub(crate) fn demand_status_avatars(&mut self) {
+        const MAX: usize = 60;
+        let feed = self.status_feed();
+        let demands: Vec<crate::session::avatar::ChatDemand> = feed
+            .authors()
+            .iter()
+            .filter_map(|author| self.find_chat(&author.jid))
+            .take(MAX)
+            .map(|chat| crate::session::avatar::ChatDemand {
+                jid: chat.jid.clone(),
+                picture_id: chat.avatar_picture_id.clone(),
+                cache_key: chat.avatar_cache_key.clone(),
+            })
+            .collect();
+        if demands.is_empty() {
+            return;
+        }
+        self.avatar_manager.demand_chats(&demands);
+        if let Some(session) = &self.client {
+            self.avatar_manager.flush_demands(session);
+        }
+    }
+
     fn demand_member_avatars(&mut self) {
         const MAX: usize = 60;
         let Some(jid) = self.selected_chat.clone() else {
@@ -2942,6 +2987,14 @@ impl WhatsAppApp {
         if count > 0 {
             self.message_list.scroll_to_reveal_item(count - 1);
         }
+    }
+
+    /// Back to the newest message, from the button that shows while the
+    /// reader is scrolled up.
+    pub(crate) fn jump_to_latest(&mut self, cx: &mut Context<Self>) {
+        self.scroll_to_last_message();
+        self.away_from_latest = false;
+        cx.notify();
     }
 
     /// Get the isolated input area view entity
