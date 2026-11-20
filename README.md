@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Ruchin-Audichya/velo/releases/latest/download/Velo-Setup-1.1.0-x64.exe"><b>⬇ Download Velo 1.1 for Windows</b></a>
+  <a href="https://github.com/Ruchin-Audichya/velo/releases/latest/download/Velo-Setup-1.2.0-x64.exe"><b>⬇ Download Velo 1.2 for Windows</b></a>
   &nbsp;·&nbsp; Windows 10 &amp; 11, 64-bit &nbsp;·&nbsp; free
   <br><sub><a href="https://github.com/Ruchin-Audichya/velo/releases/latest">All downloads, portable zip and checksums</a></sub>
 </p>
@@ -31,9 +31,30 @@ Meanwhile your PC has a perfectly good processor that would love to draw some ch
 
 Someone asked.
 
-Velo is a **real Windows app**: written in Rust, drawn on your GPU, no embedded browser anywhere. It links to your phone the same way WhatsApp Web does, by scanning a QR code, and then it just… works. Quickly. Quietly. In about **90 MB for the window plus ~36 MB for the background service** on the machine it was built on. (Your mileage may vary. Your RAM will thank you either way.)
+Velo is a **real Windows app**: written in Rust, drawn on your GPU, no embedded browser anywhere. It links to your phone the same way WhatsApp Web does, by scanning a QR code, and then it just… works. Quickly. Quietly. In about **118 MB for the window plus ~18 MB for the background service** on the machine it was built on, against roughly 1 GB for the official app. (Your mileage may vary. Your RAM will thank you either way.)
 
 It also keeps running in the tray when you close the window, so messages and calls still reach you. Like a messenger is supposed to.
+
+## Velo vs the official app
+
+| | Official WhatsApp app | **Velo** |
+|-|-|-|
+| What it is | WhatsApp Web inside a browser engine (WebView2) | A native app: Rust, drawn on your GPU |
+| Memory, idle | ~1,053 MB across 8 processes | **~136 MB across 2 processes** |
+| Opens in | not measured | **~0.2 s** |
+| Download | Microsoft Store | **35 MB installer, no admin** |
+
+**What you get on top:** an unread count on the taskbar, notifications that arrive with the window closed, a preview of photos and videos before you download them, search across every chat plus a search for any file by name, one-click HD camera presets, and 16 wallpapers, 8 themes and your own accent colour.
+
+<sub>Memory is private bytes from Task Manager, measured on the same laptop with the same account and both apps idle on the chat list (Intel i5-11300H, Windows 11). Your numbers will vary.</sub>
+
+## New in 1.2
+
+- **Message anyone from a group:** click a name on a message, or a person in the group's member list, to open your private chat with them
+- **Reactions that pop:** the reaction bar springs open, emoji pop in one after another, and they're bigger
+- **16 wallpapers**, including Aurora, Sunset, a subtle Dots pattern, Lavender, Rose, Mint, Sand, Midnight and Graphite
+- **Proper file tabs** in a chat's shared files: Docs, Photos, Videos and more, each with a count
+- Settings shows what you've chosen at a glance
 
 ## New in 1.1
 
