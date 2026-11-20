@@ -751,6 +751,10 @@ pub struct WhatsAppApp {
     /// taken by a frame still being drawn — which is a frame that is about to
     /// end.
     chats: Vec<Arc<Chat>>,
+    /// A chat this window made up so there was somewhere to type to someone
+    /// — New chat, a sender's name, a group member — and nothing has been
+    /// written in yet. Leaving it empty takes it out of the list again.
+    unwritten_chat: Option<String>,
     /// Currently selected chat JID
     selected_chat: Option<String>,
     /// WhatsApp client wrapper
@@ -1546,6 +1550,7 @@ impl WhatsAppApp {
             body_renders: 0,
             app_state: AppState::Loading,
             chats: Vec::new(),
+            unwritten_chat: None,
             selected_chat: None,
             client: None,
             account_selection: recovery::AccountSelection::load(),
@@ -3217,6 +3222,22 @@ impl WhatsAppApp {
             // opened kept claiming one while its text was already back in the
             // composer.
             if stashed.is_some() || !restored.is_empty() {
+                self.invalidate_chat_cache();
+            }
+        }
+        // A conversation opened to message someone and left without a word
+        // goes again, as on the phone: it was somewhere to type, not a chat.
+        // One with a draft stays, so the draft has somewhere to live.
+        if let Some(left) = self.unwritten_chat.clone()
+            && left != jid
+        {
+            self.unwritten_chat = None;
+            if !self.drafts.contains_key(&left)
+                && self
+                    .find_chat(&left)
+                    .is_some_and(|chat| chat.messages.is_empty())
+            {
+                self.chats.retain(|chat| chat.jid != left);
                 self.invalidate_chat_cache();
             }
         }

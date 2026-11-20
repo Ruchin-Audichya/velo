@@ -1,12 +1,12 @@
 //! Audio and camera selection, tests, and the pre-call preview.
-use super::panes::{group, label};
+use super::panes::{chosen, group, label};
 use crate::app::WhatsAppApp;
 use crate::theme::Metrics;
 use gpui::{
     App, Entity, IntoElement, ParentElement, Styled, div, img, prelude::FluentBuilder as _,
 };
 use gpui_component::button::{Button, ButtonVariants as _};
-use gpui_component::{ActiveTheme as _, Disableable as _, Selectable as _, Sizable as _};
+use gpui_component::{ActiveTheme as _, Disableable as _, Sizable as _};
 use velo_core::{CallDevice, CallDevicePreferences, CameraMode, Ringtone};
 
 #[derive(Clone, Copy)]
@@ -191,17 +191,6 @@ impl Preset {
                     std::cmp::Reverse(mode.width),
                 )
             })
-    }
-}
-
-/// A choice chip: filled in the accent when it is the one in effect, so the
-/// current setting reads at a glance. An outline's own selected state is
-/// a shade apart from its resting one, too faint to tell on a dark theme.
-fn chosen(button: Button, selected: bool) -> Button {
-    if selected {
-        button.primary().selected(true)
-    } else {
-        button.outline()
     }
 }
 

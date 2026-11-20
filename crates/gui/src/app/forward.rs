@@ -324,21 +324,38 @@ impl WhatsAppApp {
             Some(Purpose::Forward { .. }) => self.forward_to(target, cx),
             Some(Purpose::NewChat) => {
                 self.forward_picker = None;
-                if self.find_chat(&target).is_none() {
-                    // A conversation nobody has written in yet. The store
-                    // learns of it with the first message; until then the
-                    // window holds it so there is somewhere to type.
-                    let mut chat = Chat::new(target.clone());
-                    chat.name = name.unwrap_or_else(|| {
-                        format!("+{}", target.split('@').next().unwrap_or_default())
-                    });
-                    self.chats.insert(0, Arc::new(chat));
-                    self.invalidate_chat_cache();
-                }
-                self.select_chat(target, ChatOpen::ToCompose, window, cx);
+                self.message_person(target, name, window, cx);
             }
             None => {}
         }
+    }
+
+    /// Open the one-to-one chat with `jid`, ready to type: the existing one
+    /// when there is one, otherwise a new one. How "message this person" works
+    /// from everywhere it is offered: New chat, a sender's name in a group, a
+    /// group's member list.
+    pub fn message_person(
+        &mut self,
+        jid: String,
+        name: Option<String>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.find_chat(&jid).is_none() {
+            // A conversation nobody has written in yet. The store learns of
+            // it with the first message; until then the window holds it so
+            // there is somewhere to type.
+            let mut chat = Chat::new(jid.clone());
+            chat.name =
+                name.unwrap_or_else(|| format!("+{}", jid.split('@').next().unwrap_or_default()));
+            self.chats.insert(0, Arc::new(chat));
+            self.invalidate_chat_cache();
+            self.unwritten_chat = Some(jid.clone());
+        }
+        // Over a group's details panel the person's chat is what was asked
+        // for; the panel was the group's.
+        self.contact_info_open = false;
+        self.select_chat(jid, ChatOpen::ToCompose, window, cx);
     }
 
     pub(super) fn cancel_forward_picker(&mut self, cx: &mut Context<Self>) -> bool {

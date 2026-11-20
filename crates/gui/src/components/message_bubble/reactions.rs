@@ -3,7 +3,8 @@
 use std::collections::HashMap;
 
 use gpui::{
-    App, Entity, IntoElement, ParentElement, SharedString, Styled, div, prelude::FluentBuilder as _,
+    Animation, AnimationExt as _, App, Entity, InteractiveElement as _, IntoElement, ParentElement,
+    SharedString, Styled, div, prelude::FluentBuilder as _,
 };
 use gpui_component::ActiveTheme as _;
 use gpui_component::button::ButtonVariants as _;
@@ -74,43 +75,104 @@ pub fn render_reactions(
 /// and a surface positioned against the bubble would need an anchor the
 /// virtual list does not give back. One tap sends — or takes back, when it
 /// names the reaction already drawn as ours.
+///
+/// It springs open the way the phone's does: the strip rises in, then each
+/// emoji pops up a beat after the one before it, overshooting a little and
+/// settling. Every emoji sits in a fixed cell, so only paint moves and the
+/// row's height never changes while it plays — the virtual list measures
+/// rows, and a row that grew mid-animation would jolt the timeline.
 pub fn render_reaction_picker(
     message_id: &str,
     entity: Entity<WhatsAppApp>,
     metrics: Metrics,
     cx: &App,
 ) -> impl IntoElement + use<> {
-    div()
-        .flex()
-        .gap(metrics.space_xxs())
-        .items_center()
-        .px(metrics.space_xs())
-        .py(metrics.space_xxs())
-        .mt(metrics.space_xs())
-        .rounded_full()
-        .bg(cx.theme().popover)
-        .border_1()
-        .border_color(cx.theme().border)
-        .children(WhatsAppApp::QUICK_REACTIONS.into_iter().map(|emoji| {
-            let picker_entity = entity.clone();
-            let picker_id = message_id.to_string();
-            let picker_emoji = emoji.to_string();
-            // A `Button`, not a styled div: reacting is a command, and the
-            // same rule that made the retry control one applies here — a
-            // pointer-only surface is not a route keyboard users can take.
-            gpui_component::button::Button::new(SharedString::from(format!(
-                "quick-react-{message_id}-{emoji}"
-            )))
-            .ghost()
-            .xsmall()
-            .label(emoji)
-            .tooltip(crate::tr!(react_emoji, emoji))
-            .on_click(move |_, window, cx| {
-                picker_entity.update(cx, |app, cx| {
-                    app.toggle_reaction(&picker_id, &picker_emoji, window, cx)
-                });
-            })
-        }))
+    let cell = metrics.text_title() * 1.9;
+    let strip =
+        div()
+            .flex()
+            .gap(metrics.space_xxs())
+            .items_center()
+            .px(metrics.space_xs())
+            .py(metrics.space_xxs())
+            .mt(metrics.space_xs())
+            .rounded_full()
+            .bg(cx.theme().popover)
+            .border_1()
+            .border_color(cx.theme().border)
+            .shadow_md()
+            .children(WhatsAppApp::QUICK_REACTIONS.into_iter().enumerate().map(
+                |(index, emoji)| {
+                    let picker_entity = entity.clone();
+                    let picker_id = message_id.to_string();
+                    let picker_emoji = emoji.to_string();
+                    let full = metrics.text_title();
+                    let face = div()
+                        .id(SharedString::from(format!("quick-react-face-{index}")))
+                        .text_size(full)
+                        .line_height(gpui::relative(1.0))
+                        .child(emoji)
+                        .with_animation(
+                            SharedString::from(format!("quick-react-pop-{message_id}-{index}")),
+                            Animation::new(POP_STEP * index as u32 + POP_EACH),
+                            move |el, t| {
+                                let local = staggered(t, index);
+                                el.text_size(full * spring(local)).opacity(local.min(1.0))
+                            },
+                        );
+                    // A `Button`, not a styled div: reacting is a command,
+                    // and the same rule that made the retry control one
+                    // applies here — a pointer-only surface is not a route
+                    // keyboard users can take.
+                    gpui_component::button::Button::new(SharedString::from(format!(
+                        "quick-react-{message_id}-{emoji}"
+                    )))
+                    .ghost()
+                    .rounded_full()
+                    .size(cell)
+                    .p_0()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    // A hovered emoji leans in, the way a finger resting on
+                    // one does on the phone.
+                    .hover(move |style| style.text_size(full * 1.3))
+                    .child(face)
+                    .tooltip(crate::tr!(react_emoji, emoji))
+                    .on_click(move |_, window, cx| {
+                        picker_entity.update(cx, |app, cx| {
+                            app.toggle_reaction(&picker_id, &picker_emoji, window, cx)
+                        });
+                    })
+                },
+            ));
+    crate::motion::rise_in(
+        strip,
+        SharedString::from(format!("quick-react-strip-{message_id}")),
+        metrics.space_md(),
+    )
+}
+
+/// How long one emoji takes to pop, and how far behind the previous one it
+/// starts: six of them land in about a third of a second.
+const POP_EACH: std::time::Duration = std::time::Duration::from_millis(220);
+const POP_STEP: std::time::Duration = std::time::Duration::from_millis(28);
+
+/// Where emoji `index` is in its own pop, given `t` through an animation
+/// that lasts its delay plus its pop. 0 until its turn, then 0→1.
+fn staggered(t: f32, index: usize) -> f32 {
+    let delay = POP_STEP.as_secs_f32() * index as f32;
+    let total = delay + POP_EACH.as_secs_f32();
+    ((t * total - delay) / POP_EACH.as_secs_f32()).clamp(0.0, 1.0)
+}
+
+/// An ease-out with a little overshoot: past full size, then back to it.
+/// The "back" curve, which settles exactly at 1.
+fn spring(t: f32) -> f32 {
+    const C1: f32 = 1.70158;
+    const C3: f32 = C1 + 1.0;
+    let u = t - 1.0;
+    1.0 + C3 * u * u * u + C1 * u * u
 }
 
 /// React, reply and copy, revealed on hover.
@@ -169,4 +231,33 @@ pub fn render_hover_actions(
         .when(has_text, |el| {
             el.child(gpui_component::clipboard::Clipboard::new(ids.copy.clone()).value(content))
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn each_emoji_waits_its_turn_then_settles_at_full_size() {
+        assert_eq!(staggered(0.0, 3), 0.0, "nothing before its turn");
+        assert_eq!(staggered(1.0, 0), 1.0);
+        assert_eq!(
+            staggered(1.0, 5),
+            1.0,
+            "the last one finishes with the animation"
+        );
+        assert!(staggered(0.3, 0) > staggered(0.3, 4), "earlier ones lead");
+        assert!(
+            (spring(1.0) - 1.0).abs() < 1e-6,
+            "settles exactly at full size"
+        );
+        assert_eq!(spring(0.0), 0.0);
+        let peak = (0..=100)
+            .map(|i| spring(i as f32 / 100.0))
+            .fold(0.0, f32::max);
+        assert!(
+            peak > 1.05 && peak < 1.15,
+            "a small overshoot, not a bounce: {peak}"
+        );
+    }
 }

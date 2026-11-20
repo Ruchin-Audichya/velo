@@ -18,8 +18,8 @@ use crate::retained_image::RetainedImage;
 use std::sync::Arc;
 
 use gpui::{
-    App, Entity, InteractiveElement, IntoElement, ParentElement, RenderImage, SharedString, Styled,
-    div, prelude::FluentBuilder as _,
+    App, Entity, InteractiveElement, IntoElement, ParentElement, RenderImage, SharedString,
+    StatefulInteractiveElement as _, Styled, div, prelude::FluentBuilder as _,
 };
 use gpui_component::ActiveTheme as _;
 use gpui_component::button::{Button, ButtonVariants as _};
@@ -269,10 +269,42 @@ pub fn render_message_bubble(
                             v_flex()
                                 .gap(metrics.space_md())
                                 .children(sender_name.map(|name| {
+                                    // Click a name to message that person,
+                                    // as in WhatsApp: the way from "who
+                                    // said that?" to a private reply.
+                                    let person = message.sender.clone();
+                                    let person_name = name.to_string();
+                                    let dm = entity.clone();
                                     div()
+                                        .id(SharedString::from(format!("sender-{message_id}")))
                                         .text_size(metrics.text_small())
                                         .font_weight(gpui::FontWeight::SEMIBOLD)
                                         .text_color(sender_hue)
+                                        .cursor_pointer()
+                                        .hover(|style| style.underline())
+                                        .tooltip({
+                                            let tip = SharedString::from(
+                                                crate::tr!(message_person, name.clone())
+                                                    .to_string(),
+                                            );
+                                            move |window, cx| {
+                                                gpui_component::tooltip::Tooltip::new(tip.clone())
+                                                    .build(window, cx)
+                                            }
+                                        })
+                                        .on_click(move |_, window, cx| {
+                                            cx.stop_propagation();
+                                            let person = person.clone();
+                                            let person_name = person_name.clone();
+                                            dm.update(cx, |app, cx| {
+                                                app.message_person(
+                                                    person,
+                                                    Some(person_name),
+                                                    window,
+                                                    cx,
+                                                )
+                                            });
+                                        })
                                         .child(name)
                                 }))
                                 .children(message.quoted.as_ref().map(|quoted| {

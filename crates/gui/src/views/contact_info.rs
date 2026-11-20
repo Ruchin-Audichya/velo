@@ -177,11 +177,38 @@ pub fn render(
                             .unwrap_or_else(|| "Unknown member".into())
                     })
                 };
+                let person = member.jid.clone();
+                let person_name = member.name.clone();
+                let dm = entity.clone();
                 div()
+                    .id(SharedString::from(format!("member-{}", member.jid)))
                     .flex()
                     .items_center()
                     .gap(metrics.space_md())
                     .py(metrics.space_xs())
+                    .px(metrics.space_sm())
+                    .rounded(metrics.radius_md())
+                    // Yourself is not someone to message.
+                    .when(!member.is_self, |row| {
+                        row.cursor_pointer()
+                            .hover(|style| style.bg(cx.theme().secondary))
+                            .tooltip({
+                                let tip = SharedString::from(
+                                    crate::tr!(message_person, label.clone()).to_string(),
+                                );
+                                move |window, cx| {
+                                    gpui_component::tooltip::Tooltip::new(tip.clone())
+                                        .build(window, cx)
+                                }
+                            })
+                            .on_click(move |_, window, cx| {
+                                let person = person.clone();
+                                let person_name = person_name.clone();
+                                dm.update(cx, |app, cx| {
+                                    app.message_person(person, person_name, window, cx)
+                                });
+                            })
+                    })
                     .child(
                         Avatar::new(member.jid.clone(), &label, metrics.avatar_inline())
                             .picture(member_picture(&member.jid), None)

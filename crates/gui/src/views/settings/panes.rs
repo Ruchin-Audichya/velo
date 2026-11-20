@@ -48,6 +48,17 @@ pub fn render(
         .into_any_element()
 }
 
+/// A choice chip: filled in the accent when it is the one in effect, so the
+/// current setting reads at a glance. An outline's own selected state is a
+/// shade apart from its resting one — too faint to tell on a dark theme.
+pub fn chosen(button: Button, selected: bool) -> Button {
+    if selected {
+        button.primary().selected(true)
+    } else {
+        button.outline()
+    }
+}
+
 /// A titled block: a label, then its content.
 ///
 /// The two elements are named type parameters rather than `impl IntoElement`
@@ -449,9 +460,8 @@ fn chime_volume_row(
         .children(STEPS.into_iter().map(move |(volume, name)| {
             let entity = entity.clone();
             Button::new(SharedString::from(format!("chime-volume-{volume}")))
-                .outline()
                 .small()
-                .selected(current == volume)
+                .map(|b| chosen(b, current == volume))
                 .label(name)
                 .on_click(move |_, _, cx| {
                     entity.update(cx, |app, cx| {
@@ -895,8 +905,7 @@ fn advanced(entity: Entity<WhatsAppApp>, metrics: Metrics, cx: &App) -> AnyEleme
                         let entity = entity.clone();
                         Button::new(SharedString::from(format!("log-level-{}", level.id())))
                             .label(level.label())
-                            .outline()
-                            .selected(level == active)
+                            .map(|b| chosen(b, level == active))
                             .px(metrics.space_xl())
                             .py(metrics.space_md())
                             .rounded(metrics.radius_md())

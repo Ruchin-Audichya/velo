@@ -19,6 +19,7 @@ formatted_catalog! {
     opened_camera(width, height, fps) => ("Camera opened at {width} × {height} · {fps} FPS", "Câmera aberta em {width} × {height} · {fps} FPS");
     last_seen(time) => ("last seen {time}", "visto por último {time}");
     others(line, count) => ("{line} and {count}", "{line} e {count}");
+    message_person(name) => ("Message {name}", "Enviar mensagem para {name}");
     own_name(name) => ("{name} (You)", "{name} (Você)");
     match_count(current, total) => ("{current} of {total}", "{current} de {total}");
     could_not_remember_account(error) => ("Could not remember the selected account: {error}", "Não foi possível lembrar a conta selecionada: {error}");

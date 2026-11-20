@@ -1,9 +1,10 @@
 //! Chat wallpapers: what the conversation is drawn on.
 //!
-//! Six, each in a light and a dark form chosen by the active preset. All of
-//! them are gradients drawn by the GPU — no image files, nothing decoded,
-//! nothing to keep in memory — so switching is instant and an idle window
-//! costs the same as a plain one. They are this project's own designs: none
+//! Sixteen, each in a light and a dark form chosen by the active preset. All
+//! of them are drawn by the GPU — gradients, glows, and one pattern of dots
+//! laid out from the rem — with no image files, nothing decoded and nothing
+//! to keep in memory, so switching is instant and an idle window costs the
+//! same as a plain one. They are this project's own designs: none
 //! reproduces another app's artwork.
 //!
 //! Colours live here rather than in the palette for the reason the palette
@@ -15,7 +16,10 @@
 use std::fmt;
 use std::str::FromStr;
 
-use gpui::{Div, Hsla, ParentElement as _, Styled as _, div, linear_color_stop, linear_gradient};
+use gpui::{
+    Bounds, Div, Hsla, ParentElement as _, Styled as _, canvas, div, linear_color_stop,
+    linear_gradient, point, size,
+};
 use serde::{Deserialize, Serialize};
 
 use super::palette::{Palette, Rgb};
@@ -40,18 +44,45 @@ pub enum Wallpaper {
     Forest,
     /// A warm ember brown.
     Ember,
+    /// Teal and violet glows from opposite corners, like a northern sky.
+    Aurora,
+    /// Apricot and rose glows: the last light of the day.
+    Sunset,
+    /// A quiet grid of dots over the ground: texture without a picture.
+    Dots,
+    /// Soft violet.
+    Lavender,
+    /// Blush pink.
+    Rose,
+    /// Fresh mint.
+    Mint,
+    /// Warm sand.
+    Sand,
+    /// Deep navy.
+    Midnight,
+    /// Neutral slate grey.
+    Graphite,
 }
 
 impl Wallpaper {
     /// In the order Settings offers them.
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 16] = [
         Self::Classic,
         Self::Mist,
         Self::Plain,
+        Self::Dots,
+        Self::Aurora,
+        Self::Sunset,
         Self::Dusk,
         Self::Ocean,
         Self::Forest,
         Self::Ember,
+        Self::Lavender,
+        Self::Rose,
+        Self::Mint,
+        Self::Sand,
+        Self::Midnight,
+        Self::Graphite,
     ];
 
     /// The value written to `theme.json`.
@@ -64,6 +95,15 @@ impl Wallpaper {
             Self::Ocean => "ocean",
             Self::Forest => "forest",
             Self::Ember => "ember",
+            Self::Aurora => "aurora",
+            Self::Sunset => "sunset",
+            Self::Dots => "dots",
+            Self::Lavender => "lavender",
+            Self::Rose => "rose",
+            Self::Mint => "mint",
+            Self::Sand => "sand",
+            Self::Midnight => "midnight",
+            Self::Graphite => "graphite",
         }
     }
 
@@ -76,6 +116,15 @@ impl Wallpaper {
             Self::Ocean => "Ocean",
             Self::Forest => "Forest",
             Self::Ember => "Ember",
+            Self::Aurora => "Aurora",
+            Self::Sunset => "Sunset",
+            Self::Dots => "Dots",
+            Self::Lavender => "Lavender",
+            Self::Rose => "Rose",
+            Self::Mint => "Mint",
+            Self::Sand => "Sand",
+            Self::Midnight => "Midnight",
+            Self::Graphite => "Graphite",
         }
     }
 
@@ -83,11 +132,19 @@ impl Wallpaper {
     /// or light theme. `None` for the wallpapers that are the ground itself.
     fn tint(self, dark: bool) -> Option<Rgb> {
         let (dark_tint, light_tint) = match self {
-            Self::Classic | Self::Mist | Self::Plain => return None,
+            Self::Classic | Self::Mist | Self::Plain | Self::Aurora | Self::Sunset | Self::Dots => {
+                return None;
+            }
             Self::Dusk => (0x221a3d, 0xece6fb),
             Self::Ocean => (0x0c2530, 0xdff1f5),
             Self::Forest => (0x112219, 0xe2f1e7),
             Self::Ember => (0x2b1a15, 0xfbebe0),
+            Self::Lavender => (0x241d36, 0xf1ebfa),
+            Self::Rose => (0x2d1a22, 0xfbe9ee),
+            Self::Mint => (0x10261f, 0xe3f5ec),
+            Self::Sand => (0x201b13, 0xf6efe2),
+            Self::Midnight => (0x0e1730, 0xe7ecf8),
+            Self::Graphite => (0x1d1f22, 0xeceef0),
         };
         Some(Rgb(if dark { dark_tint } else { light_tint }))
     }
@@ -115,6 +172,48 @@ impl Wallpaper {
                         linear_color_stop(clear, 0.65),
                     )))
             }
+            Self::Aurora => glows(base.bg(ground), (0x2dd4bf, 0x8b5cf6), dark),
+            Self::Sunset => glows(base.bg(ground), (0xfb923c, 0xec4899), dark),
+            Self::Dots => {
+                let dot = hsla(palette.foreground).opacity(if dark { 0.07 } else { 0.08 });
+                base.bg(ground).child(
+                    canvas(
+                        |_, _, _| {},
+                        move |bounds, (), window, _| {
+                            // From the rem, like every other size: the
+                            // pattern scales with the window's text.
+                            let step = window.rem_size() * 1.5;
+                            let radius = window.rem_size() * 0.1;
+                            let mut y = bounds.top() + step / 2.0;
+                            let mut row = 0;
+                            while y < bounds.bottom() {
+                                // Every other row offset by half a step:
+                                // a woven grid, not graph paper.
+                                let mut x =
+                                    bounds.left() + if row % 2 == 0 { step / 2.0 } else { step };
+                                while x < bounds.right() {
+                                    window.paint_quad(
+                                        gpui::fill(
+                                            Bounds::new(
+                                                point(x - radius, y - radius),
+                                                size(radius * 2.0, radius * 2.0),
+                                            ),
+                                            dot,
+                                        )
+                                        .corner_radii(radius),
+                                    );
+                                    x += step;
+                                }
+                                y += step * 0.866;
+                                row += 1;
+                            }
+                        },
+                    )
+                    .absolute()
+                    .inset_0()
+                    .size_full(),
+                )
+            }
             _ => {
                 let tint = hsla(self.tint(dark).unwrap_or(palette.background));
                 base.bg(linear_gradient(
@@ -135,6 +234,22 @@ impl Wallpaper {
 
 fn hsla(colour: Rgb) -> Hsla {
     gpui::rgb(colour.0).into()
+}
+
+/// Two soft glows over `base`, one from the top-left corner and one from the
+/// bottom-right, each fading to nothing well before the middle so the
+/// conversation itself sits on the plain ground.
+fn glows(base: Div, (first, second): (u32, u32), dark: bool) -> Div {
+    let strength = if dark { 0.20 } else { 0.14 };
+    let layer = |colour: u32, angle: f32| {
+        let glow: Hsla = gpui::rgb(colour).into();
+        div().absolute().inset_0().bg(linear_gradient(
+            angle,
+            linear_color_stop(glow.opacity(strength), 0.0),
+            linear_color_stop(glow.opacity(0.0), 0.6),
+        ))
+    };
+    base.child(layer(first, 135.0)).child(layer(second, 315.0))
 }
 
 impl FromStr for Wallpaper {

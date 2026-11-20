@@ -457,8 +457,7 @@ fn render_density(
                 let entity = entity.clone();
                 Button::new(SharedString::from(format!("density-{}", density.id())))
                     .label(density.label())
-                    .outline()
-                    .selected(density == active)
+                    .map(|b| super::panes::chosen(b, density == active))
                     .px(metrics.space_xl())
                     .py(metrics.space_md())
                     .rounded(metrics.radius_md())
@@ -734,8 +733,7 @@ fn render_language(
                     let entity = entity.clone();
                     Button::new(SharedString::from(format!("language-{}", language.code())))
                         .label(language.name())
-                        .outline()
-                        .selected(settings.draft.language == language)
+                        .map(|b| super::panes::chosen(b, settings.draft.language == language))
                         .on_click(move |_, window, cx| {
                             entity.update(cx, |app, cx| app.set_language(language, window, cx));
                         })

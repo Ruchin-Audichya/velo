@@ -9,7 +9,7 @@
 use gpui::{prelude::*, *};
 use gpui_component::button::{Button, ButtonVariants as _};
 use gpui_component::input::Input;
-use gpui_component::{ActiveTheme as _, Disableable as _, IconName, Selectable as _, Sizable as _};
+use gpui_component::{ActiveTheme as _, Disableable as _, IconName, Sizable as _};
 use velo_core::{Chat, ChatMessage, MediaContent, MediaType};
 
 use crate::app::WhatsAppApp;
@@ -217,25 +217,68 @@ pub fn render(
     let searched: Vec<&Entry<'_>> = all.iter().filter(|e| matches(e, &query)).collect();
 
     // A count per tab, over what the search leaves.
-    let tabs = Filter::ALL.map(|(choice, label)| {
-        let count = searched.iter().filter(|e| choice.accepts(&e.kind)).count();
-        let entity = entity.clone();
-        Button::new(label)
-            .label(if count > 0 {
-                SharedString::from(format!("{label} {count}"))
-            } else {
-                SharedString::from(label)
-            })
-            .ghost()
-            .small()
-            .selected(filter == choice)
-            .on_click(move |_, _, cx| {
-                entity.update(cx, |app, cx| {
-                    app.shared_files_filter = choice;
-                    cx.notify();
+    // A tab bar, as in WhatsApp's media panel: the active tab in the accent
+    // with a bar under it, the rest quiet, each with its count. A ghost
+    // button's own selected state was a shade off its resting one, which on
+    // a dark theme read as no selection at all.
+    // Only the kinds this chat has, plus whichever is chosen: six tabs in a
+    // narrow panel wrapped onto a second row, and "Stickers" with nothing
+    // under it is a tab that only says no.
+    let tabs = Filter::ALL
+        .into_iter()
+        .filter_map(|(choice, label)| {
+            let count = searched.iter().filter(|e| choice.accepts(&e.kind)).count();
+            let active = filter == choice;
+            if count == 0 && !active && choice != Filter::All {
+                return None;
+            }
+            let entity = entity.clone();
+            let tab = div()
+                .id(SharedString::from(format!("files-tab-{label}")))
+                .flex_shrink_0()
+                .flex()
+                .items_center()
+                .gap(metrics.space_xs())
+                .px(metrics.space_md())
+                .py(metrics.space_sm())
+                .border_b_2()
+                .border_color(if active {
+                    cx.theme().primary
+                } else {
+                    gpui::transparent_black()
                 })
-            })
-    });
+                .text_size(metrics.text_small())
+                .font_weight(if active {
+                    gpui::FontWeight::SEMIBOLD
+                } else {
+                    gpui::FontWeight::NORMAL
+                })
+                .text_color(if active {
+                    cx.theme().primary
+                } else {
+                    cx.theme().muted_foreground
+                })
+                .cursor_pointer()
+                .hover(|style| style.text_color(cx.theme().foreground))
+                .child(label)
+                .when(count > 0, |tab| {
+                    tab.child(
+                        div()
+                            .text_size(metrics.text_micro())
+                            .font_features(crate::components::parts::tabular())
+                            .opacity(0.8)
+                            .child(count.to_string()),
+                    )
+                })
+                .on_click(move |_, _, cx| {
+                    entity.update(cx, |app, cx| {
+                        app.shared_files_filter = choice;
+                        cx.notify();
+                    })
+                });
+            Some(tab)
+        })
+        .collect::<Vec<_>>();
 
     let mut shown: Vec<&Entry<'_>> = searched
         .into_iter()
@@ -338,9 +381,11 @@ pub fn render(
         )
         .child(
             div()
+                .id("files-tabs")
                 .flex()
-                .flex_wrap()
-                .gap(metrics.space_xs())
+                .overflow_x_scroll()
+                .border_b_1()
+                .border_color(cx.theme().border)
                 .children(tabs),
         )
         .child(
