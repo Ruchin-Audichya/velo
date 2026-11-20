@@ -10,7 +10,7 @@
 //! A browser's own timer is `setTimeout`, and bridging it is a `Closure`, a
 //! drop guard and a `WorkerGlobalScope` fallback — which this module used to
 //! carry, minus the fallback, alongside two other copies elsewhere in the
-//! tree. It is `oxidezap_platform::sleep` now, and the window is the third
+//! tree. It is `velo_platform::sleep` now, and the window is the third
 //! caller of one timer rather than the author of a third one.
 //!
 //! What stays here is the *desktop* half, and that is the reason this module
@@ -33,7 +33,7 @@ pub async fn sleep(duration: Duration) {
     }
     #[cfg(target_family = "wasm")]
     {
-        oxidezap_platform::sleep(duration).await;
+        velo_platform::sleep(duration).await;
     }
 }
 

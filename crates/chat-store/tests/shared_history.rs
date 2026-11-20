@@ -474,7 +474,7 @@ async fn invalid_envelopes_and_restricted_or_expired_content_are_not_injected() 
 #[tokio::test]
 async fn pending_and_consumed_work_survive_closing_every_database_handle() {
     let path = std::env::temp_dir().join(format!(
-        "oxidezap-shared-history-restart-{}.db",
+        "velo-shared-history-restart-{}.db",
         std::process::id()
     ));
     let path_str = path.to_str().unwrap();

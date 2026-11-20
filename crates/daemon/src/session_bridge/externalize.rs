@@ -4,7 +4,7 @@
 //! wherever it travels, so every frame that carries a `ChatMessage` passes
 //! through here to leave a cache key behind instead.
 
-use oxidezap_core::{ChatMessage, MediaContent, UiEvent};
+use velo_core::{ChatMessage, MediaContent, UiEvent};
 
 use crate::media::AccountMedia;
 use crate::state::StateHub;
@@ -144,11 +144,11 @@ fn local_media_key(message_id: &str, media: &MediaContent) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oxidezap_core::DownloadableMedia;
+    use velo_core::DownloadableMedia;
 
     #[test]
     fn an_inline_channel_fallback_crosses_the_wire_without_poisoning_the_original() {
-        let cache = AccountMedia::new(oxidezap_core::AccountId::new(731).unwrap());
+        let cache = AccountMedia::new(velo_core::AccountId::new(731).unwrap());
         let mut hash = vec![0x7b; 32];
         hash[..4].copy_from_slice(&std::process::id().to_be_bytes());
         let dl: DownloadableMedia = serde_json::from_value(serde_json::json!({

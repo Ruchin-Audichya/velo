@@ -34,7 +34,7 @@ pub(super) enum Stopped {
     /// What was captured, and which recording it belongs to.
     Captured {
         target: RecordingTarget,
-        recording: oxidezap_audio::Recording,
+        recording: velo_audio::Recording,
         epoch: usize,
     },
 }
@@ -102,7 +102,7 @@ impl Recorder {
         // Refused where nothing can come of it. The composer already draws
         // the microphone disabled there, so this is the keyboard route and
         // anything else that reaches the action directly.
-        if !oxidezap_audio::can_record() {
+        if !velo_audio::can_record() {
             warn!("this build cannot record a voice note");
             return Err(crate::tr!(VoiceMessagesCannotBeRecordedInThisBrowserNotice).to_string());
         }
@@ -386,12 +386,12 @@ impl WhatsAppApp {
     /// under a second long.
     async fn finish(
         cx: &mut gpui::AsyncApp,
-        recording: oxidezap_audio::Recording,
+        recording: velo_audio::Recording,
     ) -> Result<(Vec<u8>, Vec<u8>, u32), String> {
         use gpui::AppContext as _;
 
         let (bytes, waveform, duration_secs) = match recording {
-            oxidezap_audio::Recording::Samples(captured) => {
+            velo_audio::Recording::Samples(captured) => {
                 cx.background_spawn(async move {
                     let prepared = captured.prepare();
                     encode_to_opus_ogg(&prepared)
@@ -400,7 +400,7 @@ impl WhatsAppApp {
                 })
                 .await?
             }
-            oxidezap_audio::Recording::Pending {
+            velo_audio::Recording::Pending {
                 captured,
                 prepared,
                 note,

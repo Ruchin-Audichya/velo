@@ -1,13 +1,13 @@
 # The web front end
 
 The page runs the whole client: the session, the store and the window. It can
-attach to an `oxidezapd` the visitor runs instead — over the same protocol the
+attach to an `velod` the visitor runs instead — over the same protocol the
 desktop window speaks, and worth preferring, since a desktop daemon holds
 calls, keeps plugins, survives the tab and keeps the keys out of a browser's
 storage — but it no longer needs one. The export stays static either way: nothing here needs a
 server to be *hosted*. `.github/workflows/pages.yml` builds and publishes it.
 
-The same bundle ships in every release as `oxidezap-<version>-web.zip`, built
+The same bundle ships in every release as `velo-<version>-web.zip`, built
 by `.github/workflows/web-bundle.yml` — so hosting it somewhere else is
 unpacking a directory rather than installing a nightly toolchain and trunk.
 The one difference is the public URL: Pages knows its own directory and bakes
@@ -25,7 +25,7 @@ already accepted — so the page speaks the same frames down a pipe that the
 desktop speaks down a socket, and not one line of protocol is written twice.
 
 **Plugins are the daemon's, so a page gets whichever daemon's it is talking
-to.** Attached to an `oxidezapd`, all of it: the web bridge hands
+to.** Attached to an `velod`, all of it: the web bridge hands
 `serve_client` the same `Plugins` the socket does, so a plugin's interface
 arrives in the snapshot, its buttons act through `PluginAction`, and its
 permission prompt is answered through `PluginApproval` — not one line of that
@@ -124,7 +124,7 @@ nothing but. What comes back is bytes, on both platforms, because what happens
 next is a staged upload.
 
 **Media crosses the bridge in both directions.** The daemon's web endpoint
-served media and nothing else, so a page attached to an `oxidezapd` could read
+served media and nothing else, so a page attached to an `velod` could read
 a photo and hand it nothing: `MediaCache::stage` refused, and a voice note
 recorded there would have failed at the staging rather than at the send. The
 mirror route is a `PUT` narrowed three ways, because a write endpoint on the
@@ -361,7 +361,7 @@ the decoder is allowed to allocate from it, and their orientation is *undone*
 rather than repeated. What it does not have is the thread per direction, and
 does not need one: `VideoDecoder` is already asynchronous, so the work the
 thread was there to move off the caller happens off it anyway. This was once
-reachable only attached to an `oxidezapd`, back when that was the only place
+reachable only attached to an `velod`, back when that was the only place
 calls happened; `video/call_web.rs` takes a `CallVideoFrame` and builds
 a `webcodecs::Decoder` for it, so a page holding its own session decodes call
 video too.

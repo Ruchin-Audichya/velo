@@ -1,6 +1,6 @@
 //! What the transport has to do, on whichever platform is running.
 //!
-//! These are here rather than in `oxidezap-ipc` because they need both ends: a
+//! These are here rather than in `velo-ipc` because they need both ends: a
 //! real listener and a real client, talking over the real thing. And they earn
 //! their keep on exactly one platform at a time — the properties below are
 //! free on a Unix socket and were both broken on Windows, where a pipe opened
@@ -14,7 +14,7 @@ use std::io::{BufRead as _, BufReader, Write as _};
 use std::sync::mpsc;
 use std::time::Duration;
 
-use oxidezap_ipc::Endpoint;
+use velo_ipc::Endpoint;
 
 use super::Listener;
 
@@ -47,7 +47,7 @@ fn scratch_endpoint(test: &str) -> std::path::PathBuf {
     use std::sync::atomic::Ordering;
     static SEQ: AtomicU64 = AtomicU64::new(0);
     let unique = format!(
-        "oxidezap-test-{}-{}-{test}",
+        "velo-test-{}-{}-{test}",
         std::process::id(),
         SEQ.fetch_add(1, Ordering::Relaxed)
     );

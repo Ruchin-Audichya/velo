@@ -68,11 +68,11 @@ static ALLOCATOR: Counting = Counting;
 
 pub(crate) fn begin() {
     PEAK.store(LIVE.load(Ordering::Relaxed), Ordering::Relaxed);
-    println!("OXIDEZAP_ALLOCATOR counting");
+    println!("VELO_ALLOCATOR counting");
 }
 
 pub(crate) fn checkpoint(stage: &str) {
-    if std::env::var_os("OXIDEZAP_MEMORY_REPORT").is_none() {
+    if std::env::var_os("VELO_MEMORY_REPORT").is_none() {
         return;
     }
     // Read counters before the sampling/formatting allocations. Samples
@@ -83,7 +83,7 @@ pub(crate) fn checkpoint(stage: &str) {
     let requested = REQUESTED.load(Ordering::Relaxed);
     let process = process::snapshot();
     println!(
-        "OXIDEZAP_MEMORY {}",
+        "VELO_MEMORY {}",
         serde_json::json!({
             "stage": stage, "live_bytes": live, "peak_bytes": peak,
             "allocations": allocations, "requested_bytes": requested,

@@ -25,7 +25,7 @@ use crate::responsive::ResponsiveLayout;
 use crate::theme::Metrics;
 use crate::utils::format_status_time;
 
-use oxidezap_core::ChatMessage;
+use velo_core::ChatMessage;
 
 /// Everything the pane needs, resolved by the caller: the decoded picture is
 /// the app's to hand over, and this is drawn where the app is already

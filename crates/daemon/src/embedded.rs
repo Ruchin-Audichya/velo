@@ -22,8 +22,8 @@ use tokio::io::DuplexStream;
 
 use crate::account::AccountRegistry;
 use crate::server;
-use oxidezap_core::AccountId;
-use oxidezap_session::StoreRegistry;
+use velo_core::AccountId;
+use velo_session::StoreRegistry;
 
 /// How much of a frame may sit in the pipe before the writer waits.
 ///
@@ -38,7 +38,7 @@ const PIPE: usize = 1 << 18;
 /// # Errors
 ///
 /// Something else already holds this account — another tab, on the web —
-/// which is the same refusal a second `oxidezapd` gets from the startup lock.
+/// which is the same refusal a second `velod` gets from the startup lock.
 ///
 /// The returned stream is the client's end: write requests into it, read
 /// frames out of it, exactly as a socket. Dropping it ends the connection,
@@ -53,7 +53,7 @@ pub async fn start() -> Result<DuplexStream, StartFailed> {
     let registry = service().await?;
 
     let (client, server) = tokio::io::duplex(PIPE);
-    oxidezap_session::spawn(async move {
+    velo_session::spawn(async move {
         if let Err(e) = server::serve_client_with_registry(Box::new(server), registry).await {
             log::error!("the in-process client ended badly: {e}");
         }
@@ -93,7 +93,7 @@ async fn service() -> Result<Arc<AccountRegistry>, StartFailed> {
     }
 
     let registry = AccountRegistry::new();
-    let stores = Arc::new(StoreRegistry::new(oxidezap_session::resolve_database_path()));
+    let stores = Arc::new(StoreRegistry::new(velo_session::resolve_database_path()));
     registry
         .restore_retirements(&stores)
         .await
@@ -117,7 +117,7 @@ async fn service() -> Result<Arc<AccountRegistry>, StartFailed> {
             registry.start_account(id, Arc::clone(&stores)).await;
         }
     }
-    oxidezap_session::spawn(Arc::clone(&registry).follow_relinks(Arc::clone(&stores)));
+    velo_session::spawn(Arc::clone(&registry).follow_relinks(Arc::clone(&stores)));
 
     #[cfg(target_family = "wasm")]
     let tabs = match crate::listener::tab::serve(&registry) {
@@ -164,9 +164,7 @@ mod tests {
             let runtime = Arc::new(crate::account::AccountRuntime::new(
                 id,
                 crate::state::StateHub::for_account(id),
-                Arc::new(oxidezap_plugin_host::Plugins::nothing_loaded(Arc::new(
-                    |_| {},
-                ))),
+                Arc::new(velo_plugin_host::Plugins::nothing_loaded(Arc::new(|_| {}))),
                 commands,
             ));
             assert!(registry.insert(runtime));

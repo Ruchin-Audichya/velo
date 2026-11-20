@@ -38,7 +38,7 @@ pub fn same_account_identity(old: &StoredAccount, new: &StoredAccount) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oxidezap_core::AccountId;
+    use velo_core::AccountId;
 
     fn account(id: i32, pn: Option<&str>, lid: Option<&str>) -> StoredAccount {
         StoredAccount {

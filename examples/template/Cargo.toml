@@ -3,7 +3,7 @@
 # stored under, and the answer the user gives about what it may do. Change it
 # before the first build rather than after.
 name = "template"
-description = "Starting point for an oxidezap plugin"
+description = "Starting point for a Velo plugin"
 version = "0.1.0"
 edition = "2024"
 # The SDK's own floor, which a plugin inherits by depending on it: the
@@ -25,13 +25,13 @@ crate-type = ["cdylib"]
 [dependencies]
 # A path while this lives beside the SDK; a version or a git revision once it
 # does not.
-oxidezap-plugin = { path = "../../crates/plugin-sdk" }
+velo-plugin = { path = "../../crates/plugin-sdk" }
 
 # The SDK's test host, so these handlers can be run by `cargo test` on an
 # ordinary machine rather than only inside the daemon. A dev-dependency, so
 # the `.wasm` carries none of it.
 [dev-dependencies]
-oxidezap-plugin = { path = "../../crates/plugin-sdk", features = ["testing"] }
+velo-plugin = { path = "../../crates/plugin-sdk", features = ["testing"] }
 
 # What makes the output kilobytes rather than hundreds of them: no unwinding
 # tables, one codegen unit for LTO to work across, and size over speed.

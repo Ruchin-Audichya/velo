@@ -152,7 +152,7 @@ impl Fault {
     pub fn mismatched(detail: impl Into<String>) -> Self {
         Self {
             headline: "This window and the background service disagree",
-            body: "They are different versions. Quit oxidezap completely and start it \
+            body: "They are different versions. Quit Velo completely and start it \
                    again; reconnecting will not help.",
             detail: detail.into(),
             recovery: Recovery::Nothing,

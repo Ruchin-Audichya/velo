@@ -1,13 +1,13 @@
 [package]
-name = "oxidezap-call-playout-tests"
+name = "velo-call-playout-tests"
 version = "0.0.0"
 edition = "2024"
 publish = false
 
 # browser.rs imports ../diagnostics.rs through #[path]; cargo-machete does
-# not scan that external module, which calls oxidezap_platform::sleep.
+# not scan that external module, which calls velo_platform::sleep.
 [package.metadata.cargo-machete]
-ignored = ["oxidezap-platform"]
+ignored = ["velo-platform"]
 
 [workspace]
 
@@ -22,7 +22,7 @@ path = "stats.rs"
 [dependencies]
 futures-lite = "2.6.1"
 log = "0.4.34"
-oxidezap-platform = { path = "../../../../../platform" }
+velo-platform = { path = "../../../../../platform" }
 js-sys = "0.3.106"
 wasm-bindgen = "0.2.129"
 web-sys = { version = "=0.3.106", features = ["AudioBuffer", "AudioContext"] }

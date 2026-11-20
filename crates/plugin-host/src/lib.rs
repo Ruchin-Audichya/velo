@@ -22,7 +22,7 @@
 //!
 //! # What a plugin cannot do
 //!
-//! There is no WASI. Not a restricted one — none. The `oxidezap` import
+//! There is no WASI. Not a restricted one — none. The `velo` import
 //! module in [`guest`] is a plugin's entire outside world, so a downloaded
 //! file cannot read the disk or open a socket because no function exists that
 //! would. That is a structural guarantee rather than a policy, and it is the
@@ -45,8 +45,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use wacore::time::Instant;
 
-use oxidezap_core::{PluginAction, PluginSlot, PluginSurface, UiEvent};
-use oxidezap_plugin_abi as abi;
+use velo_core::{PluginAction, PluginSlot, PluginSurface, UiEvent};
+use velo_plugin_abi as abi;
 
 #[cfg(not(target_family = "wasm"))]
 pub use loader::{default_dir, default_state_dir, forget_approvals, sync_dir};
@@ -1455,7 +1455,7 @@ fn start(
     let (queue, mut jobs) = sched::channel(QUEUE_DEPTH);
     let running = {
         let registry = Arc::clone(&registry);
-        sched::spawn(&format!("oxidezap-plugin-{id}"), async move {
+        sched::spawn(&format!("velo-plugin-{id}"), async move {
             run(&mut runtime, &mut jobs, &registry, &stopping).await;
         })
     };

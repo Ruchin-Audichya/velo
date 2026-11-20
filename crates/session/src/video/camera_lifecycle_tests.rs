@@ -145,15 +145,15 @@ impl Drop for FakeCamera {
 }
 
 async fn yield_to_browser() {
-    oxidezap_platform::sleep(Duration::from_millis(1)).await;
+    velo_platform::sleep(Duration::from_millis(1)).await;
 }
 
 #[wasm_bindgen_test::wasm_bindgen_test]
 async fn cancelled_permission_open_stops_a_late_or_queued_stream() {
     for queued in [false, true] {
         let camera = FakeCamera(fake_camera(false));
-        let mut opening = Box::pin(oxidezap_video::open_camera(
-            oxidezap_video::VideoQuality::from_environment(),
+        let mut opening = Box::pin(velo_video::open_camera(
+            velo_video::VideoQuality::from_environment(),
         ));
         for _ in 0..100 {
             assert!(
@@ -183,8 +183,8 @@ async fn cancelled_permission_open_stops_a_late_or_queued_stream() {
 #[wasm_bindgen_test::wasm_bindgen_test]
 async fn cancelled_preview_open_releases_the_element_and_tracks() {
     let camera = FakeCamera(fake_camera(false));
-    let mut opening = Box::pin(oxidezap_video::open_camera(
-        oxidezap_video::VideoQuality::from_environment(),
+    let mut opening = Box::pin(velo_video::open_camera(
+        velo_video::VideoQuality::from_environment(),
     ));
     grant_camera(&camera.0);
     for _ in 0..100 {
@@ -233,7 +233,7 @@ async fn opened_camera_owner_releases_every_track_before_joining_pumps() {
         let control = owner.camera.as_ref().unwrap().control();
         let alive = owner.alive.clone();
         let frame = futures_lite::future::or(async { published.recv().await }, async {
-            oxidezap_platform::sleep(Duration::from_secs(5)).await;
+            velo_platform::sleep(Duration::from_secs(5)).await;
             None
         })
         .await
@@ -267,7 +267,7 @@ async fn opened_camera_owner_releases_every_track_before_joining_pumps() {
         let stopped = camera_status(&camera.0);
         control.request_keyframe();
         dispatch_camera_ended(&camera.0);
-        oxidezap_platform::sleep(Duration::from_millis(150)).await;
+        velo_platform::sleep(Duration::from_millis(150)).await;
         assert_eq!(
             camera_status(&camera.0),
             stopped,

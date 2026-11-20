@@ -7,8 +7,8 @@ use gpui::{
     prelude::FluentBuilder as _,
 };
 use gpui_component::ActiveTheme as _;
-use oxidezap_core::BusinessContent;
 use std::sync::Arc;
+use velo_core::BusinessContent;
 
 #[derive(Clone)]
 pub(crate) struct BusinessText {

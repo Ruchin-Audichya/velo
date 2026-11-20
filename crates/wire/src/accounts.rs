@@ -15,7 +15,7 @@
 /// The account id in `raw`, or `None` when it is not a valid profile name.
 ///
 /// Pure and total: no environment, no I/O, no platform split, so every
-/// caller — CLI flag, `accounts use`, daemon flag, `OXIDEZAP_ACCOUNT` — can
+/// caller — CLI flag, `accounts use`, daemon flag, `VELO_ACCOUNT` — can
 /// share exactly this check.
 #[must_use]
 pub fn validate_account_id(raw: &str) -> Option<String> {

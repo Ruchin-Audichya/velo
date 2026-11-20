@@ -17,7 +17,7 @@ use gpui_component::{h_flex, v_flex};
 
 use crate::app::WhatsAppApp;
 use crate::theme::Metrics;
-use oxidezap_core::PollContent;
+use velo_core::PollContent;
 
 /// A poll and its options, each one a vote for that option.
 ///

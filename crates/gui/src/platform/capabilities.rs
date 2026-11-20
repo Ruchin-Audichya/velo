@@ -79,7 +79,7 @@ pub fn calls_belong_to_another_tab() -> Option<&'static str> {
 /// access unit — so it is not a reason a call cannot be carried, and it is a
 /// reason a call should not be *placed as video*.
 ///
-/// The GUI has no route to `oxidezap-session`'s
+/// The GUI has no route to `velo-session`'s
 /// `relay::sdp::RELAY_DTLS_FINGERPRINT` -- it depends on ipc, core and audio,
 /// never on the session -- so this does not read that constant. It does not
 /// need to: that constant is filled in now, so what is left to ask is what
@@ -136,8 +136,8 @@ mod imp {
     /// because a browser is not going to grow one between the question and
     /// the press — the same rule the rest of this module follows.
     pub(super) fn calls_unavailable() -> Option<&'static str> {
-        match oxidezap_ipc::web::named_daemon() {
-            oxidezap_ipc::web::NamedDaemon::Named(_) => None,
+        match velo_ipc::web::named_daemon() {
+            velo_ipc::web::NamedDaemon::Named(_) => None,
             // `Rejected` answered like `Nobody`, as above: the window is on
             // the refusal screen and drawing no call control either way.
             _ if has_peer_connection() => None,
@@ -155,7 +155,7 @@ mod imp {
     /// a tab nobody is using is not a call.
     ///
     /// This is the one place a follower differs from a page attached to an
-    /// `oxidezapd`, which is allowed — and the contrast is what makes the
+    /// `velod`, which is allowed — and the contrast is what makes the
     /// distinction right rather than arbitrary: there the devices are the
     /// daemon's *by design* and nobody expects the window to hold them, while
     /// here both tabs are windows and the wrong one would.
@@ -166,8 +166,8 @@ mod imp {
     /// a change to the tab protocol rather than a check.
     pub(super) fn calls_belong_to_another_tab() -> Option<&'static str> {
         if matches!(
-            oxidezap_ipc::web::named_daemon(),
-            oxidezap_ipc::web::NamedDaemon::Named(_)
+            velo_ipc::web::named_daemon(),
+            velo_ipc::web::NamedDaemon::Named(_)
         ) || crate::session::this_tab_holds_the_account()
         {
             return None;
@@ -177,7 +177,7 @@ mod imp {
 
     /// Whether the agent this page runs in defines `RTCPeerConnection`.
     ///
-    /// The twin of `oxidezap-session`'s own check, which this crate cannot
+    /// The twin of `velo-session`'s own check, which this crate cannot
     /// reach — it never depends on the session — so it is asked of the global
     /// the same way rather than through a `web_sys` binding: the binding
     /// exists whether the browser does or not.

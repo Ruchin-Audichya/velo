@@ -1,10 +1,10 @@
 # Organization icon
 
-The temporary client identity is the [OxideZap organization avatar](https://github.com/oxidezap.png).
+The temporary client identity is the [Velo organization avatar](https://github.com/velo.png).
 The maintainer supplied the source PNG in `icon.zip` for issue #214. Its original
 SHA-256 is `b9b24312829978aa7922e3d2ecf7228f5e96beab863595bf191ff0be9e319699`.
 
-`linux/org.oxidezap.client.local.png` is the canonical image. Lossless compression
+`linux/io.github.RuchinAudichya.Velo.png` is the canonical image. Lossless compression
 preserves all RGBA pixels and its 460 × 460 canvas. The Linux window embeds it,
 and the desktop installer copies it into the user's icon search directory.
 

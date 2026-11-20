@@ -5,7 +5,7 @@ use portable_atomic::{AtomicBool, AtomicUsize, Ordering};
 use tokio::sync::Notify;
 use wacore::time::Instant;
 
-use oxidezap_core::UiEvent;
+use velo_core::UiEvent;
 
 const MAX_ITEMS: usize = 256;
 const MAX_DATA_ITEMS: usize = 192;
@@ -515,7 +515,7 @@ fn estimated_bytes(event: &UiEvent) -> usize {
                     .iter()
                     .map(|resolution| {
                         let picture = match &resolution.outcome {
-                            oxidezap_core::AvatarOutcome::Found { picture_id, source } => {
+                            velo_core::AvatarOutcome::Found { picture_id, source } => {
                                 string_bytes(picture_id)
                                     + source.as_deref().map(string_bytes).unwrap_or_default()
                             }
@@ -551,7 +551,7 @@ fn string_bytes(value: &str) -> usize {
     value.len().saturating_add(16)
 }
 
-fn chat_bytes(chat: &oxidezap_core::Chat) -> usize {
+fn chat_bytes(chat: &velo_core::Chat) -> usize {
     std::mem::size_of_val(chat)
         + string_bytes(&chat.jid)
         + string_bytes(&chat.name)
@@ -568,7 +568,7 @@ fn chat_bytes(chat: &oxidezap_core::Chat) -> usize {
         + chat.messages.iter().map(message_bytes).sum::<usize>()
 }
 
-fn message_bytes(message: &oxidezap_core::ChatMessage) -> usize {
+fn message_bytes(message: &velo_core::ChatMessage) -> usize {
     let media = message.media.as_ref().map_or(0, |media| {
         media.data.len()
             + media
@@ -617,7 +617,7 @@ fn message_bytes(message: &oxidezap_core::ChatMessage) -> usize {
                     .as_deref()
                     .map(string_bytes)
                     .unwrap_or_default()
-                + business.buttons.capacity() * std::mem::size_of::<oxidezap_core::BusinessButton>()
+                + business.buttons.capacity() * std::mem::size_of::<velo_core::BusinessButton>()
                 + business
                     .buttons
                     .iter()
@@ -734,11 +734,11 @@ fn event_strings(event: &UiEvent) -> usize {
             string_bytes(chat_jid)
                 + string_bytes(notice_id)
                 + match notice {
-                    oxidezap_core::SystemNotice::GroupChanged(detail) => string_bytes(detail),
-                    oxidezap_core::SystemNotice::GroupMembership(membership) => {
+                    velo_core::SystemNotice::GroupChanged(detail) => string_bytes(detail),
+                    velo_core::SystemNotice::GroupMembership(membership) => {
                         std::mem::size_of_val(&**membership)
                             + membership.participants.capacity()
-                                * std::mem::size_of::<oxidezap_core::NoticeParticipant>()
+                                * std::mem::size_of::<velo_core::NoticeParticipant>()
                             + membership
                                 .actor
                                 .iter()
@@ -762,7 +762,7 @@ fn event_strings(event: &UiEvent) -> usize {
                                 })
                                 .sum::<usize>()
                     }
-                    oxidezap_core::SystemNotice::Call(_) => 0,
+                    velo_core::SystemNotice::Call(_) => 0,
                 }
         }
         _ => 0,
@@ -840,7 +840,7 @@ mod tests {
         for jid in ["first@g.us", "second@g.us"] {
             sender
                 .send(UiEvent::HistoryLoaded {
-                    chats: vec![oxidezap_core::Chat::new(jid.into())],
+                    chats: vec![velo_core::Chat::new(jid.into())],
                     complete: false,
                     next: None,
                 })
@@ -858,7 +858,7 @@ mod tests {
             UiEvent::ReceiptReceived {
                 chat_jid: "test@s.whatsapp.net".into(),
                 message_ids: vec!["x".repeat(4096)],
-                receipt_type: oxidezap_core::ReceiptType::Read,
+                receipt_type: velo_core::ReceiptType::Read,
             },
             UiEvent::ReactionReceived {
                 chat_jid: "test@s.whatsapp.net".into(),
@@ -870,7 +870,7 @@ mod tests {
                 chat_jid: "test@g.us".into(),
                 notice_id: "id".into(),
                 at: wacore::time::from_secs(0).unwrap(),
-                notice: oxidezap_core::SystemNotice::GroupChanged("x".repeat(4096)),
+                notice: velo_core::SystemNotice::GroupChanged("x".repeat(4096)),
             },
         ];
         for event in events {
@@ -888,7 +888,7 @@ mod tests {
         sender
             .send(UiEvent::PresenceUpdated {
                 jid: "1@s.whatsapp.net".into(),
-                availability: oxidezap_core::Availability::Online,
+                availability: velo_core::Availability::Online,
             })
             .unwrap();
         sender.send(UiEvent::Connected).unwrap();
@@ -931,7 +931,7 @@ mod tests {
         sender
             .send(UiEvent::MessageReceived {
                 chat_jid: "1@s.whatsapp.net".into(),
-                message: Box::new(oxidezap_core::ChatMessage::new_incoming(
+                message: Box::new(velo_core::ChatMessage::new_incoming(
                     "m1".into(),
                     "1@s.whatsapp.net".into(),
                     "body".into(),
@@ -947,7 +947,7 @@ mod tests {
         sender
             .send(UiEvent::MessageReceived {
                 chat_jid: "1@s.whatsapp.net".into(),
-                message: Box::new(oxidezap_core::ChatMessage::new_incoming(
+                message: Box::new(velo_core::ChatMessage::new_incoming(
                     "m2".into(),
                     "1@s.whatsapp.net".into(),
                     "body".into(),
@@ -984,7 +984,7 @@ mod tests {
         let (sender, _receiver, _) = test_channel(4, 4, 128, MAX_DATA_AGE);
         sender
             .send(UiEvent::HistoryLoaded {
-                chats: vec![oxidezap_core::Chat::from_store(
+                chats: vec![velo_core::Chat::from_store(
                     "1@s.whatsapp.net".into(),
                     "x".repeat(512),
                     1,
@@ -1004,7 +1004,7 @@ mod tests {
                 chat_jid: "1@s.whatsapp.net".into(),
                 sender_jid: "2@s.whatsapp.net".into(),
                 sender_name: Some("small".into()),
-                composing: Some(oxidezap_core::ComposingKind::Text),
+                composing: Some(velo_core::ComposingKind::Text),
             })
             .unwrap();
         assert!(
@@ -1020,7 +1020,7 @@ mod tests {
         assert!(matches!(
             receiver.try_recv(),
             Ok(UiEvent::ChatPresence {
-                composing: Some(oxidezap_core::ComposingKind::Text),
+                composing: Some(velo_core::ComposingKind::Text),
                 ..
             })
         ));
@@ -1071,7 +1071,7 @@ mod tests {
         let producer = tokio::spawn(async move {
             for _ in 0..8 {
                 let _ = producer_sender.send(UiEvent::HistoryLoaded {
-                    chats: vec![oxidezap_core::Chat::from_store(
+                    chats: vec![velo_core::Chat::from_store(
                         "1@s.whatsapp.net".into(),
                         "x".repeat(512),
                         1,
@@ -1098,7 +1098,7 @@ mod tests {
     }
     #[test]
     fn business_allocations_enforce_history_budget_and_reduce_page_size() {
-        use oxidezap_core::{
+        use velo_core::{
             BusinessAction, BusinessButton, BusinessContent, BusinessKind, Chat, ChatMessage,
         };
         for field in ["header", "body", "footer", "notice", "buttons"] {

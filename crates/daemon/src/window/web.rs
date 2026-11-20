@@ -1,6 +1,6 @@
 //! See [`super`]: the message, and nothing behind it.
 
-use oxidezap_ipc::DaemonMessage;
+use velo_ipc::DaemonMessage;
 
 use crate::state::StateHub;
 

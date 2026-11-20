@@ -1,6 +1,6 @@
 # Receiving deliberately shared group history
 
-Investigation for [client #245](https://github.com/oxidezap/client/issues/245),
+Investigation for [client #245](https://github.com/Ruchin-Audichya/velo/issues/245),
 2026-10-22. Static protocol analysis and synthetic SQLite tests only. No account
 was connected, and the issue author's authenticated observation was not repeated.
 
@@ -125,8 +125,8 @@ server timing remain outside the synthetic tests.
 Local final validation used the normal Cargo cache with two build jobs:
 
 - `cargo fmt --all -- --check` passed.
-- `cargo clippy -p oxidezap-chat-store -p oxidezap-session --all-targets --all-features -j 2 -- -D warnings` passed.
-- `cargo nextest run -p oxidezap-chat-store -p oxidezap-session --all-features --build-jobs 2 --test-threads 2` passed all 672 tests, with two intentional skips.
+- `cargo clippy -p velo-chat-store -p velo-session --all-targets --all-features -j 2 -- -D warnings` passed.
+- `cargo nextest run -p velo-chat-store -p velo-session --all-features --build-jobs 2 --test-threads 2` passed all 672 tests, with two intentional skips.
 - Both crates' doctests completed without failures, with three ignored examples.
 
 The exact same `tests/regression_245.rs`, SHA-256

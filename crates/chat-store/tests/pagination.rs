@@ -295,14 +295,14 @@ async fn an_impossible_timestamp_does_not_stop_the_chat_list() {
     feed(&chat_store, [history_sync_event(history)]).await;
 
     let first = chat_store
-        .chats_page(oxidezap_chat_store::ChatArchiveFilter::Unarchived, None, 1)
+        .chats_page(velo_chat_store::ChatArchiveFilter::Unarchived, None, 1)
         .await
         .unwrap();
     assert_eq!(first.len(), 1);
     let cursor = ChatCursor::from(&first[0]);
     let second = chat_store
         .chats_page(
-            oxidezap_chat_store::ChatArchiveFilter::Unarchived,
+            velo_chat_store::ChatArchiveFilter::Unarchived,
             Some(cursor),
             10,
         )
@@ -594,7 +594,7 @@ async fn chat_list_pages_across_the_pinned_boundary() {
     loop {
         let page = chat_store
             .chats_page(
-                oxidezap_chat_store::ChatArchiveFilter::Unarchived,
+                velo_chat_store::ChatArchiveFilter::Unarchived,
                 cursor.take(),
                 1,
             )
@@ -695,7 +695,7 @@ async fn arrival_feed_surfaces_backfill_dated_before_the_last_page() {
         )],
     )
     .await;
-    let watermark: oxidezap_chat_store::ArrivalCursor =
+    let watermark: velo_chat_store::ArrivalCursor =
         (&chat_store.messages_by_arrival(None, 10).await.unwrap()[0]).into();
 
     // Two years older than the live message, and it arrives now.
@@ -760,7 +760,7 @@ async fn arrival_feed_window_is_half_open() {
     feed(&chat_store, events).await;
 
     let at = |secs: i64| ts(secs);
-    let ids = |page: Vec<oxidezap_chat_store::StoredMessage>| {
+    let ids = |page: Vec<velo_chat_store::StoredMessage>| {
         page.into_iter().map(|m| m.id).collect::<Vec<_>>()
     };
 

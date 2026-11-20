@@ -1,6 +1,6 @@
 [package]
-name = "oxidezap-cli"
-description = "Lightweight, scriptable WhatsApp CLI for OxideZap powered by usage-rs"
+name = "velo-cli"
+description = "Lightweight, scriptable WhatsApp CLI for Velo powered by usage-rs"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,12 +9,12 @@ authors.workspace = true
 repository.workspace = true
 
 [[bin]]
-name = "oxidezap-cli"
+name = "velo-cli"
 path = "src/main.rs"
 
 [dependencies]
-oxidezap-ipc = { workspace = true }
-oxidezap-wire = { workspace = true }
+velo-ipc = { workspace = true }
+velo-wire = { workspace = true }
 serde = { workspace = true, features = ["std", "derive"] }
 serde_json = { workspace = true, features = ["std"] }
 usage-rs = { workspace = true }

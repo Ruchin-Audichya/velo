@@ -433,7 +433,7 @@ pub(super) mod tests {
     fn asking(query: &str, origin: Option<&str>) -> Request {
         Request {
             method: "GET".into(),
-            path: oxidezap_ipc::WEB_SOCKET_PATH.into(),
+            path: velo_ipc::WEB_SOCKET_PATH.into(),
             query: query.to_string(),
             origin: origin.map(str::to_string),
             websocket_key: None,
@@ -449,13 +449,13 @@ pub(super) mod tests {
     fn an_unnamed_origin_is_refused() {
         let config = config(&[]);
         assert!(!request(Some("https://evil.example")).origin_allowed(&config));
-        assert!(!request(Some("https://oxidezap.github.io")).origin_allowed(&config));
+        assert!(!request(Some("https://ruchin-audichya.github.io")).origin_allowed(&config));
     }
 
     #[test]
     fn a_named_origin_is_served() {
-        let config = config(&["https://oxidezap.github.io"]);
-        assert!(request(Some("https://oxidezap.github.io")).origin_allowed(&config));
+        let config = config(&["https://ruchin-audichya.github.io"]);
+        assert!(request(Some("https://ruchin-audichya.github.io")).origin_allowed(&config));
         assert!(!request(Some("https://evil.example")).origin_allowed(&config));
     }
 
@@ -500,7 +500,7 @@ pub(super) mod tests {
     /// drawn as media that is not there.
     #[test]
     fn a_preflight_says_how_long_it_is_good_for() {
-        let head = preflight_head(Some("https://oxidezap.github.io"), true);
+        let head = preflight_head(Some("https://ruchin-audichya.github.io"), true);
         assert!(
             head.contains("Access-Control-Max-Age: 600\r\n"),
             "the browser was told nothing, so it asks again per photo: {head}"
@@ -513,7 +513,7 @@ pub(super) mod tests {
     #[test]
     fn a_client_with_no_origin_is_served_only_on_loopback() {
         assert!(request(None).origin_allowed(&config(&[])));
-        assert!(request(None).origin_allowed(&config(&["https://oxidezap.github.io"])));
+        assert!(request(None).origin_allowed(&config(&["https://ruchin-audichya.github.io"])));
     }
 
     #[test]

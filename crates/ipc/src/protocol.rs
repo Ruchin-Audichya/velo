@@ -1,10 +1,10 @@
 //! Messages exchanged over the socket.
 
-use oxidezap_core::{
+use serde::{Deserialize, Serialize};
+use velo_core::{
     AccountId, CallState, CallVideoFrame, Chat, ChatMessage, DownloadableMedia, GroupHierarchy,
     GroupRoster, LogLevel, OutgoingMedia, PluginAction, PluginSurface, QuotedMessage, UiEvent,
 };
-use serde::{Deserialize, Serialize};
 
 fn is_false(value: &bool) -> bool {
     !*value
@@ -191,7 +191,7 @@ impl ChatSummary {
     /// different question from every other row's.
     #[must_use]
     pub fn is_status(&self) -> bool {
-        self.jid == oxidezap_core::STATUS_BROADCAST_JID
+        self.jid == velo_core::STATUS_BROADCAST_JID
     }
 
     /// Whether this chat's unread belongs in a total somebody reads as
@@ -281,7 +281,7 @@ pub enum AccountStatus {
 /// The account-level summary sent by the control plane.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccountOverview {
-    pub id: oxidezap_core::AccountId,
+    pub id: velo_core::AccountId,
     pub status: AccountStatus,
 }
 
@@ -380,8 +380,8 @@ pub enum ClientScope {
 pub enum DaemonMessage {
     /// A durable relink redirect. Scoped consumers must explicitly reattach.
     AccountRetired {
-        account: oxidezap_core::AccountId,
-        successor: oxidezap_core::AccountId,
+        account: velo_core::AccountId,
+        successor: velo_core::AccountId,
     },
     /// The first frame on a control connection.
     ControlHello {
@@ -408,7 +408,7 @@ pub enum DaemonMessage {
     /// order the two frames arrive in.
     AccountCreated {
         id: RequestId,
-        account: oxidezap_core::AccountId,
+        account: velo_core::AccountId,
     },
     /// First frame on every account connection. Establishes the protocol version and
     /// the state to apply events onto.
@@ -423,13 +423,13 @@ pub enum DaemonMessage {
     /// Device work answered only to the front end that requested it.
     CallHistory {
         id: RequestId,
-        result: Result<Vec<oxidezap_core::CallHistoryEntry>, String>,
+        result: Result<Vec<velo_core::CallHistoryEntry>, String>,
     },
     /// Hits for [`ClientRequest::SearchEverywhere`]: each message with the
     /// chat it is in, best match first.
     SearchResults {
         id: RequestId,
-        result: Result<Vec<(String, oxidezap_core::ChatMessage)>, String>,
+        result: Result<Vec<(String, velo_core::ChatMessage)>, String>,
     },
     CallDevices {
         id: RequestId,
@@ -483,7 +483,7 @@ pub enum DaemonMessage {
     /// otherwise set the size of every frame in this enum.
     ///
     /// Media bytes are the exception that does not travel: see
-    /// [`oxidezap_core::MediaContent::cache_key`].
+    /// [`velo_core::MediaContent::cache_key`].
     ///
     /// A named field rather than a newtype: this enum is internally tagged, so
     /// a newtype variant is flattened into the same map as `type` — which
@@ -952,7 +952,7 @@ pub struct GroupMembers {
     pub jid: String,
 }
 
-pub use oxidezap_core::AvatarDemand;
+pub use velo_core::AvatarDemand;
 
 /// Ask the daemon/session to ensure profile pictures for the given chats.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1040,7 +1040,7 @@ pub enum ClientRequest {
     /// Keep a logged-out account intact and return its separate pairing account.
     /// Repeated requests return the same account through `AccountCreated`.
     RelinkAccount {
-        account: oxidezap_core::AccountId,
+        account: velo_core::AccountId,
     },
     /// Reset one account while retaining its id: every credential, chat and
     /// piece of local state this account holds is purged, and a fresh
@@ -1049,14 +1049,14 @@ pub enum ClientRequest {
     /// daemon has asked the account's own runtime to do this — not once it
     /// has finished; watch [`DaemonMessage::AccountsChanged`] for that.
     ResetAccount {
-        account: oxidezap_core::AccountId,
+        account: velo_core::AccountId,
     },
     /// Remove one account permanently: every credential, chat and piece of
     /// local state this account holds is purged, and the id is retired for
     /// good — never reissued to a later [`ClientRequest::CreateAccount`].
     /// Answered the same way as [`ClientRequest::ResetAccount`].
     RemoveAccount {
-        account: oxidezap_core::AccountId,
+        account: velo_core::AccountId,
     },
     /// Ask for a fresh snapshot, after a [`DaemonMessage::Resync`] or on
     /// reconnect.
@@ -1249,7 +1249,7 @@ pub enum ClientRequest {
     ///
     /// It is remembered as well as applied, in the daemon's own config file
     /// rather than in the asking front end's: a page keeps its choice in a
-    /// browser store the daemon cannot read, and the next `oxidezapd` would
+    /// browser store the daemon cannot read, and the next `velod` would
     /// otherwise start back at `info`.
     ///
     /// Answered with [`DaemonMessage::Accepted`], which here means the level
@@ -1317,7 +1317,7 @@ pub enum ClientRequest {
     /// Put a module in the daemon's plugin folder.
     ///
     /// The folder belongs to the daemon that runs it — a directory beside
-    /// `oxidezapd`, or a page's own origin storage — so a front end that
+    /// `velod`, or a page's own origin storage — so a front end that
     /// wanted to add one had nothing to write into and, on one target, wrote
     /// into it anyway by calling the daemon crate directly. That second
     /// control channel is what this replaces: installing is a request like
@@ -1386,7 +1386,7 @@ pub enum CallDeviceAction {
     Preferences,
     Inventory,
     Save {
-        preferences: oxidezap_core::CallDevicePreferences,
+        preferences: velo_core::CallDevicePreferences,
     },
     TestMicrophone,
     TestSpeaker,
@@ -1394,13 +1394,13 @@ pub enum CallDeviceAction {
     /// Allocate increasing IDs per connection with PreviewAdmission. Stopping
     /// an ID also fences every earlier ID so queued starts cannot reopen it.
     StartPreview {
-        preview_id: oxidezap_core::CameraPreviewId,
+        preview_id: velo_core::CameraPreviewId,
     },
     PreviewFrame {
-        preview_id: oxidezap_core::CameraPreviewId,
+        preview_id: velo_core::CameraPreviewId,
     },
     CancelPreview {
-        preview_id: oxidezap_core::CameraPreviewId,
+        preview_id: velo_core::CameraPreviewId,
     },
 }
 
@@ -1408,28 +1408,28 @@ pub enum CallDeviceAction {
 #[serde(tag = "result", rename_all = "snake_case")]
 pub enum CallDeviceReply {
     Preferences {
-        preferences: oxidezap_core::CallDevicePreferences,
+        preferences: velo_core::CallDevicePreferences,
     },
     Settings {
-        settings: oxidezap_core::CallDeviceSettings,
+        settings: velo_core::CallDeviceSettings,
     },
     Tested {
         detail: String,
     },
     Preview {
-        preview_id: oxidezap_core::CameraPreviewId,
-        mode: Option<oxidezap_core::CameraMode>,
+        preview_id: velo_core::CameraPreviewId,
+        mode: Option<velo_core::CameraMode>,
         frame: Option<CameraPreviewFrame>,
     },
     Stopped {
-        preview_id: oxidezap_core::CameraPreviewId,
+        preview_id: velo_core::CameraPreviewId,
     },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CameraPreviewFrame {
-    pub preview_id: oxidezap_core::CameraPreviewId,
-    #[serde(with = "oxidezap_core::base64")]
+    pub preview_id: velo_core::CameraPreviewId,
+    #[serde(with = "velo_core::base64")]
     pub data: Vec<u8>,
     pub keyframe: bool,
 }
@@ -1470,7 +1470,7 @@ pub enum CallAction {
     },
     RequestVideoKeyframe {
         call_id: String,
-        stream: oxidezap_core::VideoStream,
+        stream: velo_core::VideoStream,
     },
 }
 
@@ -1533,12 +1533,12 @@ mod tests {
         eprintln!(
             "DaemonEvent={} ChatMessage={} Chat={} GroupRoster={} PageCursor={} CallVideoFrame={} PluginSurface={}",
             size_of::<DaemonEvent>(),
-            size_of::<oxidezap_core::ChatMessage>(),
-            size_of::<oxidezap_core::Chat>(),
-            size_of::<oxidezap_core::GroupRoster>(),
+            size_of::<velo_core::ChatMessage>(),
+            size_of::<velo_core::Chat>(),
+            size_of::<velo_core::GroupRoster>(),
             size_of::<PageCursor>(),
-            size_of::<oxidezap_core::CallVideoFrame>(),
-            size_of::<oxidezap_core::PluginSurface>(),
+            size_of::<velo_core::CallVideoFrame>(),
+            size_of::<velo_core::PluginSurface>(),
         );
     }
 
@@ -1558,7 +1558,7 @@ mod tests {
 
     #[test]
     fn control_messages_and_lifecycle_requests_round_trip() {
-        let id = oxidezap_core::AccountId::new(2).expect("positive account id");
+        let id = velo_core::AccountId::new(2).expect("positive account id");
         let requests = [
             ClientRequest::ListAccounts,
             ClientRequest::CreateAccount,
@@ -1627,7 +1627,7 @@ mod tests {
         let hello = ClientRequest::Hello {
             protocol: crate::transport::PROTOCOL_VERSION,
             scope: ClientScope::Account {
-                account: oxidezap_core::AccountId::LEGACY,
+                account: velo_core::AccountId::LEGACY,
             },
             session_events: true,
             owns_window: false,
@@ -1639,8 +1639,8 @@ mod tests {
     #[test]
     fn video_recovery_roundtrips_call_and_direction() {
         for stream in [
-            oxidezap_core::VideoStream::Local,
-            oxidezap_core::VideoStream::Remote,
+            velo_core::VideoStream::Local,
+            velo_core::VideoStream::Remote,
         ] {
             let action = CallAction::RequestVideoKeyframe {
                 call_id: "test-call".into(),
@@ -1680,7 +1680,7 @@ mod tests {
             connection: ConnectionState::Connected,
             chats: vec![
                 summary("559900000001@s.whatsapp.net", 2),
-                summary(oxidezap_core::STATUS_BROADCAST_JID, 7),
+                summary(velo_core::STATUS_BROADCAST_JID, 7),
             ],
             calls: CallState::default(),
             account: None,
@@ -2000,7 +2000,7 @@ mod tests {
     fn subgroup_summary_wire_preserves_typed_parent_identity() {
         let hierarchy = GroupHierarchy::Subgroup {
             parent_jid: "120363000000000009@g.us".into(),
-            kind: oxidezap_core::SubgroupKind::Announcement,
+            kind: velo_core::SubgroupKind::Announcement,
         };
         let summary = ChatSummary {
             jid: "120363000000000001@g.us".into(),
@@ -2371,15 +2371,15 @@ mod tests {
     fn a_group_roster_survives_both_directions_of_the_wire() {
         let answered = DaemonMessage::GroupMembers {
             id: 11,
-            roster: oxidezap_core::GroupRoster {
+            roster: velo_core::GroupRoster {
                 jid: "120363000000000001@g.us".into(),
                 members: vec![
-                    oxidezap_core::GroupMember {
+                    velo_core::GroupMember {
                         jid: "559900000001@s.whatsapp.net".into(),
                         name: Some("Ana".into()),
                         is_self: false,
                     },
-                    oxidezap_core::GroupMember {
+                    velo_core::GroupMember {
                         jid: "559900000002@s.whatsapp.net".into(),
                         name: None,
                         is_self: true,
@@ -2462,7 +2462,7 @@ mod device_contract_tests {
     use super::*;
     #[test]
     fn device_and_preview_wire_frames_have_independent_identity() {
-        let preview_id = oxidezap_core::CameraPreviewId(42);
+        let preview_id = velo_core::CameraPreviewId(42);
         for action in [
             CallDeviceAction::Preferences,
             CallDeviceAction::Inventory,
@@ -2488,7 +2488,7 @@ mod device_contract_tests {
             id: 7,
             result: Ok(Box::new(CallDeviceReply::Preview {
                 preview_id,
-                mode: Some(oxidezap_core::CameraMode::default()),
+                mode: Some(velo_core::CameraMode::default()),
                 frame: Some(CameraPreviewFrame {
                     preview_id,
                     data: vec![0, 0, 0, 1, 0x65],

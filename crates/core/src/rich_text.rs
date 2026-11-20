@@ -920,7 +920,7 @@ mod tests {
     /// the rows — which is what makes this a cost per message rather than a
     /// cost per frame, and no reason at all for it to be quadratic again.
     ///
-    /// `cargo test -p oxidezap-core -- --ignored runs_cost`
+    /// `cargo test -p velo-core -- --ignored runs_cost`
     #[test]
     #[ignore = "a stopwatch, not a test"]
     fn runs_cost() {

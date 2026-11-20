@@ -1,5 +1,5 @@
 [package]
-name = "oxidezap-plugin-abi"
+name = "velo-plugin-abi"
 description = "The wasm ABI shared by the plugin host and every plugin SDK"
 version.workspace = true
 edition.workspace = true
@@ -22,10 +22,10 @@ std = []
 
 # A self dev-dependency, which is the standard way to switch a feature on for
 # a crate's own tests: the parser lives behind `std`, and without this
-# `cargo test -p oxidezap-plugin-abi` would silently run none of the tests
+# `cargo test -p velo-plugin-abi` would silently run none of the tests
 # that exercise it.
 [dev-dependencies]
-oxidezap-plugin-abi = { path = ".", features = ["std"] }
+velo-plugin-abi = { path = ".", features = ["std"] }
 
 [lints]
 workspace = true

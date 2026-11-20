@@ -20,8 +20,8 @@
 
 use std::sync::Arc;
 
-use oxidezap_core::AccountId;
-use oxidezap_ipc::{ClientRequest, ClientScope, Link, PROTOCOL_VERSION};
+use velo_core::AccountId;
+use velo_ipc::{ClientRequest, ClientScope, Link, PROTOCOL_VERSION};
 
 use super::media::MediaCache;
 use super::sink::{self, Events, ReaderSink};
@@ -166,7 +166,7 @@ fn begin_scoped(
 /// The rest of this file is the page's reader: one loop, one media pass.
 #[cfg(target_family = "wasm")]
 mod page {
-    use oxidezap_ipc::DaemonMessage;
+    use velo_ipc::DaemonMessage;
 
     use crate::session::Pending;
     use crate::session::frames::{self, Frames};
@@ -276,7 +276,7 @@ mod page {
     /// lost: a key that was not fetched is drawn as an offer to download,
     /// which is what the renderer already does for media the daemon never
     /// cached.
-    use oxidezap_core::WEB_MEDIA_BUDGET_BYTES as FRAME_MEDIA_CEILING;
+    use velo_core::WEB_MEDIA_BUDGET_BYTES as FRAME_MEDIA_CEILING;
 
     /// What one key of a frame's media may cost.
     ///

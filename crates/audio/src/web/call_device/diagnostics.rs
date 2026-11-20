@@ -73,7 +73,7 @@ pub(super) async fn report_until<T>(
     // Dropping the race cancels the platform wait before the graph is released.
     futures_lite::future::or(ending, async {
         loop {
-            oxidezap_platform::sleep(REPORT_INTERVAL).await;
+            velo_platform::sleep(REPORT_INTERVAL).await;
             diagnostics.borrow_mut().report(false);
         }
     })

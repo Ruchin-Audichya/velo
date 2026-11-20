@@ -4,7 +4,7 @@
 //! a desktop and, on the web, the names it promises with an `open` that
 //! always refused -- and the reason was never this file: it was that nokhwa
 //! is three operating systems and OpenH264 is C. Neither is true of a
-//! browser's own camera and encoder, so `oxidezap-video` grew the second
+//! browser's own camera and encoder, so `velo-video` grew the second
 //! backend and this became one implementation again.
 //!
 //! What is left of the platform here is where its work runs
@@ -36,8 +36,8 @@ use portable_atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use log::{debug, warn};
-use oxidezap_core::{CallVideoFrame, VideoStream};
-use oxidezap_video::{CameraStream, EncodedFrame, VideoQuality};
+use velo_core::{CallVideoFrame, VideoStream};
+use velo_video::{CameraStream, EncodedFrame, VideoQuality};
 
 use crate::exec::Task;
 use whatsapp_rust::voip::{VideoFrame, VideoSource};
@@ -66,24 +66,24 @@ fn camera_preferences() -> CameraPreference {
 /// A settings preview owns capture independently of every call. The bridge
 /// tags each access unit with this preview's ID, and discards stale owners.
 pub struct CameraPreview {
-    id: oxidezap_core::CameraPreviewId,
+    id: velo_core::CameraPreviewId,
     camera: CameraStream,
 }
 
 impl CameraPreview {
     /// Open a preview. Dropping this future cannot publish a late completion.
     pub async fn open(
-        id: oxidezap_core::CameraPreviewId,
+        id: velo_core::CameraPreviewId,
         quality: VideoQuality,
         device: Option<String>,
     ) -> Result<Self, String> {
-        let camera = oxidezap_video::open_camera_device(quality, device)
+        let camera = velo_video::open_camera_device(quality, device)
             .await
             .map_err(|error| format!("{error:#}"))?;
         Ok(Self { id, camera })
     }
 
-    pub fn id(&self) -> oxidezap_core::CameraPreviewId {
+    pub fn id(&self) -> velo_core::CameraPreviewId {
         self.id
     }
     pub fn quality(&self) -> VideoQuality {
@@ -512,7 +512,7 @@ pub(crate) async fn open(
     picture_lost: PictureLost,
 ) -> Result<(LocalVideo, Endpoints), String> {
     let (device, quality) = camera_preferences();
-    let camera = oxidezap_video::open_camera_device(quality, device)
+    let camera = velo_video::open_camera_device(quality, device)
         .await
         .map_err(|e| format!("{e:#}"))?;
     let stride = camera.quality().timestamp_stride();

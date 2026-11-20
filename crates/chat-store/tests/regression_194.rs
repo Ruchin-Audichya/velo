@@ -484,7 +484,7 @@ async fn same_id_from_distinct_authors_remains_ambiguous_and_unmodified() {
     }));
     assert!(matches!(
         chat_store.message(&chat, "MSG-194-COLLISION").await,
-        Err(oxidezap_chat_store::ChatStoreError::AmbiguousMessageId)
+        Err(velo_chat_store::ChatStoreError::AmbiguousMessageId)
     ));
 }
 
@@ -643,7 +643,7 @@ async fn split_chat_merge_keeps_same_id_from_own_and_peer_authors() {
     );
     assert!(matches!(
         chat_store.message(&jid(PEER), "MSG-194-DIRECTION").await,
-        Err(oxidezap_chat_store::ChatStoreError::AmbiguousMessageId)
+        Err(velo_chat_store::ChatStoreError::AmbiguousMessageId)
     ));
 }
 

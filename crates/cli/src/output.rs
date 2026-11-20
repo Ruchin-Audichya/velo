@@ -106,7 +106,7 @@ mod tests {
 }
 
 /// Shared by ordinary and business profile commands.
-pub(crate) fn profile_text(profile: &oxidezap_wire::dto::ProfileDto) -> String {
+pub(crate) fn profile_text(profile: &velo_wire::dto::ProfileDto) -> String {
     use std::fmt::Write as _;
     let mut text = String::new();
     let _ = writeln!(text, "JID:   {}", profile.jid);
@@ -153,7 +153,7 @@ pub(crate) fn profile_text(profile: &oxidezap_wire::dto::ProfileDto) -> String {
 #[cfg(test)]
 mod profile_tests {
     use super::profile_text;
-    use oxidezap_wire::dto::ProfileDto;
+    use velo_wire::dto::ProfileDto;
 
     #[test]
     fn profile_text_distinguishes_absence_privacy_and_legacy_unknown() {

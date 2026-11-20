@@ -1,6 +1,6 @@
 [package]
-name = "oxidezap-wire"
-description = "Lightweight, decoupled wire protocol DTOs for OxideZap IPC and CLI"
+name = "velo-wire"
+description = "Lightweight, decoupled wire protocol DTOs for Velo IPC and CLI"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

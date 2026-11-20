@@ -4,7 +4,7 @@
 //! 1. Memory Tier (RAM): Decoded [`gpui::ImageSource`] in `AVATAR_IMAGES` LRU cache.
 //! 2. Persistent Tier:
 //!    - Web: Browser Cache Storage API (`window.caches`). Survives F5 reloads.
-//!    - Native: Daemon media directory (`oxidezap_ipc::media_path`).
+//!    - Native: Daemon media directory (`velo_ipc::media_path`).
 //! 3. Network Tier: Demand-driven metadata and profile-picture lookups via
 //!    session `EnsureAvatars`.
 
@@ -29,7 +29,7 @@ use portable_atomic::{AtomicU64, Ordering};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use oxidezap_core::{AccountId, AvatarDemand};
+use velo_core::{AccountId, AvatarDemand};
 use wacore::time::Instant;
 
 use crate::session::media::{clear_image_sources, get_avatar_image, put_avatar_image};
@@ -806,10 +806,10 @@ mod tests {
     #[cfg(not(target_family = "wasm"))]
     #[test]
     fn native_cache_recovers_after_remount_eviction_and_corruption() {
-        const ROOT: &str = "OXIDEZAP_AVATAR_TEST_ROOT";
+        const ROOT: &str = "VELO_AVATAR_TEST_ROOT";
         let Some(root) = std::env::var_os(ROOT) else {
-            let root = std::env::temp_dir()
-                .join(format!("oxidezap-avatar-lifecycle-{}", std::process::id()));
+            let root =
+                std::env::temp_dir().join(format!("velo-avatar-lifecycle-{}", std::process::id()));
             std::fs::create_dir_all(&root).unwrap();
             let status = std::process::Command::new(std::env::current_exe().unwrap())
                 .args([
@@ -820,7 +820,7 @@ mod tests {
                 .env(ROOT, &root)
                 .env("XDG_RUNTIME_DIR", &root)
                 .env("LOCALAPPDATA", &root)
-                .env("OXIDEZAP_ACCOUNT", "avatar-fixture")
+                .env("VELO_ACCOUNT", "avatar-fixture")
                 .status()
                 .unwrap();
             let _ = std::fs::remove_dir_all(root);
@@ -829,7 +829,7 @@ mod tests {
         };
         let root = std::path::PathBuf::from(root);
         let key = "avatar-lifecycle-fixture";
-        let path = oxidezap_ipc::media_path(key).unwrap();
+        let path = velo_ipc::media_path(key).unwrap();
         assert!(
             path.starts_with(&root),
             "fixture must not use the user's cache"
@@ -878,7 +878,7 @@ mod tests {
                     cache_key: Some("avatar-offline-miss".into()),
                 };
                 let missing_path =
-                    oxidezap_ipc::media_path(missing.cache_key.as_ref().unwrap()).unwrap();
+                    velo_ipc::media_path(missing.cache_key.as_ref().unwrap()).unwrap();
                 if corrupt {
                     std::fs::write(&missing_path, b"corrupt fixture").unwrap();
                 }
@@ -993,7 +993,7 @@ mod tests {
             put_avatar_image(
                 "avatar-fixture-pressure".to_string(),
                 image,
-                oxidezap_core::DECODED_IMAGE_BUDGET_BYTES,
+                velo_core::DECODED_IMAGE_BUDGET_BYTES,
             );
             assert!(get_avatar_image(key).is_none());
             assert_ne!(first.demand_epoch(), epoch);
@@ -1032,7 +1032,7 @@ mod tests {
             let mut chats = Vec::new();
             for index in 0..4 {
                 let key = format!("avatar-large-fixture-{index}");
-                let path = oxidezap_ipc::media_path(&key).unwrap();
+                let path = velo_ipc::media_path(&key).unwrap();
                 std::fs::write(&path, &large).unwrap();
                 let chat = ChatDemand {
                     jid: format!("avatar-{index}@example.invalid"),

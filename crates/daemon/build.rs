@@ -23,19 +23,19 @@ fn main() {
     embed_windows_resources(
         "../../packaging/windows/velo.ico",
         "Velo background service",
-        "oxidezapd.exe",
+        "velod.exe",
     );
-    println!("cargo:rerun-if-changed=oxidezapd.plist");
+    println!("cargo:rerun-if-changed=velod.plist");
     // The *target* OS: a build script runs on the host, and cross-compiling
     // for macOS from anything else must still embed it.
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("macos") {
         return;
     }
     let Ok(manifest) = std::env::var("CARGO_MANIFEST_DIR") else {
-        println!("cargo:warning=no manifest directory; oxidezapd will ship without its Info.plist");
+        println!("cargo:warning=no manifest directory; velod will ship without its Info.plist");
         return;
     };
-    let plist = std::path::Path::new(&manifest).join("oxidezapd.plist");
+    let plist = std::path::Path::new(&manifest).join("velod.plist");
     println!(
         "cargo:rustc-link-arg-bins=-Wl,-sectcreate,__TEXT,__info_plist,{}",
         plist.display()

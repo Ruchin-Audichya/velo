@@ -6,14 +6,14 @@
 //! has not said hello has no business reaching any.
 
 use anyhow::Result;
-use oxidezap_ipc::{ClientRequest, ClientScope, PROTOCOL_VERSION, ProtocolError, Request};
 use tokio::io::{
     AsyncBufReadExt as _, AsyncRead, AsyncReadExt as _, AsyncWrite, BufReader, ReadHalf, WriteHalf,
 };
+use velo_ipc::{ClientRequest, ClientScope, PROTOCOL_VERSION, ProtocolError, Request};
 
 use super::{always, error_frame, malformed, not_utf8, write_line};
 
-/// The daemon's half of [`oxidezap_ipc::read_frame`].
+/// The daemon's half of [`velo_ipc::read_frame`].
 ///
 /// Not that function: this side reads inside a runtime, from an `AsyncRead`
 /// it selects over, where a front end parks a thread in a blocking read. The
@@ -40,18 +40,18 @@ use super::{always, error_frame, malformed, not_utf8, write_line};
 pub(super) async fn read_frame<R: AsyncRead + Unpin>(
     reader: &mut BufReader<R>,
     buf: &mut Vec<u8>,
-) -> Result<Option<oxidezap_ipc::FrameRead>> {
+) -> Result<Option<velo_ipc::FrameRead>> {
     // What is already here is a prefix a cancelled call left behind, and it
     // counts against this frame's budget: the cap is per frame, and a frame
     // read across three cancellations is still one frame.
     let carried = buf.len();
-    if carried >= oxidezap_ipc::MAX_REQUEST_BYTES {
+    if carried >= velo_ipc::MAX_REQUEST_BYTES {
         buf.clear();
-        return Ok(Some(oxidezap_ipc::FrameRead::TooLong));
+        return Ok(Some(velo_ipc::FrameRead::TooLong));
     }
 
     let read = {
-        let mut limited = reader.take((oxidezap_ipc::MAX_REQUEST_BYTES - carried) as u64);
+        let mut limited = reader.take((velo_ipc::MAX_REQUEST_BYTES - carried) as u64);
         limited.read_until(b'\n', buf).await?
     };
 
@@ -70,15 +70,15 @@ pub(super) async fn read_frame<R: AsyncRead + Unpin>(
         // that went away mid-frame. Acting on the partial bytes is not an
         // option either way — the framing says where a frame ends, and this
         // one never said.
-        let hit_the_cap = buf.len() == oxidezap_ipc::MAX_REQUEST_BYTES;
+        let hit_the_cap = buf.len() == velo_ipc::MAX_REQUEST_BYTES;
         buf.clear();
-        return Ok(hit_the_cap.then_some(oxidezap_ipc::FrameRead::TooLong));
+        return Ok(hit_the_cap.then_some(velo_ipc::FrameRead::TooLong));
     }
 
     buf.pop();
     let frame = match std::str::from_utf8(buf) {
-        Ok(line) => oxidezap_ipc::FrameRead::Line(line.to_string()),
-        Err(_) => oxidezap_ipc::FrameRead::NotUtf8,
+        Ok(line) => velo_ipc::FrameRead::Line(line.to_string()),
+        Err(_) => velo_ipc::FrameRead::NotUtf8,
     };
     // Cleared here, at the end of a complete frame, rather than at the start
     // of the next call: only a cancelled read may leave anything behind.
@@ -102,7 +102,7 @@ pub(super) async fn handshake<S: AsyncRead + AsyncWrite>(
 ) -> Result<Option<Attached>> {
     loop {
         match read_frame(reader, buf).await? {
-            Some(oxidezap_ipc::FrameRead::Line(line)) => match check_hello(&line) {
+            Some(velo_ipc::FrameRead::Line(line)) => match check_hello(&line) {
                 Ok(attached) => return Ok(Some(attached)),
                 Err(rejection) => {
                     if let Some(rejection) = rejection {
@@ -111,11 +111,11 @@ pub(super) async fn handshake<S: AsyncRead + AsyncWrite>(
                     return Ok(None);
                 }
             },
-            Some(oxidezap_ipc::FrameRead::NotUtf8) => write_line(writer, &not_utf8()?).await?,
-            Some(oxidezap_ipc::FrameRead::TooLong) => {
+            Some(velo_ipc::FrameRead::NotUtf8) => write_line(writer, &not_utf8()?).await?,
+            Some(velo_ipc::FrameRead::TooLong) => {
                 let frame = malformed(&format!(
                     "frame exceeded {} bytes",
-                    oxidezap_ipc::MAX_REQUEST_BYTES
+                    velo_ipc::MAX_REQUEST_BYTES
                 ))?;
                 write_line(writer, &frame).await?;
                 return Ok(None);
@@ -159,7 +159,7 @@ impl Attached {
         Self {
             session_events,
             scope: ClientScope::Account {
-                account: oxidezap_core::AccountId::LEGACY,
+                account: velo_core::AccountId::LEGACY,
             },
             owns_window: false,
             call_video: false,
@@ -178,9 +178,9 @@ impl Attached {
 /// be served.
 pub(super) fn check_hello(line: &str) -> Result<Attached, Option<String>> {
     // 1. Try parsing as a wire protocol RequestEnvelope
-    if let Ok(env) = serde_json::from_str::<oxidezap_wire::envelope::RequestEnvelope>(line) {
+    if let Ok(env) = serde_json::from_str::<velo_wire::envelope::RequestEnvelope>(line) {
         return match env.request {
-            oxidezap_wire::request::ClientRequest::Hello {
+            velo_wire::request::ClientRequest::Hello {
                 protocol,
                 client_name: _,
                 local_account,
@@ -188,7 +188,7 @@ pub(super) fn check_hello(line: &str) -> Result<Attached, Option<String>> {
                 read_only,
                 session_events,
             } => {
-                if protocol == oxidezap_wire::envelope::CURRENT_PROTOCOL_VERSION {
+                if protocol == velo_wire::envelope::CURRENT_PROTOCOL_VERSION {
                     Ok(Attached::wire(
                         session_events,
                         read_only,
@@ -197,12 +197,12 @@ pub(super) fn check_hello(line: &str) -> Result<Attached, Option<String>> {
                         account_selection,
                     ))
                 } else {
-                    let err = oxidezap_wire::envelope::ResponseEnvelope {
+                    let err = velo_wire::envelope::ResponseEnvelope {
                         id: Some(env.id),
-                        result: oxidezap_wire::envelope::ResponseResult::Error {
-                            error: oxidezap_wire::error::ApiError::invalid_request(format!(
+                        result: velo_wire::envelope::ResponseResult::Error {
+                            error: velo_wire::error::ApiError::invalid_request(format!(
                                 "protocol version mismatch: client {protocol}, daemon {}",
-                                oxidezap_wire::envelope::CURRENT_PROTOCOL_VERSION
+                                velo_wire::envelope::CURRENT_PROTOCOL_VERSION
                             )),
                         },
                     };
@@ -210,10 +210,10 @@ pub(super) fn check_hello(line: &str) -> Result<Attached, Option<String>> {
                 }
             }
             _ => {
-                let err = oxidezap_wire::envelope::ResponseEnvelope {
+                let err = velo_wire::envelope::ResponseEnvelope {
                     id: Some(env.id),
-                    result: oxidezap_wire::envelope::ResponseResult::Error {
-                        error: oxidezap_wire::error::ApiError::invalid_request(
+                    result: velo_wire::envelope::ResponseResult::Error {
+                        error: velo_wire::error::ApiError::invalid_request(
                             "first frame must be a hello action",
                         ),
                     },

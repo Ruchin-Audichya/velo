@@ -12,8 +12,8 @@
 //! the same DTLS, SCTP and pre-negotiated DataChannel the native relay
 //! transport assembles by hand, and the library takes it through
 //! `Client::set_relay_transport_provider` (see [`crate::relay`]). The devices
-//! came the same way — [`oxidezap_audio::open_call_audio`] and
-//! `oxidezap_video` each grew their browser backend — so what is left here is
+//! came the same way — [`velo_audio::open_call_audio`] and
+//! `velo_video` each grew their browser backend — so what is left here is
 //! call logic, and call logic never had a platform in it.
 //!
 //! Two lines of this file's own are still the platform's, and both are about

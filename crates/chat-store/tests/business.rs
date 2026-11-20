@@ -14,7 +14,7 @@ async fn interactive_template_materializes_body_and_preserves_the_card() {
         Some(wa::message::template_message::Format::InteractiveMessageTemplate(interactive.into()));
     let mut proto = wa::Message::default();
     proto.template_message = MessageField::some(template);
-    let expected = oxidezap_chat_store::business_content(&proto);
+    let expected = velo_chat_store::business_content(&proto);
     feed(
         &chat_store,
         [message_event(
@@ -30,7 +30,7 @@ async fn interactive_template_materializes_body_and_preserves_the_card() {
         rows[0]
             .message
             .as_deref()
-            .and_then(oxidezap_chat_store::business_content),
+            .and_then(velo_chat_store::business_content),
         expected
     );
     assert_eq!(
@@ -49,7 +49,7 @@ async fn interactive_template_materializes_body_and_preserves_the_card() {
         stored
             .message
             .as_deref()
-            .and_then(oxidezap_chat_store::business_content),
+            .and_then(velo_chat_store::business_content),
         expected
     );
 }

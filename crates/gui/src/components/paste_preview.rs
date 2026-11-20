@@ -14,7 +14,7 @@ use gpui::{
 use gpui_component::button::{Button, ButtonVariants as _};
 use gpui_component::input::{Input, InputState};
 use gpui_component::{Disableable as _, FocusTrapElement as _};
-use oxidezap_core::OutgoingMedia;
+use velo_core::OutgoingMedia;
 
 use crate::app::WhatsAppApp;
 use crate::components::{ProductIcon, parts};
@@ -312,7 +312,7 @@ mod tests {
         let document = Picked {
             file_name: "foto.jpg".to_string(),
             mime_type: "image/jpeg".to_string(),
-            kind: oxidezap_core::OutgoingMedia::Document,
+            kind: velo_core::OutgoingMedia::Document,
             bytes: b"\x89PNG\r\n\x1a\nrest".to_vec(),
         };
         assert!(PreviewFile::with_preview(document, true).image.is_none());
@@ -320,7 +320,7 @@ mod tests {
         let mislabeled = Picked {
             file_name: "foto.jpg".to_string(),
             mime_type: "image/jpeg".to_string(),
-            kind: oxidezap_core::OutgoingMedia::Image,
+            kind: velo_core::OutgoingMedia::Image,
             bytes: b"\x89PNG\r\n\x1a\nrest".to_vec(),
         };
         assert!(PreviewFile::with_preview(mislabeled, true).image.is_some());

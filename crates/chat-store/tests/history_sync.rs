@@ -398,7 +398,7 @@ async fn unmarked_batch_is_still_materialized() {
 ///
 /// Ignored by default because it is a measurement — it asserts only that the
 /// two paths agree, which is the part worth keeping honest. Run it with
-/// `cargo test -p oxidezap-chat-store -- --ignored --nocapture hydration_costs`.
+/// `cargo test -p velo-chat-store -- --ignored --nocapture hydration_costs`.
 #[tokio::test]
 #[ignore = "a measurement, not an assertion"]
 async fn history_hydration_costs() {

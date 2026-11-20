@@ -17,7 +17,7 @@ use wasm_bindgen::JsCast as _;
 use wasm_bindgen::prelude::Closure;
 
 use super::{Cancelled, MaybeSend};
-use oxidezap_platform::sleep;
+use velo_platform::sleep;
 
 /// The page's loop, plus whether the session's own future is still on it.
 pub struct Executor {
@@ -58,7 +58,7 @@ impl Executor {
         let finished = self.finished.clone();
         let done = self.done.clone();
         let owned = Rc::clone(&self.owned);
-        oxidezap_platform::spawn(async move {
+        velo_platform::spawn(async move {
             OWNER.scope(owned, future).await;
             finished.set(true);
             done.notify_waiters();
@@ -287,7 +287,7 @@ pub fn spawn<T: MaybeSend + 'static>(
     future: impl Future<Output = T> + MaybeSend + 'static,
 ) -> Task<T> {
     let (tx, rx) = futures_channel::oneshot::channel();
-    oxidezap_platform::spawn(async move {
+    velo_platform::spawn(async move {
         let _ = tx.send(future.await);
     });
     Task(rx)
@@ -316,7 +316,7 @@ fn spawn_in<T: MaybeSend + 'static>(
     let (tx, rx) = futures_channel::oneshot::channel();
     owned.count.set(owned.count.get() + 1);
     let counted = Outstanding(Rc::clone(&owned));
-    oxidezap_platform::spawn(async move {
+    velo_platform::spawn(async move {
         let _outstanding = counted;
         let _ = tx.send(OWNER.scope(owned, future).await);
     });

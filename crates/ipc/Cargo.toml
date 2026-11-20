@@ -1,6 +1,6 @@
 [package]
-name = "oxidezap-ipc"
-description = "Wire protocol between the oxidezap daemon and its front ends"
+name = "velo-ipc"
+description = "Wire protocol between the Velo daemon and its front ends"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,7 +10,7 @@ repository.workspace = true
 
 [features]
 default = ["legacy-protocol"]
-legacy-protocol = ["dep:oxidezap-core"]
+legacy-protocol = ["dep:velo-core"]
 
 [[test]]
 name = "session_frames"
@@ -18,8 +18,8 @@ required-features = ["legacy-protocol"]
 
 [dependencies]
 log = { workspace = true }
-oxidezap-core = { workspace = true, optional = true }
-oxidezap-wire = { workspace = true }
+velo-core = { workspace = true, optional = true }
+velo-wire = { workspace = true }
 serde = { workspace = true, features = ["std", "derive"] }
 serde_json = { workspace = true, features = ["std"] }
 thiserror = { workspace = true }

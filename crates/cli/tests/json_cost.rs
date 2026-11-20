@@ -10,8 +10,8 @@ use std::cell::Cell;
 use std::hint::black_box;
 use std::time::Instant;
 
-use oxidezap_wire::dto::MessageDto;
 use serde::Serialize;
+use velo_wire::dto::MessageDto;
 
 thread_local! {
     static ACTIVE: Cell<bool> = const { Cell::new(false) };

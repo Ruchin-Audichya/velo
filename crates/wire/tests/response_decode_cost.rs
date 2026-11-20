@@ -7,7 +7,7 @@ use std::hint::black_box;
 #[allow(clippy::disallowed_methods)]
 fn measure(
     frame: &[u8],
-    decode: fn(&[u8]) -> serde_json::Result<oxidezap_wire::ResponseEnvelope>,
+    decode: fn(&[u8]) -> serde_json::Result<velo_wire::ResponseEnvelope>,
     rounds: usize,
 ) -> u128 {
     let start = std::time::Instant::now();
@@ -40,7 +40,7 @@ fn paired(label: &str, frame: &[u8], rounds: usize) {
 #[test]
 #[ignore = "release-only paired timing comparison"]
 fn response_decode_timing() {
-    let rounds = std::env::var("OXIDEZAP_BENCH_ROUNDS")
+    let rounds = std::env::var("VELO_BENCH_ROUNDS")
         .ok()
         .and_then(|v| v.parse().ok())
         .filter(|v| *v > 0)

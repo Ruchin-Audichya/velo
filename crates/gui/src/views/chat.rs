@@ -20,7 +20,7 @@ use crate::components::{
 use crate::responsive::ResponsiveLayout;
 use crate::theme::Metrics;
 
-use oxidezap_core::{CallState, Chat};
+use velo_core::{CallState, Chat};
 
 struct ResizeSidebar;
 
@@ -55,7 +55,7 @@ pub fn render_connected_view(
     };
     let mut plugin_actions = plugin_ui::slot(
         app.plugins(cx),
-        oxidezap_core::PluginSlot::ChatHeader,
+        velo_core::PluginSlot::ChatHeader,
         app,
         &plugin_ctx,
         cx,
@@ -557,11 +557,11 @@ struct ChatAreaProps<'a> {
     selected_chat: Option<&'a Chat>,
     message_cache: Option<MessageListCache>,
     banner: Option<(String, String)>,
-    typing: Option<&'a oxidezap_core::TypingSummary>,
-    availability: Option<&'a oxidezap_core::Availability>,
+    typing: Option<&'a velo_core::TypingSummary>,
+    availability: Option<&'a velo_core::Availability>,
     /// Who is in the open conversation, when it is a group the daemon has
     /// answered for.
-    members: Option<&'a oxidezap_core::GroupRoster>,
+    members: Option<&'a velo_core::GroupRoster>,
     search_bar: Option<gpui::AnyElement>,
     input_area: Option<Entity<InputAreaView>>,
     /// Whether anything can be sent from here at all.

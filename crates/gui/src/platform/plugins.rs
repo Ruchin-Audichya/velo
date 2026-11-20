@@ -1,7 +1,7 @@
 //! Where this front end's plugins live, and how one is added.
 //!
 //! A plugin belongs to the daemon that runs it, and so does the folder it
-//! comes out of: a directory beside `oxidezapd`, or a page's own origin
+//! comes out of: a directory beside `velod`, or a page's own origin
 //! storage. That is the whole of what this file still answers — *where*, for
 //! the sentence somebody reads — because adding one is no longer this side's
 //! business at all. It is [`ClientRequest::InstallPlugin`], the module travels
@@ -16,7 +16,7 @@
 //! `gui` never depends on `session`, and the daemon it does depend on in a
 //! page is reached the way every other daemon is.
 //!
-//! [`ClientRequest::InstallPlugin`]: oxidezap_ipc::ClientRequest::InstallPlugin
+//! [`ClientRequest::InstallPlugin`]: velo_ipc::ClientRequest::InstallPlugin
 
 /// Where the plugins this window can see come from.
 ///
@@ -144,7 +144,7 @@ fn one_module(chosen: crate::platform::picker::Chosen) -> Result<Option<Module>,
 mod imp {
     use super::Home;
 
-    /// A desktop front end reaches `oxidezapd`, whose plugins are files.
+    /// A desktop front end reaches `velod`, whose plugins are files.
     pub(super) fn home() -> Home {
         Home::Folder
     }
@@ -161,8 +161,8 @@ mod imp {
     /// A page holding the session itself has its own, and is asked the same
     /// way the session asks it, so the two cannot answer differently.
     pub(super) fn home() -> Home {
-        match oxidezap_ipc::web::named_daemon() {
-            oxidezap_ipc::web::NamedDaemon::Named(_) => Home::Folder,
+        match velo_ipc::web::named_daemon() {
+            velo_ipc::web::NamedDaemon::Named(_) => Home::Folder,
             // No daemon named, and no session here either: this tab is a
             // front end onto another tab of the same origin. The folder is
             // still this origin's — the request reaches the tab holding the

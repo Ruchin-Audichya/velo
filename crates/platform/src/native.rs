@@ -15,7 +15,7 @@ use crate::MaybeSend;
 /// Detached: the writer queue and the page's equivalent are loops that end
 /// when their channel closes, so there is nothing a caller would hold and no
 /// cancellation anybody would ask for. Whoever needs the answer back builds a
-/// handle of its own around this — see `oxidezap_session::exec`.
+/// handle of its own around this — see `velo_session::exec`.
 pub fn spawn(future: impl Future<Output = ()> + MaybeSend + 'static) {
     tokio::spawn(future);
 }

@@ -15,7 +15,7 @@ Non-obvious behaviour, and the reasoning behind it. Read the entry before changi
   socket inherits a `0700` directory. A client checks who answered on both,
   and for one reason: the name is predictable and not reserved, so somebody
   else can be there first — the socket under the `/tmp` fallback, the pipe at
-  `\\.\pipe\oxidezap-<SID>`. `first_pipe_instance` on the listener guards the
+  `\\.\pipe\velo-<SID>`. `first_pipe_instance` on the listener guards the
   daemon once it exists, which is the wrong half of it: the daemon then
   refuses to start and the client talks to whoever got there. The kernel knows
   who is on the other end either way — a peer uid on the socket, the serving
@@ -157,7 +157,7 @@ Non-obvious behaviour, and the reasoning behind it. Read the entry before changi
   the window because it draws part of the log and a page with its own session
   draws all of it, the daemon because it holds the session and because a page
   keeps its choice in a browser store no daemon can read, so the next
-  `oxidezapd` would otherwise start back at `info`. `ClientRequest::SetLogLevel`
+  `velod` would otherwise start back at `info`. `ClientRequest::SetLogLevel`
   is the sentence between them, and it is applied *and* persisted where it
   lands: a person raising the level is asking about the session that is
   running, and the file is what keeps them from asking again after every
@@ -174,7 +174,7 @@ Non-obvious behaviour, and the reasoning behind it. Read the entry before changi
   shutdown; a second one while it drains exits on 128-plus-signal-number
   rather than waiting it out, because the teardown has joins without a
   deadline and a repeated signal is somebody saying the wait is the problem.
-- **The front end owns no session.** `oxidezap` starts `oxidezapd` when none is
+- **The front end owns no session.** `velo` starts `velod` when none is
   listening and speaks to it; the two ship together and the release packages
   them in one directory. A front end that cannot reach the daemon has no
   fallback, by design — a second session on the same store is the thing the
@@ -187,7 +187,7 @@ Non-obvious behaviour, and the reasoning behind it. Read the entry before changi
   is said in the hello (`has_window`), not counted off the signal channel:
   every client reads that channel, so a TUI or a notifier would otherwise
   stand in for a window that is not there. The one front end name the daemon
-  has to know is also the one thing worth overriding, so `OXIDEZAP_FRONT_END`
+  has to know is also the one thing worth overriding, so `VELO_FRONT_END`
   names another — a TUI, a second GUI — and the shipped pair is only the
   default. The way back is the same door: the tray's Hide, and a click on
   the icon while a window is attached, relay `HideWindow`, and the front end
@@ -336,7 +336,7 @@ Non-obvious behaviour, and the reasoning behind it. Read the entry before changi
   media caches, the reservation order and the abandoned-upload race are all
   the ones docs/web.md describes.
 - **A file's size is checked before its bytes are read, and the ceiling is the
-  protocol's.** `oxidezap_ipc::MAX_STAGED_BYTES`, named there rather than at
+  protocol's.** `velo_ipc::MAX_STAGED_BYTES`, named there rather than at
   either end for the reason `STAGED_PREFIX` is: the daemon's write endpoint
   refuses anything larger, and a front end that learned the number from a
   `413` would have paid for the whole read — in a page, a copy of the file in
@@ -379,7 +379,7 @@ Non-obvious behaviour, and the reasoning behind it. Read the entry before changi
   announcements of one ending come out of the same one. `CallEndedElsewhere` is not
   that duplicate and stays unconditional: it says *where* the call went, a
   second sentence rather than the same one.
-- **A call is held by whoever holds the session.** `oxidezap-session` is what
+- **A call is held by whoever holds the session.** `velo-session` is what
   opens the mic, the speaker and the camera, so the process that owns the
   session owns the devices. That follows from the split rather than being
   chosen, and it is why a call still works with the window closed.
@@ -453,7 +453,7 @@ Non-obvious behaviour, and the reasoning behind it. Read the entry before changi
   accept loop for as long as it ran. wasmi and not wasmtime: no JIT, so
   nothing generates code inside the process that holds the account, and no
   component model, which is the trade the ABI is built around.
-- **A plugin's whole outside world is the `oxidezap` import module.** There is
+- **A plugin's whole outside world is the `velo` import module.** There is
   no WASI — not a restricted one, none — so a `.wasm` a user downloaded cannot
   open a path or a socket because no function exists that would. It has
   storage, but not the *filesystem*: `oxi_kv_get`/`oxi_kv_set` are a map the
@@ -550,7 +550,7 @@ Non-obvious behaviour, and the reasoning behind it. Read the entry before changi
   somebody else may write is a file they can unlink and replace, and the
   replacement inherits the id's approval. Allowing the link would mean a
   verdict on its directory, and on that directory's directory, with a race at
-  every step; `OXIDEZAP_PLUGIN_DIR` is how a module is loaded from somewhere
+  every step; `VELO_PLUGIN_DIR` is how a module is loaded from somewhere
   else, and it is checked the same way. An answer recorded against a name
   rather than against bytes
   is one somebody else's file under that name inherits — and a writable
@@ -708,14 +708,14 @@ Non-obvious behaviour, and the reasoning behind it. Read the entry before changi
   reads the message back so wasmi's wording cannot drift out from under the
   match that recognises it.
 - **The camera is where the microphone is, and the picture crosses encoded.**
-  `oxidezap-session` opens both, because the process that owns the session
+  `velo-session` opens both, because the process that owns the session
   owns the devices — so the window has no camera of its own and no way to
   draw what it is sending. What crosses the socket is therefore *both*
   directions of the call, as H.264 access units: 16 KiB a frame against 3.5
   MiB of pixels, and the front end already carries a decoder for the video it
   plays in a conversation. A saved camera preference supplies the device and
   requested mode for the next open. Without one, the open takes the first
-  device unless `OXIDEZAP_CAMERA` names an index or a backend-specific name.
+  device unless `VELO_CAMERA` names an index or a backend-specific name.
   That override handles a virtual camera occupying index 0, and the log
   line next to every open (`cameras in reach`) says what there was to choose
   from. Sending the self-view as the very stream the peer
@@ -875,7 +875,7 @@ Non-obvious behaviour, and the reasoning behind it. Read the entry before changi
   and therefore never. The library parsed an inbound PLI to drive our encoder
   and built none of its own, so the receive path had nothing to say "send me a
   recovery point" with. It does now (`CallHandle::request_peer_keyframe`,
-  oxidezap/whatsapp-rust#1385), and what matters here is *who is in a position
+  velo/whatsapp-rust#1385), and what matters here is *who is in a position
   to notice a loss worth asking about*.
 
   Not the library: it hands each access unit over intact, so by the time one
@@ -1368,7 +1368,7 @@ Non-obvious behaviour, and the reasoning behind it. Read the entry before changi
   message holds its own bytes for as long as the row is loaded, so the two
   media budgets that exist bound what is *cached* rather than what the window
   is retaining. `Chat::release_media` is the arithmetic and it lives in
-  `oxidezap-core` because the ordering and the budget are about the data; the
+  `velo-core` because the ordering and the budget are about the data; the
   *judgement* is `WhatsAppApp::sweep_retained_media`, because a viewport is a
   front end's and core has none. Three things make it safe rather than
   destructive. Only bytes with a `downloadable` beside them go, so a voice

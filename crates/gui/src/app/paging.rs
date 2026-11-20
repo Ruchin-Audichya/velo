@@ -14,8 +14,8 @@ use std::collections::{HashMap, HashSet};
 
 use gpui::{App, Context};
 use log::{debug, error};
-use oxidezap_core::{Chat, ChatMessage};
-use oxidezap_ipc::PageCursor;
+use velo_core::{Chat, ChatMessage};
+use velo_ipc::PageCursor;
 use wacore_binary::jid::observe_str;
 
 use super::WhatsAppApp;
@@ -183,14 +183,14 @@ impl Pages {
     /// Only ever true once per conversation: the first page is the one that
     /// fills a timeline the attach load left holding a preview.
     fn open_timeline(&mut self, jid: &str) -> bool {
-        if jid == oxidezap_core::STATUS_BROADCAST_JID && self.status_page_failed {
+        if jid == velo_core::STATUS_BROADCAST_JID && self.status_page_failed {
             return false;
         }
         let paging = self.timelines.entry(jid.to_string()).or_default();
         if !matches!(paging, Paging::Unasked) {
             return false;
         }
-        if jid == oxidezap_core::STATUS_BROADCAST_JID {
+        if jid == velo_core::STATUS_BROADCAST_JID {
             self.status_confirmed_in_flight.clear();
         }
         *paging = Paging::Loading { from: None };
@@ -206,7 +206,7 @@ impl Pages {
         let Some(Some(cursor)) = paging.to_ask() else {
             return None;
         };
-        if jid == oxidezap_core::STATUS_BROADCAST_JID {
+        if jid == velo_core::STATUS_BROADCAST_JID {
             self.status_confirmed_in_flight.clear();
         }
         *paging = Paging::Loading {
@@ -250,7 +250,7 @@ impl Pages {
             return false;
         };
         let asked_from = from.clone();
-        if jid == oxidezap_core::STATUS_BROADCAST_JID {
+        if jid == velo_core::STATUS_BROADCAST_JID {
             self.status_page_failed = false;
         }
         if let (Some(from), Some(returned)) = (asked_from.as_ref(), next.as_ref())
@@ -292,7 +292,7 @@ impl Pages {
         match jid {
             Some(jid) => {
                 let paging = self.timelines.entry(jid.to_string()).or_default();
-                let status_failed = jid == oxidezap_core::STATUS_BROADCAST_JID
+                let status_failed = jid == velo_core::STATUS_BROADCAST_JID
                     && matches!(paging, Paging::Loading { .. });
                 *paging = paging.lost();
                 if status_failed {
@@ -318,7 +318,7 @@ impl Pages {
     fn forget_chats(&mut self, gone: &[String]) {
         for jid in gone {
             self.timelines.remove(jid);
-            if jid == oxidezap_core::STATUS_BROADCAST_JID {
+            if jid == velo_core::STATUS_BROADCAST_JID {
                 self.status_page_failed = false;
                 self.status_confirmed_in_flight.clear();
             }
@@ -361,7 +361,7 @@ impl Pages {
     /// Keep confirmations only until the currently requested page settles.
     pub(super) fn note_status_confirmations(&mut self, agreed: &HashSet<String>) {
         if matches!(
-            self.timelines.get(oxidezap_core::STATUS_BROADCAST_JID),
+            self.timelines.get(velo_core::STATUS_BROADCAST_JID),
             Some(Paging::Loading { .. })
         ) {
             self.status_confirmed_in_flight
@@ -386,7 +386,7 @@ fn reconcile_departures(
 impl WhatsAppApp {
     /// An already open Status view also needs its first page after reconnect.
     pub fn ensure_status_page(&mut self, cx: &mut App) {
-        self.ensure_timeline_page(oxidezap_core::STATUS_BROADCAST_JID, cx);
+        self.ensure_timeline_page(velo_core::STATUS_BROADCAST_JID, cx);
     }
 
     pub(crate) fn can_load_older_shared_files(&self, jid: &str, cx: &App) -> bool {
@@ -414,7 +414,7 @@ impl WhatsAppApp {
                 .pages
                 .read(cx)
                 .timelines
-                .get(oxidezap_core::STATUS_BROADCAST_JID)
+                .get(velo_core::STATUS_BROADCAST_JID)
                 .is_none_or(|state| {
                     matches!(state, Paging::Stalled { .. }) || state.to_ask().is_some()
                 })
@@ -422,7 +422,7 @@ impl WhatsAppApp {
 
     /// Request one status page, retaining its cursor across a failed request.
     pub fn load_more_status(&mut self, cx: &mut App) {
-        let jid = oxidezap_core::STATUS_BROADCAST_JID;
+        let jid = velo_core::STATUS_BROADCAST_JID;
         if self.client.is_none() {
             return;
         }
@@ -551,7 +551,7 @@ impl WhatsAppApp {
     ) {
         let (arrived, confirmed) = self.pages.update(cx, |pages, _| {
             let arrived = pages.timeline_page_arrived(&jid, next);
-            let confirmed = if arrived && jid == oxidezap_core::STATUS_BROADCAST_JID {
+            let confirmed = if arrived && jid == velo_core::STATUS_BROADCAST_JID {
                 std::mem::take(&mut pages.status_confirmed_in_flight)
             } else {
                 HashSet::new()
@@ -566,12 +566,12 @@ impl WhatsAppApp {
             return;
         }
         if messages.is_empty() {
-            if jid == oxidezap_core::STATUS_BROADCAST_JID {
+            if jid == velo_core::STATUS_BROADCAST_JID {
                 cx.notify();
             }
             return;
         }
-        if jid == oxidezap_core::STATUS_BROADCAST_JID {
+        if jid == velo_core::STATUS_BROADCAST_JID {
             // Only the rows in this page can confirm a local view. A page
             // read before a click may still arrive after that click.
             let agreed: HashSet<&str> = messages
@@ -593,7 +593,7 @@ impl WhatsAppApp {
         // The status broadcast can be outside the reduced chat snapshot. Its
         // page is explicitly requested by the status view, so materialize a
         // store-backed row before merging the returned updates.
-        if jid == oxidezap_core::STATUS_BROADCAST_JID && self.find_chat(&jid).is_none() {
+        if jid == velo_core::STATUS_BROADCAST_JID && self.find_chat(&jid).is_none() {
             let status = Chat::from_store(jid.clone(), crate::tr!(Status).into(), 0);
             self.chats.push(std::sync::Arc::new(status));
         }
@@ -615,7 +615,7 @@ impl WhatsAppApp {
         // here rebuilt the rows and re-measured the timeline from scratch
         // every time a receipt landed.
         if !moved {
-            if jid == oxidezap_core::STATUS_BROADCAST_JID {
+            if jid == velo_core::STATUS_BROADCAST_JID {
                 cx.notify();
             }
             return;
@@ -1279,7 +1279,7 @@ mod tests {
     #[test]
     fn status_pages_continue_and_retry_without_repeating_a_cursor() {
         let mut pages = Pages::new();
-        let jid = oxidezap_core::STATUS_BROADCAST_JID;
+        let jid = velo_core::STATUS_BROADCAST_JID;
         assert!(pages.open_timeline(jid));
         assert!(pages.timeline_page_arrived(jid, Some(cursor("status-2"))));
         assert_eq!(pages.older(jid), Some(cursor("status-2")));
@@ -1296,7 +1296,7 @@ mod tests {
     #[test]
     fn failed_first_status_page_exposes_retry_without_automatic_request_loop() {
         let mut pages = Pages::new();
-        let jid = oxidezap_core::STATUS_BROADCAST_JID;
+        let jid = velo_core::STATUS_BROADCAST_JID;
         assert!(pages.open_timeline(jid));
         assert!(pages.lost(Some(jid), false), "the view must be notified");
         assert!(
@@ -1315,12 +1315,10 @@ mod tests {
     #[gpui::test]
     fn a_stalled_status_cursor_offers_an_explicit_retry(cx: &mut gpui::TestAppContext) {
         use gpui::AppContext;
-        let path = std::env::temp_dir().join(format!(
-            "oxidezap-status-cursor-{}.sock",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("velo-status-cursor-{}.sock", std::process::id()));
         let listener = std::os::unix::net::UnixListener::bind(&path).unwrap();
-        let endpoint = oxidezap_ipc::Endpoint::connect_at(&path).unwrap();
+        let endpoint = velo_ipc::Endpoint::connect_at(&path).unwrap();
         let (_peer, _) = listener.accept().unwrap();
         cx.update(|cx| {
             gpui_component::init(cx);
@@ -1328,7 +1326,7 @@ mod tests {
             let app = cx.new(WhatsAppApp::new);
             app.update(cx, |app, cx| {
                 app.client = Some(crate::session::Session::recording_test_session(endpoint));
-                let jid = oxidezap_core::STATUS_BROADCAST_JID;
+                let jid = velo_core::STATUS_BROADCAST_JID;
                 assert!(app.pages.update(cx, |pages, _| pages.open_timeline(jid)));
                 assert!(app.pages.update(cx, |pages, _| pages.timeline_page_arrived(jid, Some(cursor("older")))));
                 assert_eq!(app.pages.update(cx, |pages, _| pages.older(jid)), Some(cursor("older")));
@@ -1352,7 +1350,7 @@ mod tests {
             crate::theme::init(cx);
             let app = cx.new(WhatsAppApp::new);
             app.update(cx, |app, cx| {
-                let jid = oxidezap_core::STATUS_BROADCAST_JID;
+                let jid = velo_core::STATUS_BROADCAST_JID;
                 let stale = ChatMessage::new_incoming(
                     "seen".into(),
                     "1@s.whatsapp.net".into(),
@@ -1366,7 +1364,7 @@ mod tests {
                 let mut status = Chat::from_store(jid.into(), "Status".into(), 0);
                 status.messages.push(stale.clone());
                 app.handle_event(
-                    oxidezap_core::UiEvent::HistoryLoaded {
+                    velo_core::UiEvent::HistoryLoaded {
                         chats: vec![status.clone()],
                         complete: false,
                         next: None,
@@ -1380,7 +1378,7 @@ mod tests {
                 assert!(app.find_chat(jid).unwrap().messages[0].is_read);
                 status.messages[0].is_read = true;
                 app.handle_event(
-                    oxidezap_core::UiEvent::HistoryLoaded {
+                    velo_core::UiEvent::HistoryLoaded {
                         chats: vec![status],
                         complete: false,
                         next: None,
@@ -1417,7 +1415,7 @@ mod tests {
 
     #[test]
     fn confirmed_status_protection_is_discarded_when_page_is_lost_or_forgotten() {
-        let jid = oxidezap_core::STATUS_BROADCAST_JID;
+        let jid = velo_core::STATUS_BROADCAST_JID;
         let mut pages = Pages::new();
         let agreed = HashSet::from(["seen".to_string()]);
         pages.note_status_confirmations(&agreed);
@@ -1446,7 +1444,7 @@ mod tests {
             crate::theme::init(cx);
             let app = cx.new(WhatsAppApp::new);
             app.update(cx, |app, cx| {
-                let jid = oxidezap_core::STATUS_BROADCAST_JID;
+                let jid = velo_core::STATUS_BROADCAST_JID;
                 assert!(app.pages.update(cx, |pages, _| pages.open_timeline(jid)));
                 let message = ChatMessage::new_incoming(
                     "seen".into(),
@@ -1494,7 +1492,7 @@ mod tests {
             crate::theme::init(cx);
             let app = cx.new(WhatsAppApp::new);
             app.update(cx, |app, cx| {
-                let jid = oxidezap_core::STATUS_BROADCAST_JID;
+                let jid = velo_core::STATUS_BROADCAST_JID;
                 assert!(app.find_chat(jid).is_none());
                 assert!(app.pages.update(cx, |pages, _| pages.open_timeline(jid)));
                 let first =

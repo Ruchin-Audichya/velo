@@ -14,8 +14,8 @@
 
 use std::sync::Arc;
 
-use oxidezap_core::AccountId;
-use oxidezap_plugin_host::{Outcome, Plugins, Reloaded, Sink};
+use velo_core::AccountId;
+use velo_plugin_host::{Outcome, Plugins, Reloaded, Sink};
 
 use super::{Bridge, account_state_dir, publishing_to};
 use crate::session_bridge::{Action, CommandOutcome, Commands as SessionCommands, SessionCommand};
@@ -50,7 +50,7 @@ pub(super) async fn start(hub: &Arc<StateHub>, commands: SessionCommands) -> Arc
 
 /// The scan itself, on the blocking thread [`start`] put it on.
 fn load(sink: Sink, commands: SessionCommands, account_id: AccountId) -> Arc<Plugins> {
-    let Some(dir) = oxidezap_plugin_host::default_dir() else {
+    let Some(dir) = velo_plugin_host::default_dir() else {
         log::debug!("no per-user data directory, so no plugins");
         return Arc::new(Plugins::none(sink, Arc::new(Bridge { commands })));
     };
@@ -73,7 +73,7 @@ fn load(sink: Sink, commands: SessionCommands, account_id: AccountId) -> Arc<Plu
 /// files and runs each `oxi_init`, all of it synchronous, so it goes to a
 /// blocking thread as well.
 pub(super) async fn reload(plugins: &Arc<Plugins>, account_id: AccountId) -> Reloaded {
-    let Some(dir) = oxidezap_plugin_host::default_dir() else {
+    let Some(dir) = velo_plugin_host::default_dir() else {
         log::debug!("no per-user data directory, so nothing to reload");
         return Reloaded::Kept(0);
     };
@@ -128,18 +128,18 @@ pub(super) async fn approve(plugins: &Arc<Plugins>, plugin: String, approved: bo
 /// into a folder nothing would load from is the one outcome worth refusing
 /// outright rather than reporting as success.
 pub(super) async fn install(id: String, bytes: Vec<u8>) -> Result<String, String> {
-    let Some(dir) = oxidezap_plugin_host::default_dir() else {
+    let Some(dir) = velo_plugin_host::default_dir() else {
         return Err("there is no per-user data directory to keep a plugin in".to_owned());
     };
     // Before the thread, because it is the answer the length alone already
     // decides: the loader reads a module's size before it opens the file and
     // skips anything past this, so a larger one would be written, reported as
     // installed, and then silently never run.
-    if bytes.len() > oxidezap_plugin_host::MAX_MODULE_BYTES {
+    if bytes.len() > velo_plugin_host::MAX_MODULE_BYTES {
         return Err(format!(
             "it is {} bytes, past the {} a plugin may be",
             bytes.len(),
-            oxidezap_plugin_host::MAX_MODULE_BYTES
+            velo_plugin_host::MAX_MODULE_BYTES
         ));
     }
     match tokio::task::spawn_blocking(move || place(&dir, &id, &bytes).map(|()| id)).await {
@@ -194,12 +194,12 @@ fn place(dir: &std::path::Path, id: &str, bytes: &[u8]) -> Result<(), String> {
     // depending on where the new name sorts. The page's half refuses at the
     // same point and for the same sentence.
     let held = listed(dir)?;
-    if !held.iter().any(|other| other == id) && held.len() >= oxidezap_plugin_host::MAX_PLUGINS {
+    if !held.iter().any(|other| other == id) && held.len() >= velo_plugin_host::MAX_PLUGINS {
         return Err(format!(
             "there is no room for it: {} plugins already installed, which is the {} this daemon \
              loads. Remove one first.",
             held.len(),
-            oxidezap_plugin_host::MAX_PLUGINS
+            velo_plugin_host::MAX_PLUGINS
         ));
     }
     // Written beside the name and renamed onto it, so the name holds a whole
@@ -226,7 +226,7 @@ fn place(dir: &std::path::Path, id: &str, bytes: &[u8]) -> Result<(), String> {
     // The bytes are flushed by the write; the directory entry that gives them
     // their name is separate metadata, and a machine that lost power between
     // the two would come back with a plugin the person was told they had.
-    if let Err(e) = oxidezap_plugin_host::sync_dir(dir) {
+    if let Err(e) = velo_plugin_host::sync_dir(dir) {
         log::warn!("{} was not flushed after an install: {e}", dir.display());
     }
     Ok(())
@@ -259,7 +259,7 @@ fn write_private(path: &std::path::Path, bytes: &[u8]) -> std::io::Result<()> {
 /// `autoreply.WASM` is loaded and drawn as `autoreply`, and removing
 /// `autoreply.wasm` would name an entry that is not there.
 pub(super) async fn uninstall(id: &str) -> Result<(), String> {
-    let Some(dir) = oxidezap_plugin_host::default_dir() else {
+    let Some(dir) = velo_plugin_host::default_dir() else {
         return Ok(());
     };
     let id = id.to_owned();
@@ -295,7 +295,7 @@ fn remove(dir: &std::path::Path, id: &str) -> Result<(), String> {
     // one is a plugin somebody stopped and did not. Only where something was
     // really taken — a folder that is not there has no entry to flush, and
     // asking anyway is a warning on every removal a fresh machine makes.
-    if took && let Err(e) = oxidezap_plugin_host::sync_dir(dir) {
+    if took && let Err(e) = velo_plugin_host::sync_dir(dir) {
         log::warn!("{} was not flushed after a removal: {e}", dir.display());
     }
     Ok(())
@@ -303,7 +303,7 @@ fn remove(dir: &std::path::Path, id: &str) -> Result<(), String> {
 
 /// See [`super::names`].
 pub(super) async fn names() -> Result<Vec<String>, String> {
-    let Some(dir) = oxidezap_plugin_host::default_dir() else {
+    let Some(dir) = velo_plugin_host::default_dir() else {
         // Nowhere to look is not a folder that could not be read: nobody has
         // installed anything and nobody can, which the caller draws as an
         // empty list rather than as a failure.
@@ -404,7 +404,7 @@ mod tests {
 
     fn scratch(what: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!(
-            "oxidezap-plugins-{what}-{}-{:?}",
+            "velo-plugins-{what}-{}-{:?}",
             std::process::id(),
             std::thread::current().id()
         ));
@@ -528,7 +528,7 @@ mod tests {
         std::fs::write(&approvals, br#"{"autoreply":true}"#).expect("an approval file");
         std::fs::create_dir_all(root.join("autoreply")).expect("a settings directory");
 
-        super::super::migrate_legacy_state_in(&root, oxidezap_core::AccountId::LEGACY);
+        super::super::migrate_legacy_state_in(&root, velo_core::AccountId::LEGACY);
 
         let account = root.join("1");
         assert!(
@@ -546,7 +546,7 @@ mod tests {
 
         // Idempotent: a second pass finds no unscoped state and changes
         // nothing, which is what running on every startup requires.
-        super::super::migrate_legacy_state_in(&root, oxidezap_core::AccountId::LEGACY);
+        super::super::migrate_legacy_state_in(&root, velo_core::AccountId::LEGACY);
         assert!(account.join("approvals.json").is_file());
 
         let _ = std::fs::remove_dir_all(&root);
@@ -570,7 +570,7 @@ mod tests {
         let stale = root.join("approvals.json");
         std::fs::write(&stale, br#"{"autoreply":true}"#).expect("the stale approval file");
 
-        super::super::migrate_legacy_state_in(&root, oxidezap_core::AccountId::LEGACY);
+        super::super::migrate_legacy_state_in(&root, velo_core::AccountId::LEGACY);
 
         assert!(
             account.join("approvals.json").is_file(),
@@ -594,7 +594,7 @@ mod tests {
         let approvals = root.join("approvals.json");
         std::fs::write(&approvals, br#"{"autoreply":true}"#).expect("an approval file");
 
-        let other = oxidezap_core::AccountId::new(2).expect("a positive id");
+        let other = velo_core::AccountId::new(2).expect("a positive id");
         super::super::migrate_legacy_state_in(&root, other);
 
         assert!(approvals.exists(), "the unscoped state was left alone");

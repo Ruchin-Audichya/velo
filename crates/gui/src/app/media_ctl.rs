@@ -5,7 +5,7 @@
 
 use super::*;
 use gpui::AppContext as _;
-use oxidezap_core::MediaType;
+use velo_core::MediaType;
 
 /// A voice note whose expensive preparation is running off the UI executor.
 ///
@@ -69,7 +69,7 @@ impl WhatsAppApp {
     /// photo it has ever drawn, and a tab does it against a linear memory
     /// with a ceiling. `Chat::release_media` is the arithmetic; what is here
     /// is the judgement, because a viewport is a front end's and belongs
-    /// nowhere near `oxidezap-core`.
+    /// nowhere near `velo-core`.
     ///
     /// The judgement is two answers. **Which conversation the reader is in** —
     /// one at a time, and every other one is holding bytes nobody can see, so
@@ -111,7 +111,7 @@ impl WhatsAppApp {
             return;
         }
 
-        let budget = oxidezap_core::RETAINED_MEDIA_BUDGET_BYTES as usize;
+        let budget = velo_core::RETAINED_MEDIA_BUDGET_BYTES as usize;
         let retained = self.retained_chat.clone();
         // The rows nothing may take: cloned rather than borrowed because the
         // predicate below runs while `chats` is borrowed mutably.
@@ -1005,7 +1005,7 @@ impl WhatsAppApp {
             .as_ref()
             .or(media.downloadable.as_ref())
             .filter(|d| {
-                media.media_type == oxidezap_core::MediaType::Image
+                media.media_type == velo_core::MediaType::Image
                     && (media.data_is_preview || media.data.is_empty())
                     && d.is_channel_preview_candidate()
             })
@@ -1404,7 +1404,7 @@ impl WhatsAppApp {
             }
         }
 
-        if media.media_type == oxidezap_core::MediaType::Sticker
+        if media.media_type == velo_core::MediaType::Sticker
             && !media.data_is_preview
             && mime_to_image_format(&media.mime_type) == Some(gpui::ImageFormat::Webp)
             && !self.sticker_payload_is_valid(message_id, media)
@@ -2051,7 +2051,7 @@ mod tests {
             // Budget eviction inside the visible conversation must not start
             // a cache-read/eviction loop on each subsequent repaint.
             let payload = Arc::new(vec![0; 512 * 1024]);
-            let count = oxidezap_core::RETAINED_MEDIA_BUDGET_BYTES as usize / payload.len() + 1;
+            let count = velo_core::RETAINED_MEDIA_BUDGET_BYTES as usize / payload.len() + 1;
             let mut chat = Chat::new(jid.into());
             app.channel_preview_attempts.clear();
             for i in 0..count {

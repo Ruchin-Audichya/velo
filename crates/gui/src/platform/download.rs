@@ -164,7 +164,7 @@ mod tests {
     fn scratch() -> std::path::PathBuf {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         std::env::temp_dir().join(format!(
-            "oxidezap-download-test-{}-{}",
+            "velo-download-test-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ))
@@ -331,7 +331,7 @@ mod imp {
         // The declared exception to the timer ban in /clippy.toml. That rule is
         // about a *wait* — something a future is parked on — and exists because
         // three copies of one were written. This is a fire-and-forget cleanup
-        // nothing awaits, so routing it through `oxidezap_platform::sleep`
+        // nothing awaits, so routing it through `velo_platform::sleep`
         // would mean holding a task open for a minute to do nothing.
         #[expect(
             clippy::disallowed_methods,

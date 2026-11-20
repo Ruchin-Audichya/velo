@@ -1,13 +1,11 @@
 use std::collections::VecDeque;
 
-use oxidezap_core::{AccountId, CallDevicePreferences, CallState, IncomingCall};
+use velo_core::{AccountId, CallDevicePreferences, CallState, IncomingCall};
 
 pub(super) async fn current_ringtone_preferences(
-    request: impl FnOnce() -> tokio::sync::oneshot::Receiver<
-        Result<oxidezap_ipc::CallDeviceReply, String>,
-    >,
+    request: impl FnOnce() -> tokio::sync::oneshot::Receiver<Result<velo_ipc::CallDeviceReply, String>>,
 ) -> Result<CallDevicePreferences, String> {
-    use oxidezap_ipc::CallDeviceReply;
+    use velo_ipc::CallDeviceReply;
     match crate::platform::with_timeout(request(), std::time::Duration::from_secs(15)).await {
         Some(Ok(Ok(CallDeviceReply::Preferences { preferences }))) => Ok(preferences),
         Some(Ok(Ok(_))) => Err("the daemon returned a different device reply".into()),
@@ -30,7 +28,7 @@ impl AlertKey {
             hash ^= u64::from(*byte);
             hash = hash.wrapping_mul(1_099_511_628_211);
         }
-        format!("oxidezap-call-{}-{hash:016x}", self.account)
+        format!("velo-call-{}-{hash:016x}", self.account)
     }
 }
 
@@ -85,12 +83,12 @@ impl CallAlerts {
 #[cfg(test)]
 mod call_alert_tests {
     use super::*;
-    use oxidezap_core::OutgoingCall;
+    use velo_core::OutgoingCall;
 
     #[test]
     fn call_alert_reads_new_daemon_preferences_for_each_owner() {
-        use oxidezap_core::{CallDevicePreferences, Ringtone};
         use std::cell::{Cell, RefCell};
+        use velo_core::{CallDevicePreferences, Ringtone};
         let cached = CallDevicePreferences {
             ringtone: Ringtone::Classic,
             ringtone_output: Some("old-output".into()),
@@ -105,7 +103,7 @@ mod call_alert_tests {
         let request = || {
             requests.set(requests.get() + 1);
             let (tx, rx) = tokio::sync::oneshot::channel();
-            tx.send(Ok(oxidezap_ipc::CallDeviceReply::Preferences {
+            tx.send(Ok(velo_ipc::CallDeviceReply::Preferences {
                 preferences: stored.borrow().clone(),
             }))
             .unwrap();

@@ -7,8 +7,8 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use oxidezap_core::{Chat, ChatMessage, UiEvent};
-use oxidezap_session::ReadBoundary;
+use velo_core::{Chat, ChatMessage, UiEvent};
+use velo_session::ReadBoundary;
 
 /// The "newest message second" of a chat with no message at all.
 ///
@@ -131,7 +131,7 @@ const MAX_TRACKED_UNREAD: usize = 512;
 /// a chat busy enough to overflow one produces almost at once.
 const MAX_BOUNDARY: usize = 512;
 
-/// What `MarkRead` needs and a [`oxidezap_ipc::ChatSummary`] cannot carry.
+/// What `MarkRead` needs and a [`velo_ipc::ChatSummary`] cannot carry.
 ///
 /// A summary is a badge and a preview. Turning the sender's ticks blue needs
 /// message ids, and persisting the read across devices needs the timestamp
@@ -1077,7 +1077,7 @@ mod tests {
     }
     #[test]
     fn membership_notice_does_not_advance_or_undermine_a_shared_read() {
-        use oxidezap_core::{GroupMembership, MembershipAction, SystemNotice};
+        use velo_core::{GroupMembership, MembershipAction, SystemNotice};
         let group = "120363000000000099@g.us";
         let peer = "12025550123@s.whatsapp.net";
         let incoming = message("unread", peer, 10, false, false);

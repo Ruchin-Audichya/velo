@@ -19,9 +19,9 @@ include!("../../packaging/windows/version_resource.rs");
 
 /// What the installer carries, in the order it writes them.
 const FILES: &[&str] = &[
-    "oxidezap.exe",
-    "oxidezapd.exe",
-    "oxidezap-cli.exe",
+    "velo.exe",
+    "velod.exe",
+    "velo-cli.exe",
     "LICENSE.txt",
     "THIRD-PARTY-NOTICES.txt",
 ];

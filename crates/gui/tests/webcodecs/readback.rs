@@ -3,7 +3,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use oxidezap_webcodecs_tests::{Decoder, Picture, decoder, feed, images_created};
+use velo_webcodecs_tests::{Decoder, Picture, decoder, feed, images_created};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::*;
 

@@ -1,5 +1,5 @@
 [package]
-name = "oxidezap-core"
+name = "velo-core"
 description = "Front-end-agnostic domain types: chats, messages, calls, UI events"
 version.workspace = true
 edition.workspace = true
@@ -31,7 +31,7 @@ wacore = { workspace = true }
 wacore-binary = { workspace = true }
 
 # Not used by this crate: named so the backend `wacore` needs on the web is
-# enabled for the whole graph. `oxidezap-core` is the crate everything else
+# enabled for the whole graph. `velo-core` is the crate everything else
 # depends on, which makes it the one place that reaches all of them.
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom_02 = { workspace = true }

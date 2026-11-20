@@ -42,7 +42,7 @@ pub(super) struct ForwardPicker {
     pub preview: String,
     pub input: Entity<InputState>,
     /// Saved contacts, for New chat; loaded once when it opens.
-    pub contacts: Vec<oxidezap_ipc::ContactSummary>,
+    pub contacts: Vec<velo_ipc::ContactSummary>,
     pub contacts_loading: bool,
     /// The "New contact" form, while it is open in place of the list.
     pub new_contact: Option<NewContactForm>,

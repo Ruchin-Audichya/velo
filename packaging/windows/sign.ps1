@@ -22,7 +22,7 @@
   make Windows trust a file and is not a substitute; see SIGNING.md.
 
 .EXAMPLE
-  ./sign.ps1 -Thumbprint 0123...ABCD -Files target\release\oxidezap.exe,target\release\oxidezapd.exe
+  ./sign.ps1 -Thumbprint 0123...ABCD -Files target\release\velo.exe,target\release\velod.exe
 #>
 param(
     [Parameter(Mandatory = $true)][string[]]$Files,

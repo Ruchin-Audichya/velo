@@ -11,10 +11,10 @@ use windows_registry::CURRENT_USER;
 use windows_sys::Win32::Media::Audio::{PlaySoundW, SND_MEMORY, SND_NODEFAULT, SND_SYNC};
 use windows_sys::Win32::UI::Shell::{QUNS_ACCEPTS_NOTIFICATIONS, SHQueryUserNotificationState};
 
-pub const APP_ID: &str = "org.oxidezap.client.local";
-const PREFS: &str = r"Software\OxideZap";
+pub const APP_ID: &str = "io.github.RuchinAudichya.Velo";
+const PREFS: &str = r"Software\Velo";
 const RUN: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
-const STARTUP_NAME: &str = "OxideZap";
+const STARTUP_NAME: &str = "Velo";
 const SOUND_NAME: &str = "MessageSound";
 const VOLUME_NAME: &str = "ChimeVolume";
 const DEFAULT_VOLUME: u32 = 80;

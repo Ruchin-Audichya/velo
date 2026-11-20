@@ -1,6 +1,6 @@
 #![cfg(target_family = "wasm")]
 
-use oxidezap_webcodecs_tests::h264::{AccessUnits, nal_unit_type, split_annexb};
+use velo_webcodecs_tests::h264::{AccessUnits, nal_unit_type, split_annexb};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::*;
 

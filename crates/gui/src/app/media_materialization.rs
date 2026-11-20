@@ -6,11 +6,11 @@
 //! this path asks WhatsApp for a missing payload.
 
 use super::*;
-use oxidezap_core::STATUS_BROADCAST_JID;
 use std::sync::atomic::{AtomicBool, Ordering};
+use velo_core::STATUS_BROADCAST_JID;
 
 const MAX_DEMAND: usize = 64;
-const MAX_READ_BYTES: usize = oxidezap_core::WEB_MEDIA_BUDGET_BYTES as usize;
+const MAX_READ_BYTES: usize = velo_core::WEB_MEDIA_BUDGET_BYTES as usize;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum Owner {
@@ -364,8 +364,8 @@ impl WhatsAppApp {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oxidezap_core::MediaType;
     use std::sync::atomic::AtomicUsize;
+    use velo_core::MediaType;
 
     struct Cache {
         reads: AtomicUsize,

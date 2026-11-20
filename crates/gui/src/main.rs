@@ -1,6 +1,6 @@
 //! The window: a GPUI front end for the account the daemon holds.
 //!
-//! It owns no session. `oxidezap` reaches `oxidezapd` and starts one if
+//! It owns no session. `velo` reaches `velod` and starts one if
 //! nobody answers, because there is exactly one WhatsApp session per user and
 //! it lives in that process. So what this crate has is the protocol, the
 //! drawing, and video decode, which writes straight into `gpui::RenderImage`
@@ -12,7 +12,7 @@
 //! `platform/`, so no component above it learns that browsers exist.
 
 // No console window beside the GUI on Windows release builds: opening
-// `oxidezap.exe` used to pop a terminal with the daemon in it. Debug keeps
+// `velo.exe` used to pop a terminal with the daemon in it. Debug keeps
 // its console so `cargo run` still shows logs where they can be read.
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
@@ -64,7 +64,7 @@ fn open_the_window() {
         crate::platform::fonts(cx);
         cx.set_app_identity(crate::platform::window_identity::APP_ID, "Velo");
         gpui_component::init(cx);
-        // Reads ~/.config/oxidezap/theme.json over a preset. Cannot fail: a
+        // Reads ~/.config/velo/theme.json over a preset. Cannot fail: a
         // missing or malformed file resolves to the product default and
         // reports what it could not honour in Settings.
         theme::init(cx);

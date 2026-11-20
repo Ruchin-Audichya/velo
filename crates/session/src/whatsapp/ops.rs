@@ -6,7 +6,7 @@
 //! wire in them. The daemon maps each onto its protocol DTOs, which is
 //! what keeps this crate from depending on the transport it serves.
 
-use oxidezap_chat_store::MessageCoverage;
+use velo_chat_store::MessageCoverage;
 use whatsapp_rust::wacore::proto_helpers::MessageExt as _;
 use whatsapp_rust::wacore_binary::jid::{Jid, JidExt as _};
 use whatsapp_rust::waproto::whatsapp as wa;
@@ -65,7 +65,7 @@ pub struct ContactView {
 }
 
 /// An address-book row as the plain view the daemon maps onto its DTO.
-fn contact_view_of(entry: oxidezap_chat_store::ContactEntry) -> ContactView {
+fn contact_view_of(entry: velo_chat_store::ContactEntry) -> ContactView {
     let jid = entry.jid.to_string();
     let phone = jid.split('@').next().map(str::to_string);
     let is_business = entry.business_name.is_some();
@@ -296,7 +296,7 @@ impl WhatsAppClient {
                     break;
                 }
                 let page_is_short = rows.len() < limit;
-                before = rows.last().map(oxidezap_chat_store::MessageCursor::from);
+                before = rows.last().map(velo_chat_store::MessageCursor::from);
                 polls.extend(
                     rows.into_iter()
                         .filter_map(poll_view_of)
@@ -922,7 +922,7 @@ impl WhatsAppClient {
     pub fn list_starred(
         &self,
         limit: i64,
-    ) -> Task<Result<Vec<(String, oxidezap_core::ChatMessage)>, String>> {
+    ) -> Task<Result<Vec<(String, velo_core::ChatMessage)>, String>> {
         let session = self.session.clone();
         self.exec.spawn(async move {
             let Some(live) = session.lock().await.clone() else {
@@ -934,7 +934,7 @@ impl WhatsAppClient {
                 .await
                 .map_err(|e| format!("database query failed: {e}"))?;
             let chats: Vec<String> = rows.iter().map(|s| s.chat_jid.to_string()).collect();
-            let mut messages: Vec<oxidezap_core::ChatMessage> =
+            let mut messages: Vec<velo_core::ChatMessage> =
                 rows.into_iter().map(stored_to_chat_message).collect();
             Self::hydrate_sender_names(
                 &live.chat_store,
@@ -1200,7 +1200,7 @@ impl WhatsAppClient {
         &self,
         chat_jid: Option<String>,
         limit: i64,
-    ) -> Task<Result<Vec<(String, oxidezap_core::ChatMessage)>, String>> {
+    ) -> Task<Result<Vec<(String, velo_core::ChatMessage)>, String>> {
         let session = self.session.clone();
         self.exec.spawn(async move {
             let chat = chat_jid
@@ -1218,7 +1218,7 @@ impl WhatsAppClient {
                 .await
                 .map_err(|e| format!("database query failed: {e}"))?;
             let chats: Vec<String> = rows.iter().map(|s| s.chat_jid.to_string()).collect();
-            let messages: Vec<oxidezap_core::ChatMessage> =
+            let messages: Vec<velo_core::ChatMessage> =
                 rows.into_iter().map(stored_to_chat_message).collect();
             Ok(chats.into_iter().zip(messages).collect())
         })
@@ -1226,7 +1226,7 @@ impl WhatsAppClient {
 }
 
 /// A stored row as the poll its creation message describes.
-fn poll_view_of(stored: oxidezap_chat_store::StoredMessage) -> Option<PollView> {
+fn poll_view_of(stored: velo_chat_store::StoredMessage) -> Option<PollView> {
     let proto = stored.message.as_deref()?;
     let creation = poll_creation_of(proto.get_base_message())?;
     Some(PollView {

@@ -379,7 +379,7 @@ catalog! {
     FaultOversizedTitle => ("This window cannot read what the background service sent", "Esta janela não conseguiu ler os dados do serviço");
     FaultOversizedBody => ("One frame was larger than this window will accept, and attaching again would meet the same one. Your messages are safe on this device.", "O serviço enviou mais dados de uma vez do que esta janela aceita. Reconectar repetiria o problema. Suas mensagens estão seguras neste dispositivo.");
     FaultMismatchedTitle => ("This window and the background service disagree", "Esta janela e o serviço são incompatíveis");
-    FaultMismatchedBody => ("They are different versions. Quit oxidezap completely and start it again; reconnecting will not help.", "As versões são diferentes. Feche o oxidezap completamente e abra novamente. Reconectar não resolverá.");
+    FaultMismatchedBody => ("They are different versions. Quit Velo completely and start it again; reconnecting will not help.", "As versões são diferentes. Feche o Velo completamente e abra novamente. Reconectar não resolverá.");
     LogOffNote => ("Nothing is logged at all.", "Nenhum log será registrado.");
     LogErrorNote => ("Only failures.", "Apenas falhas.");
     LogWarnNote => ("Failures and anything suspicious.", "Falhas e ocorrências suspeitas.");

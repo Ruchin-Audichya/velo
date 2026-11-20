@@ -2,7 +2,7 @@
 //!
 //! WhatsApp's markup (`*bold*`, `_italic_`, `~strike~`, `` `code` ``) is
 //! formatting on every other client, so a message that shows the markers is
-//! showing its working. The rules live in [`oxidezap_core::parse_rich_text`],
+//! showing its working. The rules live in [`velo_core::parse_rich_text`],
 //! which is where they belong — they are a property of the text and not of a
 //! bubble — and this is the one place that turns the parsed spans into
 //! something GPUI paints.
@@ -23,7 +23,7 @@ use gpui_component::ActiveTheme as _;
 use crate::components::rich_text_selection::{MessageSelection, SelectableRichText};
 use crate::theme::ActiveProductTheme as _;
 
-use oxidezap_core::{Emphasis, LinkSpan, find_links_in, parse_rich_text};
+use velo_core::{Emphasis, LinkSpan, find_links_in, parse_rich_text};
 
 /// One message's text, parsed once.
 ///
@@ -94,7 +94,7 @@ impl BubbleText {
     }
 
     /// Parse every displayed text field once, when a timeline is rebuilt.
-    pub fn of_message(message: &oxidezap_core::ChatMessage) -> Self {
+    pub fn of_message(message: &velo_core::ChatMessage) -> Self {
         if message.revoked {
             return Self::of(crate::tr!(MessageDeleted));
         }
@@ -829,7 +829,7 @@ mod tests {
     /// The first number is what a frame cost while `render_rich_text` parsed
     /// its source — every visible bubble, every frame. The second is what the
     /// same frame costs against [`BubbleText`], which the timeline resolved
-    /// when it built the rows. `cargo test -p oxidezap-gui -- --ignored
+    /// when it built the rows. `cargo test -p velo-gui -- --ignored
     /// --nocapture per_frame_text_costs`
     #[test]
     #[ignore = "a measurement, not an assertion"]
@@ -847,7 +847,7 @@ mod tests {
             let mut runs = 0;
             for _ in 0..FRAMES {
                 for _ in 0..BUBBLES {
-                    runs += oxidezap_core::parse_rich_text(source).runs().len();
+                    runs += velo_core::parse_rich_text(source).runs().len();
                 }
             }
             let parsing = started.elapsed();

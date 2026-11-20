@@ -18,7 +18,7 @@ use gpui::SharedString;
 
 use crate::components::BubbleText;
 use crate::utils::crosses_day;
-use oxidezap_core::{ChatMessage, TypingSummary};
+use velo_core::{ChatMessage, TypingSummary};
 
 /// One row of the timeline.
 ///
@@ -277,7 +277,7 @@ mod tests {
     use crate::theme::ActiveProductTheme as _;
     use chrono::TimeZone;
     use gpui::{AppContext as _, ParentElement as _, Styled as _};
-    use oxidezap_core::{MessageStatus, Typist, fixtures};
+    use velo_core::{MessageStatus, Typist, fixtures};
 
     struct EditedBubbleFixture {
         app: gpui::Entity<WhatsAppApp>,
@@ -534,7 +534,7 @@ mod tests {
                 name: "Ana".to_string(),
             }],
             total: 1,
-            kind: oxidezap_core::ComposingKind::Text,
+            kind: velo_core::ComposingKind::Text,
         };
         let items = build_items(&[message("a", false, at(14, 9))], Some(summary));
         assert_eq!(
@@ -648,14 +648,14 @@ mod tests {
                 })
                 .collect(),
             total: names.len(),
-            kind: oxidezap_core::ComposingKind::Text,
+            kind: velo_core::ComposingKind::Text,
         }
     }
     #[gpui::test]
     fn business_headers_footers_and_unavailable_choices_render_offline(
         cx: &mut gpui::TestAppContext,
     ) {
-        use oxidezap_core::{BusinessAction, BusinessButton, BusinessContent, BusinessKind};
+        use velo_core::{BusinessAction, BusinessButton, BusinessContent, BusinessKind};
         cx.update(|cx| {
             gpui_component::init(cx);
             crate::theme::init(cx);

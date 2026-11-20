@@ -12,7 +12,7 @@
 //! the other two are — /AGENTS.md keeps every server-side transport in this
 //! directory, so the protocol above them is written once.
 //!
-//! The client half lives in `oxidezap_ipc::endpoint`, where a front end can
+//! The client half lives in `velo_ipc::endpoint`, where a front end can
 //! reach it.
 
 use anyhow::{Context, Result};
@@ -212,7 +212,7 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[test]
     fn a_socket_nobody_accepts_from_does_not_stop_the_probe() {
-        let dir = std::env::temp_dir().join(format!("oxidezap-probe-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("velo-probe-test-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&dir);
         let path = dir.join("daemon.sock");
         let _ = std::fs::remove_file(&path);
@@ -272,7 +272,7 @@ mod tests {
     // runtime even though the rest of this check is synchronous.
     #[tokio::test]
     async fn binding_over_a_live_endpoint_fails_instead_of_stealing_it() {
-        let dir = std::env::temp_dir().join(format!("oxidezap-bind-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("velo-bind-test-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&dir);
         let path = dir.join("daemon.sock");
         let _ = std::fs::remove_file(&path);

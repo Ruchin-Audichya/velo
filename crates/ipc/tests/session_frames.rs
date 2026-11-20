@@ -5,19 +5,19 @@
 //! of `UiEvent` is a bare string, which is exactly the shape that fails. A
 //! failure here is invisible until a daemon tries to forward one.
 
-use oxidezap_core::{ReceiptType, UiEvent};
-use oxidezap_ipc::DaemonMessage;
+use velo_core::{ReceiptType, UiEvent};
+use velo_ipc::DaemonMessage;
 
 #[test]
 fn reconnect_session_is_an_account_request_and_round_trips() {
-    let request = oxidezap_ipc::ClientRequest::ReconnectSession;
+    let request = velo_ipc::ClientRequest::ReconnectSession;
     assert!(request.is_account_request());
     assert!(!request.is_control_request());
     let encoded = serde_json::to_string(&request).unwrap();
     assert_eq!(encoded, "{\"request\":\"reconnect_session\"}");
     assert!(matches!(
-        serde_json::from_str::<oxidezap_ipc::ClientRequest>(&encoded).unwrap(),
-        oxidezap_ipc::ClientRequest::ReconnectSession
+        serde_json::from_str::<velo_ipc::ClientRequest>(&encoded).unwrap(),
+        velo_ipc::ClientRequest::ReconnectSession
     ));
 }
 
@@ -89,7 +89,7 @@ fn every_shape_of_session_event_survives_a_frame() {
         a_receipt(ReceiptType::Other("a-receipt-nobody-here-knows".into())),
         // The big one: a whole history load.
         UiEvent::HistoryLoaded {
-            chats: vec![oxidezap_core::Chat::new("1@s.whatsapp.net".into())],
+            chats: vec![velo_core::Chat::new("1@s.whatsapp.net".into())],
             complete: true,
             next: None,
         },
@@ -121,7 +121,7 @@ fn every_shape_of_session_event_survives_a_frame() {
 #[test]
 fn a_load_with_no_cursor_reads_back_without_one() {
     let ended = UiEvent::HistoryLoaded {
-        chats: vec![oxidezap_core::Chat::new("1@s.whatsapp.net".into())],
+        chats: vec![velo_core::Chat::new("1@s.whatsapp.net".into())],
         complete: true,
         next: None,
     };
@@ -134,7 +134,7 @@ fn a_load_with_no_cursor_reads_back_without_one() {
 
     // And a daemon that does carry one hands back the same token.
     let paged = UiEvent::HistoryLoaded {
-        chats: vec![oxidezap_core::Chat::new("1@s.whatsapp.net".into())],
+        chats: vec![velo_core::Chat::new("1@s.whatsapp.net".into())],
         complete: false,
         next: Some("c1:-:1700000000123:1@s.whatsapp.net".into()),
     };
@@ -147,7 +147,7 @@ fn a_load_with_no_cursor_reads_back_without_one() {
 
 #[test]
 fn an_omitted_field_comes_back_as_what_it_was() {
-    use oxidezap_core::{ChatMessage, MediaContent, MediaType};
+    use velo_core::{ChatMessage, MediaContent, MediaType};
 
     let plain = ChatMessage::new_incoming("3EB0".into(), "1@s.whatsapp.net".into(), "oi".into());
     let line = serde_json::to_string(&plain).expect("serializes");
@@ -217,8 +217,8 @@ fn an_omitted_field_comes_back_as_what_it_was() {
 /// so this is what does.
 #[test]
 fn media_bytes_only_leave_the_frame_once_a_key_names_them() {
-    use oxidezap_core::{ChatMessage, MediaContent};
     use std::sync::Arc;
+    use velo_core::{ChatMessage, MediaContent};
 
     let mut message =
         ChatMessage::new_incoming("3EB0".into(), "1@s.whatsapp.net".into(), "oi".into());
@@ -262,7 +262,7 @@ fn media_bytes_only_leave_the_frame_once_a_key_names_them() {
 /// load costs to write and to read, at the shape the session sends it in and
 /// at the one it used to.
 ///
-/// Run it with `cargo test -p oxidezap-ipc -- --ignored --nocapture wire_cost`.
+/// Run it with `cargo test -p velo-ipc -- --ignored --nocapture wire_cost`.
 #[test]
 #[ignore = "a measurement, not an assertion"]
 // A stopwatch, not a clock: nothing here is stamped on anything, and this
@@ -270,7 +270,7 @@ fn media_bytes_only_leave_the_frame_once_a_key_names_them() {
 // crate-wide, which is what /clippy.toml asks of a test that needs one.
 #[allow(clippy::disallowed_methods)]
 fn history_load_wire_cost() {
-    use oxidezap_core::{Chat, ChatMessage};
+    use velo_core::{Chat, ChatMessage};
 
     fn load(chats: usize, per_chat: usize) -> UiEvent {
         let mut list = Vec::new();
@@ -322,16 +322,16 @@ fn history_load_wire_cost() {
 
 #[test]
 fn borrowed_frame_decoding_preserves_message_fields() {
-    use oxidezap_ipc::{FrameResult, read_frame_with};
+    use velo_ipc::{FrameResult, read_frame_with};
     let expected = DaemonMessage::Messages {
         id: 7,
         jid: "synthetic@s.whatsapp.net".into(),
-        messages: vec![oxidezap_core::ChatMessage::new_incoming(
+        messages: vec![velo_core::ChatMessage::new_incoming(
             "synthetic-id".into(),
             "synthetic@s.whatsapp.net".into(),
             "Olá 🦀".repeat(4096),
         )],
-        next: Some(oxidezap_ipc::PageCursor::new("synthetic-cursor")),
+        next: Some(velo_ipc::PageCursor::new("synthetic-cursor")),
     };
     let mut wire = serde_json::to_vec(&expected).unwrap();
     wire.push(b'\n');

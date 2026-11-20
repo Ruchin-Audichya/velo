@@ -10,7 +10,7 @@
 //! a real signal to the test runner: what is locked in is the decision each
 //! arrival produces, which is the whole of the policy the binary acts on.
 
-use oxidezap_daemon::shutdown::{Signal, SignalDecision, SignalGate};
+use velo_daemon::shutdown::{Signal, SignalDecision, SignalGate};
 
 /// A SIGTERM — what an operating-system shutdown sends — starts the graceful
 /// shutdown rather than killing the process on the spot.

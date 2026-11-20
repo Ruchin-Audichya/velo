@@ -8,7 +8,7 @@
 //! [`crate::platform::picker`], staging is the media cache, and both are one
 //! question with two answers behind them.
 
-use oxidezap_core::OutgoingMedia;
+use velo_core::OutgoingMedia;
 
 use gpui_component::input::{InputEvent, InputState};
 
@@ -446,11 +446,8 @@ impl WhatsAppApp {
 /// it a second later. A video and a document have nothing to draw until the
 /// store hands the message back: this side holds no decoder it can run here,
 /// and inventing a poster frame is not something a composer can do.
-fn echo_of(
-    file: &crate::platform::picker::Picked,
-    kind: OutgoingMedia,
-) -> oxidezap_core::MediaContent {
-    use oxidezap_core::MediaContent;
+fn echo_of(file: &crate::platform::picker::Picked, kind: OutgoingMedia) -> velo_core::MediaContent {
+    use velo_core::MediaContent;
 
     match kind {
         OutgoingMedia::Image => {
@@ -509,7 +506,7 @@ fn image_size(bytes: &[u8]) -> (Option<u32>, Option<u32>) {
 
 #[cfg(test)]
 mod tests {
-    use oxidezap_core::{MediaType, OutgoingMedia};
+    use velo_core::{MediaType, OutgoingMedia};
 
     use super::echo_of;
     use crate::platform::picker::{Picked, kind_for};

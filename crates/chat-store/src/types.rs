@@ -259,7 +259,7 @@ pub struct ChatEntry {
     pub archived: bool,
     pub ephemeral_expiration: Option<u32>,
     /// Server-reported community relationship; `None` is unknown or unreadable.
-    pub group_hierarchy: Option<oxidezap_core::GroupHierarchy>,
+    pub group_hierarchy: Option<velo_core::GroupHierarchy>,
     /// Original database value retained so an older client can CAS-replace an
     /// unrecognized future role after fetching a fresh authoritative overview.
     pub group_hierarchy_json: Option<String>,
@@ -306,7 +306,7 @@ pub struct ChatNotificationMetadata {
 /// even when it doesn't.
 #[derive(Debug, Clone)]
 pub struct StoredMessage {
-    pub group_membership: Option<oxidezap_core::GroupMembership>,
+    pub group_membership: Option<velo_core::GroupMembership>,
     pub chat_jid: Jid,
     pub id: String,
     pub sender_jid: Jid,
@@ -574,15 +574,15 @@ pub struct GroupHierarchyWrite {
     pub jid: Jid,
     /// Exact JSON read before the lookup; `None` means the SQL column was NULL.
     pub expected_json: Option<String>,
-    pub hierarchy: oxidezap_core::GroupHierarchy,
+    pub hierarchy: velo_core::GroupHierarchy,
 }
 
 impl GroupHierarchyWrite {
     /// A typed overview captured against the hierarchy currently in storage.
     pub fn checked(
         jid: Jid,
-        expected: Option<oxidezap_core::GroupHierarchy>,
-        hierarchy: oxidezap_core::GroupHierarchy,
+        expected: Option<velo_core::GroupHierarchy>,
+        hierarchy: velo_core::GroupHierarchy,
     ) -> Self {
         Self::checked_json(
             jid,
@@ -598,7 +598,7 @@ impl GroupHierarchyWrite {
     pub fn checked_json(
         jid: Jid,
         expected_json: Option<String>,
-        hierarchy: oxidezap_core::GroupHierarchy,
+        hierarchy: velo_core::GroupHierarchy,
     ) -> Self {
         Self {
             jid,

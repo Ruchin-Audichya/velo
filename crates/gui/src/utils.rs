@@ -13,7 +13,7 @@ use gpui::ImageFormat;
 /// still asks here first, so the one that has a frame to draw instead falls
 /// through to it.
 ///
-/// [`MediaContent::adopt_full_bytes`]: oxidezap_core::MediaContent::adopt_full_bytes
+/// [`MediaContent::adopt_full_bytes`]: velo_core::MediaContent::adopt_full_bytes
 pub fn mime_to_image_format(mime: &str) -> Option<ImageFormat> {
     // The type, without its parameters and without regard to case: both are
     // the sender's to choose (RFC 2045 §5.1), and `Image/JPEG` or

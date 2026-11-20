@@ -293,7 +293,7 @@ mod tests {
     /// reads.
     #[test]
     fn a_failure_says_whether_asking_again_is_worth_it() {
-        use oxidezap_ipc::ProtocolError;
+        use velo_ipc::ProtocolError;
 
         let network = Failure::from(&ProtocolError::Failed {
             detail: "connection reset by peer".to_string(),
@@ -320,7 +320,7 @@ mod tests {
     /// `Refused` on the wire — which is what they were.
     #[test]
     fn what_the_daemon_said_decides_it() {
-        use oxidezap_ipc::ProtocolError;
+        use velo_ipc::ProtocolError;
 
         assert!(
             Failure::from(&ProtocolError::Failed {

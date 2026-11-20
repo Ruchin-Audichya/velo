@@ -4,7 +4,7 @@
 //! sensor, while encoding runs on the CPU, so both live on
 //! one dedicated thread and hand finished access units to the async side
 //! through a channel. That is the same shape the microphone takes in
-//! `oxidezap-audio`, and for the same reason: a device driven from a runtime
+//! `velo-audio`, and for the same reason: a device driven from a runtime
 //! task would block a worker for as long as the call lasted.
 //!
 //! The channel is short and lossy on purpose. Video is the one stream where
@@ -15,7 +15,7 @@
 //! the gap points at one the peer never received, and the picture stays
 //! broken until the periodic one comes round.
 //!
-//! `RUST_LOG=info,oxidezap_video::camera=debug` enables stage totals and frame
+//! `RUST_LOG=info,velo_video::camera=debug` enables stage totals and frame
 //! counters at frame boundaries after five seconds, plus a final partial window.
 //! These measure elapsed wall time, not CPU time. Capture includes blocking
 //! sensor wait; even conversion and encoding include time spent descheduled.
@@ -184,7 +184,7 @@ pub fn open(quality: VideoQuality, device: Option<String>) -> Result<CameraStrea
     let thread = {
         let control = Arc::clone(&control.0);
         std::thread::Builder::new()
-            .name("oxidezap-camera".to_string())
+            .name("velo-camera".to_string())
             .spawn(move || run(quality, &index, &control, &frames_tx, &ready_tx))
             .context("spawning the camera thread")?
     };
@@ -928,7 +928,7 @@ fn enumerate_with(
 /// override takes an index or a backend-specific name, both of which the
 /// capture backends accept.
 pub(crate) fn configured_device() -> CameraIndex {
-    match std::env::var("OXIDEZAP_CAMERA") {
+    match std::env::var("VELO_CAMERA") {
         Ok(value) if !value.trim().is_empty() => match value.trim().parse::<u32>() {
             Ok(index) => CameraIndex::Index(index),
             Err(_) => CameraIndex::String(value.trim().to_string()),
@@ -940,7 +940,7 @@ pub(crate) fn configured_device() -> CameraIndex {
 /// The devices an open will choose among, as one line.
 ///
 /// Read off enumeration rather than the open because the open names only the
-/// device it took. `OXIDEZAP_CAMERA` names the same index and name space
+/// device it took. `VELO_CAMERA` names the same index and name space
 /// [`configured_device`] reads, so the line says exactly what there is to
 /// choose from when index 0 is the wrong camera.
 fn inventory() -> String {

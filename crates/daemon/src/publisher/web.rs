@@ -9,13 +9,13 @@
 
 use std::sync::Arc;
 
-use oxidezap_core::UiEvent;
 use tokio::sync::mpsc::UnboundedReceiver;
+use velo_core::UiEvent;
 
 use crate::state::StateHub;
 
 /// The drain, awaited rather than joined.
-pub(crate) struct Handle(oxidezap_session::Task<()>);
+pub(crate) struct Handle(velo_session::Task<()>);
 
 impl Handle {
     /// Wait for the queue to drain.
@@ -28,7 +28,7 @@ impl Handle {
 
 /// Start draining `queue` into `hub`.
 pub(crate) fn start(hub: Arc<StateHub>, mut queue: UnboundedReceiver<UiEvent>) -> Handle {
-    Handle(oxidezap_session::spawn(async move {
+    Handle(velo_session::spawn(async move {
         while let Some(event) = queue.recv().await {
             super::publish_one(&hub, event);
         }

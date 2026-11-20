@@ -1,7 +1,7 @@
 //! Playback observations belong to the captured account session, never a successor.
 
 use super::*;
-use oxidezap_chat_store::{MessageKind, StoredMessage};
+use velo_chat_store::{MessageKind, StoredMessage};
 use whatsapp_rust::{MessageId, MessageRef};
 
 pub(super) fn receipt_for_ui(receipt: &ReceiptType) -> Option<ReceiptType> {
@@ -29,7 +29,7 @@ fn eligible(message: &StoredMessage) -> bool {
                 || message
                     .message
                     .as_deref()
-                    .map(oxidezap_chat_store::normalized_message)
+                    .map(velo_chat_store::normalized_message)
                     .and_then(|m| m.audio_message.as_option())
                     .and_then(|m| m.context_info.as_option())
                     .is_some_and(|c| c.forwarded_newsletter_message_info.is_set())
@@ -276,7 +276,7 @@ mod tests {
                 .unwrap()
                 .unwrap()
                 .status,
-            oxidezap_chat_store::MessageStatus::Played
+            velo_chat_store::MessageStatus::Played
         );
     }
 
@@ -298,7 +298,7 @@ mod tests {
                 .unwrap()
                 .unwrap()
                 .status,
-            oxidezap_chat_store::MessageStatus::Played
+            velo_chat_store::MessageStatus::Played
         );
         let (_other_db, other_store, other_message) = fixture(false, true).await;
         assert_ne!(
@@ -308,7 +308,7 @@ mod tests {
                 .unwrap()
                 .unwrap()
                 .status,
-            oxidezap_chat_store::MessageStatus::Played
+            velo_chat_store::MessageStatus::Played
         );
     }
 
@@ -331,7 +331,7 @@ mod tests {
             .unwrap();
         let hydrated = super::super::convert::stored_to_chat_message(row);
         assert!(!hydrated.is_from_me);
-        assert_eq!(hydrated.status, oxidezap_core::MessageStatus::Played);
+        assert_eq!(hydrated.status, velo_core::MessageStatus::Played);
     }
 
     #[tokio::test]
@@ -360,7 +360,7 @@ mod tests {
                 .unwrap()
                 .unwrap()
                 .status,
-            oxidezap_chat_store::MessageStatus::Played
+            velo_chat_store::MessageStatus::Played
         );
     }
 

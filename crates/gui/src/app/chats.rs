@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use gpui::{App, Context};
-use oxidezap_core::Chat;
+use velo_core::Chat;
 
 use super::chat_row::ChatRow;
 use super::{WhatsAppApp, newest_shared_message};
@@ -291,7 +291,7 @@ pub(super) fn hierarchical_group_rows(
     query: &str,
     collapsed: &std::collections::HashSet<String>,
 ) -> Vec<ChatRow> {
-    use oxidezap_core::GroupHierarchy;
+    use velo_core::GroupHierarchy;
 
     let query_active = !query.trim().is_empty();
     let matches = |row: &ChatRow| {
@@ -392,7 +392,7 @@ fn visible_chat_list_selection(rows: &[ChatRow], selected: &Chat) -> Option<Stri
     if rows.iter().any(|row| row.jid == selected.jid) {
         return Some(selected.jid.clone());
     }
-    let oxidezap_core::GroupHierarchy::Subgroup { parent_jid, .. } =
+    let velo_core::GroupHierarchy::Subgroup { parent_jid, .. } =
         selected.group_hierarchy.as_ref()?
     else {
         return None;
@@ -442,7 +442,7 @@ mod tests {
         assert!(!ChatFilter::Unread.matches(&chat("a@s.whatsapp.net", false, 0, false)));
     }
 
-    fn hierarchy_row(jid: &str, name: &str, hierarchy: oxidezap_core::GroupHierarchy) -> ChatRow {
+    fn hierarchy_row(jid: &str, name: &str, hierarchy: velo_core::GroupHierarchy) -> ChatRow {
         let mut chat = Chat::new(jid.to_string());
         chat.name = name.to_string();
         chat.is_group = true;
@@ -452,7 +452,7 @@ mod tests {
 
     #[test]
     fn subgroup_parentage_uses_jids_and_keeps_same_named_communities_separate() {
-        use oxidezap_core::{GroupHierarchy, SubgroupKind};
+        use velo_core::{GroupHierarchy, SubgroupKind};
 
         let rows = vec![
             hierarchy_row(
@@ -496,7 +496,7 @@ mod tests {
 
     #[test]
     fn subgroup_search_reveals_a_collapsed_parent_as_context() {
-        use oxidezap_core::{GroupHierarchy, SubgroupKind};
+        use velo_core::{GroupHierarchy, SubgroupKind};
 
         let rows = vec![
             hierarchy_row("community@g.us", "Games", GroupHierarchy::Community),
@@ -526,7 +526,7 @@ mod tests {
 
     #[test]
     fn collapsing_a_community_hides_only_its_jid_linked_subgroups() {
-        use oxidezap_core::{GroupHierarchy, SubgroupKind};
+        use velo_core::{GroupHierarchy, SubgroupKind};
 
         let rows = vec![
             hierarchy_row("community1@g.us", "First", GroupHierarchy::Community),
@@ -561,8 +561,8 @@ mod tests {
 
     #[test]
     fn a_collapsed_selected_subgroup_uses_its_parent_as_list_selection_anchor() {
-        use oxidezap_core::{GroupHierarchy, SubgroupKind};
         use std::collections::HashSet;
+        use velo_core::{GroupHierarchy, SubgroupKind};
 
         let source_rows = vec![
             hierarchy_row("community@g.us", "Community", GroupHierarchy::Community),
@@ -598,7 +598,7 @@ mod tests {
 
     #[test]
     fn keyboard_disclosure_targets_only_a_visible_community_row() {
-        use oxidezap_core::{GroupHierarchy, SubgroupKind};
+        use velo_core::{GroupHierarchy, SubgroupKind};
 
         let rows = vec![
             hierarchy_row("community@g.us", "Games", GroupHierarchy::Community),
@@ -621,7 +621,7 @@ mod tests {
 
     #[test]
     fn a_pinned_subgroup_stays_in_the_pinned_block_when_its_parent_is_unpinned() {
-        use oxidezap_core::{GroupHierarchy, SubgroupKind};
+        use velo_core::{GroupHierarchy, SubgroupKind};
 
         let mut pinned_child = hierarchy_row(
             "pinned-child@g.us",
@@ -659,7 +659,7 @@ mod tests {
 
     #[test]
     fn an_unpinned_subgroup_does_not_interrupt_the_pinned_block() {
-        use oxidezap_core::{GroupHierarchy, SubgroupKind};
+        use velo_core::{GroupHierarchy, SubgroupKind};
 
         let mut community = hierarchy_row("community@g.us", "Community", GroupHierarchy::Community);
         community.pinned = true;
@@ -685,7 +685,7 @@ mod tests {
 
     #[test]
     fn a_missing_parent_is_not_guessed_from_a_matching_name() {
-        use oxidezap_core::{GroupHierarchy, SubgroupKind};
+        use velo_core::{GroupHierarchy, SubgroupKind};
 
         let rows = vec![
             hierarchy_row("unrelated@g.us", "Same name", GroupHierarchy::Community),
@@ -865,7 +865,7 @@ mod tests {
     /// over an account of 3000 was 300k string comparisons, and a history
     /// sync commits pages like this back to back for minutes.
     ///
-    /// `cargo test -p oxidezap-gui -- --ignored --nocapture chat_merge_lookup_costs`
+    /// `cargo test -p velo-gui -- --ignored --nocapture chat_merge_lookup_costs`
     #[test]
     #[ignore = "a measurement, not an assertion"]
     fn chat_merge_lookup_costs() {
@@ -912,7 +912,7 @@ mod tests {
     /// answering from a version and a length, both O(1), an unchanged list
     /// pays it zero times.
     ///
-    /// `cargo test -p oxidezap-gui -- --ignored --nocapture chat_filter_costs`
+    /// `cargo test -p velo-gui -- --ignored --nocapture chat_filter_costs`
     #[test]
     #[ignore = "a measurement, not an assertion"]
     fn chat_filter_costs() {

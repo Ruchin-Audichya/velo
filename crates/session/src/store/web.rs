@@ -38,10 +38,10 @@
 use std::cell::OnceCell;
 
 use log::info;
-use oxidezap_core::AccountId;
 use sqlite_wasm_rs::WasmOsCallback;
 use sqlite_wasm_vfs::relaxed_idb::{RelaxedIdbCfg, RelaxedIdbUtil, install};
 use sqlite_wasm_vfs::sahpool::{OpfsSAHPoolCfg, OpfsSAHPoolUtil, install as install_sahpool};
+use velo_core::AccountId;
 use wacore::store::error::StoreError;
 
 use super::DB_FILE;

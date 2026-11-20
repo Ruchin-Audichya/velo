@@ -61,7 +61,7 @@ Live heap was not measured separately. The new index trades memory for CPU.
 ## Reproduce
 
 Use the same checkout and default Cargo target cache for both commits. At each
-ref run `cargo test -p oxidezap-daemon --lib --all-features --release --no-run
+ref run `cargo test -p velo-daemon --lib --all-features --release --no-run
 --message-format=json`, and copy the daemon test executable named by the JSON
 `executable` field to `/tmp/attention-base` or `/tmp/attention-head` before changing
 refs. Then run:

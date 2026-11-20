@@ -2,7 +2,7 @@
 mod common;
 
 use common::*;
-use oxidezap_chat_store::ChatArchiveFilter;
+use velo_chat_store::ChatArchiveFilter;
 
 #[tokio::test]
 async fn archive_pages_preserve_order_and_fill_each_page() {

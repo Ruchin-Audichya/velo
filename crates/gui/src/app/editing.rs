@@ -3,7 +3,7 @@
 
 use super::{WhatsAppApp, notices};
 use gpui::{Context, SharedString, Window};
-use oxidezap_core::ChatMessage;
+use velo_core::ChatMessage;
 
 pub(super) struct EditDraft {
     pub jid: String,
@@ -225,7 +225,7 @@ mod tests {
         let mut message = ChatMessage::new_outgoing("EDIT".into(), "text".into());
         let now = message.timestamp.timestamp_millis();
         assert!(!can_edit_text(&message, now));
-        message.status = oxidezap_core::MessageStatus::Sent;
+        message.status = velo_core::MessageStatus::Sent;
         assert!(can_edit_text(&message, now + 15 * 60 * 1_000 - 1));
         assert!(!can_edit_text(&message, now + 15 * 60 * 1_000));
         message.is_text = false;
@@ -240,8 +240,8 @@ mod tests {
     #[gpui::test]
     fn editing_cancel_and_chat_switch_restore_the_prior_draft(cx: &mut gpui::TestAppContext) {
         use super::super::{ChatOpen, body};
-        use oxidezap_core::{Chat, MessageStatus};
         use std::sync::Arc;
+        use velo_core::{Chat, MessageStatus};
         let (mut cx, app) = body::tests::connected_app_fixture(cx);
         cx.update(|window, cx| {
             app.update(cx, |app, cx| {

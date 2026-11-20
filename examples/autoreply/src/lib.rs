@@ -14,8 +14,8 @@
 #[cfg(test)]
 extern crate std;
 
-use oxidezap_plugin::ui::{self, slot};
-use oxidezap_plugin::{
+use velo_plugin::ui::{self, slot};
+use velo_plugin::{
     Action, Caps, Declared, Event, Kinds, Message, Setup, Which, kv, log, plugin, send_reply,
 };
 
@@ -140,7 +140,7 @@ fn handle_action(a: Action<'_>) {
         // fixed buffer on the stack. Saying *how much* longer is the
         // difference between a log line and a shrug.
         log!(
-            oxidezap_plugin::level::WARN,
+            velo_plugin::level::WARN,
             "ignoring a {} byte setting; this plugin makes room for {SETTING}",
             value.full_len()
         );
@@ -194,7 +194,7 @@ fn draw() {
 }
 
 fn store(key: &str, value: &str) {
-    oxidezap_plugin::set(key, value);
+    velo_plugin::set(key, value);
 }
 
 /// Whether `haystack` contains `needle`, ignoring case for ASCII.
@@ -222,8 +222,8 @@ fn contains_ignoring_case(haystack: &str, needle: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oxidezap_plugin::testing::{Event as In, Host};
     use std::string::ToString as _;
+    use velo_plugin::testing::{Event as In, Host};
 
     /// The whole point of the plugin, checked without a daemon: a message
     /// carrying the keyword is answered, in the chat it arrived in.
@@ -263,9 +263,9 @@ mod tests {
         host.store("enabled", "1");
 
         let cases = [
-            oxidezap_plugin::abi::fields::IS_GROUP,
-            oxidezap_plugin::abi::fields::FROM_ME,
-            oxidezap_plugin::abi::fields::REVOKED,
+            velo_plugin::abi::fields::IS_GROUP,
+            velo_plugin::abi::fields::FROM_ME,
+            velo_plugin::abi::fields::REVOKED,
         ];
         for field in cases {
             host.deliver(
@@ -286,7 +286,7 @@ mod tests {
         assert_eq!(host.stored("enabled").as_deref(), Some("1"));
         let tree = host.ui().expect("it published one").expect("it parses");
         let section = &tree[0];
-        use oxidezap_plugin::abi::ui::flags;
+        use velo_plugin::abi::ui::flags;
         assert!(
             section.children[0].flags & flags::CHECKED != 0,
             "the switch is drawn on"

@@ -6,9 +6,9 @@
 //! the whole of that rule.
 
 use super::Backing;
-use oxidezap_core::AccountId;
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
+use velo_core::AccountId;
 
 /// The origin's own key-value storage. Web only.
 ///
@@ -231,7 +231,7 @@ impl Origin {
 }
 
 /// What every document this host keeps is named under.
-const PREFIX: &str = "oxidezap.plugin.";
+const PREFIX: &str = "velo.plugin.";
 
 fn prefix(account: AccountId) -> String {
     if account == AccountId::LEGACY {

@@ -14,7 +14,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use oxidezap_logging::LogLevel;
+use velo_logging::LogLevel;
 
 /// Everything the logger let through, in order.
 static WRITTEN: Mutex<Vec<String>> = Mutex::new(Vec::new());
@@ -23,14 +23,14 @@ static WRITTEN: Mutex<Vec<String>> = Mutex::new(Vec::new());
 ///
 /// It answers the same two questions the crate's own does — is this level in
 /// force, and is this target one of the quiet ones — by asking
-/// [`oxidezap_logging::current`], which is the value under test.
+/// [`velo_logging::current`], which is the value under test.
 struct Recorder {
     quiet: &'static [&'static str],
 }
 
 impl log::Log for Recorder {
     fn enabled(&self, metadata: &log::Metadata<'_>) -> bool {
-        if metadata.level() > oxidezap_logging::current().filter() {
+        if metadata.level() > velo_logging::current().filter() {
             return false;
         }
         let quieted = self.quiet.iter().any(|module| {
@@ -63,7 +63,7 @@ fn written() -> Vec<String> {
 fn a_level_raised_at_runtime_reaches_the_logger() {
     // The environment is not this test's subject, and `apply` reads it: the
     // maximum it sets clears anything `RUST_LOG` named a target for, so a
-    // shell with `RUST_LOG=oxidezap_session=trace` in it would raise the
+    // shell with `RUST_LOG=velo_session=trace` in it would raise the
     // number this asserts on. Sound where it stands — the only test in this
     // binary, before it has spawned anything.
     unsafe {
@@ -76,14 +76,14 @@ fn a_level_raised_at_runtime_reaches_the_logger() {
     log::set_logger(recorder).expect("nothing else installs a logger here");
 
     // Where every process starts, and what nobody has to ask for.
-    oxidezap_logging::apply(LogLevel::Info);
+    velo_logging::apply(LogLevel::Info);
     log::debug!("before");
     log::info!("during");
     assert_eq!(written(), vec!["the_level_moves: during".to_string()]);
 
     // The whole feature, in three lines: no restart, no environment
     // variable, and the record that was dropped a moment ago is kept.
-    oxidezap_logging::apply(LogLevel::Debug);
+    velo_logging::apply(LogLevel::Debug);
     log::debug!("after");
     assert_eq!(
         written().last().map(String::as_str),
@@ -99,14 +99,14 @@ fn a_level_raised_at_runtime_reaches_the_logger() {
 
     // Down again, because "any level" includes the quiet ones — a person who
     // has finished debugging asks for silence, and `off` has to mean it.
-    oxidezap_logging::apply(LogLevel::Off);
+    velo_logging::apply(LogLevel::Off);
     let before = written().len();
     log::error!("silenced");
     assert_eq!(written().len(), before);
 
     // A module held at `warn` stays there however loud the rest is: turning
     // debug on to read our own logs must not bury them under a renderer's.
-    oxidezap_logging::apply(LogLevel::Trace);
+    velo_logging::apply(LogLevel::Trace);
     let quiet: Arc<str> = Arc::from("noisy_renderer");
     log::debug!(target: &quiet, "every frame");
     log::warn!(target: &quiet, "something is actually wrong");

@@ -5,7 +5,7 @@
 //! front end never learns that a plugin is a `.wasm` file, only that
 //! something named `autoreply` asked for a button in the chat header.
 //!
-//! The shape mirrors `oxidezap-plugin-abi`'s `ui` module without depending on
+//! The shape mirrors `velo-plugin-abi`'s `ui` module without depending on
 //! it. That crate is compiled into every plugin and must stay free of serde;
 //! this one is compiled into every front end and must carry it. The host is
 //! the single place the two meet, which is also the only place a mapping

@@ -2,7 +2,7 @@
 //!
 //! Same protocol, same state machine, no session. The tab that won the
 //! browser's lock is running `daemon::embedded` and serving front ends over
-//! `oxidezap_ipc::tab`; this is one of those front ends, and it is a front
+//! `velo_ipc::tab`; this is one of those front ends, and it is a front
 //! end in exactly the sense /AGENTS.md means — it owns no session, no store
 //! and no media, and it never learns that its daemon is a tab rather than a
 //! process.
@@ -24,7 +24,7 @@
 
 use std::sync::Arc;
 
-use oxidezap_ipc::tab::{self, Ask, FromTab, Incoming, Media};
+use velo_ipc::tab::{self, Ask, FromTab, Incoming, Media};
 use wasm_bindgen_futures::spawn_local;
 
 use super::Session;
@@ -40,9 +40,7 @@ use super::sink::Events;
 /// No tab answered. That is not a refusal and must not be drawn as one: the
 /// tab that would have answered has closed, and the caller's next move is to
 /// take the account itself.
-pub(super) async fn connect(
-    account: oxidezap_core::AccountId,
-) -> std::io::Result<(Session, Events)> {
+pub(super) async fn connect(account: velo_core::AccountId) -> std::io::Result<(Session, Events)> {
     connect_scoped(false, account).await
 }
 
@@ -52,12 +50,12 @@ pub(super) async fn connect(
 /// that runs the session is the daemon, so it is the peer that answers the
 /// process-wide requests.
 pub(super) async fn connect_control() -> std::io::Result<(Session, Events)> {
-    connect_scoped(true, oxidezap_core::AccountId::LEGACY).await
+    connect_scoped(true, velo_core::AccountId::LEGACY).await
 }
 
 async fn connect_scoped(
     control: bool,
-    account: oxidezap_core::AccountId,
+    account: velo_core::AccountId,
 ) -> std::io::Result<(Session, Events)> {
     log::info!("another tab holds this account; attaching to it");
 
@@ -119,8 +117,8 @@ async fn connect_scoped(
     // the front end's own retry calls `embedded::connect` again, which now
     // finds the claim already held and starts the session in this tab.
     spawn_local(async move {
-        match oxidezap_daemon::embedded::promotion().await {
-            Ok(oxidezap_daemon::embedded::Promotion::Granted) => {
+        match velo_daemon::embedded::promotion().await {
+            Ok(velo_daemon::embedded::Promotion::Granted) => {
                 log::info!("the tab holding this account has gone; taking it");
                 hangup.close("this tab is taking over the account".to_string());
             }
@@ -128,7 +126,7 @@ async fn connect_scoped(
             // a resync, an overflow, a hello refused. The connection that
             // replaced it is doing the waiting now, and this task's only job
             // is to stop holding what it closed over.
-            Ok(oxidezap_daemon::embedded::Promotion::Superseded) => {}
+            Ok(velo_daemon::embedded::Promotion::Superseded) => {}
             // Nothing to fall back on. Said once rather than retried: without
             // a lock manager this tab cannot tell when the other one leaves,
             // and a poll would be a different design rather than a smaller
@@ -283,7 +281,7 @@ impl MediaCache for Fetched {
     /// wrong way round.
     fn discard(&self, key: &str) {
         self.held.forget(key);
-        if oxidezap_ipc::is_staged_key(key) {
+        if velo_ipc::is_staged_key(key) {
             self.media.discard(key);
         }
     }

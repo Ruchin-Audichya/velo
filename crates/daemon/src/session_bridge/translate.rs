@@ -6,8 +6,8 @@
 
 use std::collections::HashSet;
 
-use oxidezap_core::{Chat, ChatMessage, UiEvent};
-use oxidezap_ipc::{
+use velo_core::{Chat, ChatMessage, UiEvent};
+use velo_ipc::{
     ChatSummary, ConnectionState, DaemonEvent, DaemonMessage, MessagePreview, PairingCode,
 };
 use wacore_binary::jid::{Jid, JidExt};
@@ -30,7 +30,7 @@ pub(super) enum Answer {
     Restart,
     /// An offer with nowhere to go. Nothing on this side holds its id, so no
     /// front end can be asked to refuse it.
-    Decline(oxidezap_core::CallId),
+    Decline(velo_core::CallId),
 }
 
 impl Bridge {
@@ -87,7 +87,7 @@ impl Bridge {
             } = &event
             && !message.is_from_me
             && !message.is_read
-            && chat_jid != oxidezap_core::STATUS_BROADCAST_JID
+            && chat_jid != velo_core::STATUS_BROADCAST_JID
         {
             let title = notification_title
                 .as_ref()
@@ -118,9 +118,9 @@ impl Bridge {
                 // third has nowhere to go, and a caller nothing on this side
                 // holds an id for would ring until they gave up — so it is
                 // refused here, where the session is.
-                let mut admission = oxidezap_core::Admission::Ringing;
+                let mut admission = velo_core::Admission::Ringing;
                 self.hub.calls(|s| admission = s.set_incoming(call.clone()));
-                if admission == oxidezap_core::Admission::Refused {
+                if admission == velo_core::Admission::Refused {
                     answer = Answer::Decline(call.call_id.clone());
                 }
             }
@@ -216,7 +216,7 @@ impl Bridge {
                 }
             }
             UiEvent::AccountUpdated { name, jid, lid } => {
-                self.hub.set_account(oxidezap_ipc::AccountIdentity {
+                self.hub.set_account(velo_ipc::AccountIdentity {
                     name: name.clone(),
                     jid: jid.clone(),
                     lid: lid.clone(),
@@ -477,7 +477,7 @@ impl Bridge {
 /// what a receipt no longer pays for.
 fn prepare_avatars(
     hub: &std::sync::Arc<StateHub>,
-    recorder: &oxidezap_session::AvatarRecorder,
+    recorder: &velo_session::AvatarRecorder,
     event: &mut UiEvent,
 ) {
     if let UiEvent::AvatarsResolved { resolutions } = event {
@@ -534,7 +534,7 @@ pub(super) fn deadline_ms(timeout_secs: u64) -> i64 {
 /// participant, not the conversation, so naming the chat after them publishes
 /// "Alice" for a group of forty until a reload corrects it. These are exactly
 /// the chats the session itself treats as participant-keyed. The JID is a
-/// worse label but an honest one, and [`oxidezap_core::fallback_chat_name`] is
+/// worse label but an honest one, and [`velo_core::fallback_chat_name`] is
 /// what a front end renders it as. Outgoing messages are skipped for the same
 /// reason: the sender is us.
 fn live_chat_name(chat_jid: &str, message: &ChatMessage, sender_name: Option<String>) -> String {

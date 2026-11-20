@@ -10,7 +10,7 @@ use std::sync::Arc;
 use gpui::{prelude::*, *};
 use gpui_component::button::{Button, ButtonVariants as _};
 use gpui_component::{ActiveTheme as _, Disableable as _, Icon, IconName, Sizable as _};
-use oxidezap_core::{Chat, GroupRoster, MediaType};
+use velo_core::{Chat, GroupRoster, MediaType};
 
 use crate::app::WhatsAppApp;
 use crate::components::{Avatar, ProductIcon};

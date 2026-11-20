@@ -1,8 +1,8 @@
-use oxidezap_core::{AccountId, CallDevicePreferences};
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
+use velo_core::{AccountId, CallDevicePreferences};
 
 pub fn supported() -> bool {
     cfg!(all(windows, not(test)))
@@ -14,7 +14,7 @@ pub struct IncomingCallAlert {
     // Audio startup errors cancel this token, not notification ownership.
     ringtone_cancelled: Arc<AtomicBool>,
     retired: Arc<AtomicBool>,
-    ringtone: Option<oxidezap_audio::RingtonePlayback>,
+    ringtone: Option<velo_audio::RingtonePlayback>,
 }
 
 impl IncomingCallAlert {
@@ -38,7 +38,7 @@ impl IncomingCallAlert {
     }
 
     pub fn play(&mut self, preferences: CallDevicePreferences) -> anyhow::Result<()> {
-        self.play_with(preferences, oxidezap_audio::start_ringtone_cancellable)
+        self.play_with(preferences, velo_audio::start_ringtone_cancellable)
     }
 
     fn play_with(
@@ -46,9 +46,9 @@ impl IncomingCallAlert {
         preferences: CallDevicePreferences,
         start: impl FnOnce(
             Option<String>,
-            oxidezap_core::Ringtone,
+            velo_core::Ringtone,
             Arc<AtomicBool>,
-        ) -> anyhow::Result<oxidezap_audio::RingtonePlayback>,
+        ) -> anyhow::Result<velo_audio::RingtonePlayback>,
     ) -> anyhow::Result<()> {
         if !self.cancelled.load(Ordering::Acquire) {
             self.ringtone = Some(start(
@@ -74,10 +74,10 @@ impl Drop for IncomingCallAlert {
 
 #[cfg(not(target_family = "wasm"))]
 mod imp {
-    use oxidezap_core::AccountId;
     use std::fs::{File, OpenOptions};
     use std::io::{self, Read as _, Seek as _, Write as _};
     use std::path::Path;
+    use velo_core::AccountId;
 
     pub struct Owner {
         file: File,
@@ -85,7 +85,7 @@ mod imp {
     }
 
     pub fn claim(account: AccountId, tag: String) -> io::Result<Option<Owner>> {
-        let directory = oxidezap_ipc::state_dir()
+        let directory = velo_ipc::state_dir()
             .ok_or_else(|| io::Error::other("call alert directory is unavailable"))?;
         claim_at(&directory.join(format!("call-alert-{account}.lock")), tag)
     }
@@ -135,7 +135,7 @@ mod imp {
                 atomic::{AtomicBool, Ordering},
             };
             let path = std::env::temp_dir().join(format!(
-                "oxidezap-call-alert-failure-{}-{}",
+                "velo-call-alert-failure-{}-{}",
                 std::process::id(),
                 wacore::time::now_utc().timestamp_nanos_opt().unwrap()
             ));
@@ -169,7 +169,7 @@ mod imp {
         #[test]
         fn call_alert_has_one_owner_and_releases_on_close() {
             let path = std::env::temp_dir().join(format!(
-                "oxidezap-call-alert-test-{}-{}",
+                "velo-call-alert-test-{}-{}",
                 std::process::id(),
                 wacore::time::now_utc().timestamp_nanos_opt().unwrap()
             ));
@@ -198,7 +198,7 @@ mod imp {
 #[cfg(target_family = "wasm")]
 mod imp {
     pub struct Owner;
-    pub fn claim(_: oxidezap_core::AccountId, _: String) -> std::io::Result<Option<Owner>> {
+    pub fn claim(_: velo_core::AccountId, _: String) -> std::io::Result<Option<Owner>> {
         Ok(None)
     }
     impl Owner {

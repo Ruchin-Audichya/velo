@@ -14,8 +14,8 @@ use super::super::*;
 // Named here rather than through the star above, because the camera is this
 // file's business alone: the session's own module has no use for one.
 use crate::video::LocalVideo;
-use oxidezap_audio::open_call_audio;
 use std::time::Duration;
+use velo_audio::open_call_audio;
 use whatsapp_rust::voip::{
     CallEvent, CallHandle, CallTermination, KeyframeUrgency, VideoState, VideoUpgradeToken,
 };
@@ -2469,7 +2469,7 @@ impl WhatsAppClient {
     ///
     /// A call still ringing has nowhere to publish the state, and answering
     /// does not replay it. That is not a gap here: mute is offered on an
-    /// active call only ([`oxidezap_core::CallState::set_muted`] matches the
+    /// active call only ([`velo_core::CallState::set_muted`] matches the
     /// live stage), so nothing can be chosen while it rings.
     pub fn set_call_muted(&self, call_id: &str, muted: bool) {
         let calls = self.calls.clone();
@@ -3278,8 +3278,8 @@ mod tests {
             acceptance_fixture::OutgoingAcceptCase::Video,
         )
         .await;
-        let mut projected = oxidezap_core::CallState::default();
-        projected.set_outgoing(oxidezap_core::OutgoingCall::new(
+        let mut projected = velo_core::CallState::default();
+        projected.set_outgoing(velo_core::OutgoingCall::new(
             "placeholder",
             "200@lid".into(),
             "Peer".into(),
@@ -3456,8 +3456,8 @@ mod tests {
             );
             WhatsAppClient::observe_peer_video(&calls, &ui, "current", state, None).await;
             assert!(!calls.end_upgrade("current"));
-            let mut projected = oxidezap_core::CallState::default();
-            projected.set_outgoing(oxidezap_core::OutgoingCall::new(
+            let mut projected = velo_core::CallState::default();
+            projected.set_outgoing(velo_core::OutgoingCall::new(
                 "current",
                 "peer@example.invalid".into(),
                 "Peer".into(),

@@ -18,7 +18,7 @@ fn cpu_ticks() -> u64 {
 #[test]
 #[ignore = "synthetic restore measurement; run explicitly with --nocapture"]
 fn native_restore_probe() {
-    const ROOT: &str = "OXIDEZAP_AVATAR_PROBE_ROOT";
+    const ROOT: &str = "VELO_AVATAR_PROBE_ROOT";
     let Some(root) = std::env::var_os(ROOT) else {
         let root = std::env::temp_dir().join(format!("avatar-probe-{}", std::process::id()));
         std::fs::create_dir_all(&root).unwrap();
@@ -33,7 +33,7 @@ fn native_restore_probe() {
                 .env(ROOT, &root)
                 .env("XDG_RUNTIME_DIR", &root)
                 .env("LOCALAPPDATA", &root)
-                .env("OXIDEZAP_ACCOUNT", "synthetic-avatar-probe")
+                .env("VELO_ACCOUNT", "synthetic-avatar-probe")
                 .env("SMOL_THREADS", "1")
                 .status()
                 .unwrap();
@@ -44,7 +44,7 @@ fn native_restore_probe() {
     };
     let root = std::path::PathBuf::from(root);
     let mut bytes = std::io::Cursor::new(Vec::new());
-    let jpeg = std::env::var("OXIDEZAP_AVATAR_PROBE_FORMAT").as_deref() == Ok("jpeg");
+    let jpeg = std::env::var("VELO_AVATAR_PROBE_FORMAT").as_deref() == Ok("jpeg");
     let edge = if jpeg { 512 } else { 1024 };
     // A JPEG preview and a larger PNG stress the real decoder/thumbnail path.
     let image = image::RgbaImage::from_fn(edge, edge, |x, y| {
@@ -69,7 +69,7 @@ fn native_restore_probe() {
     let chats: Vec<_> = (0..25)
         .map(|i| {
             let key = format!("synthetic-avatar-probe-{i}");
-            let path = oxidezap_ipc::media_path(&key).unwrap();
+            let path = velo_ipc::media_path(&key).unwrap();
             assert!(path.starts_with(&root));
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(path, &bytes).unwrap();

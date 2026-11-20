@@ -17,7 +17,7 @@
 //! div().bg(palette.hsla(palette.message_sent))
 //! ```
 //!
-//! Values come from `~/.config/oxidezap/theme.json` layered over a named
+//! Values come from `~/.config/velo/theme.json` layered over a named
 //! preset; see [`config`]. Loading cannot fail, so a hand-edited file can
 //! never leave the window unreadable.
 

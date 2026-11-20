@@ -1,6 +1,6 @@
 # autoreply
 
-An example oxidezap plugin. It answers messages containing a keyword, and puts
+An example Velo plugin. It answers messages containing a keyword, and puts
 its own settings on the Settings screen.
 
 ```bash
@@ -12,14 +12,14 @@ rustup target add wasm32-unknown-unknown
 # daemon refuses. The task clears them and prints where the `.wasm` landed.
 module="$(cargo xtask plugin build examples/autoreply)"
 
-mkdir -p ~/.local/share/oxidezap/plugins
-cp "$module" ~/.local/share/oxidezap/plugins/
+mkdir -p ~/.local/share/velo/plugins
+cp "$module" ~/.local/share/velo/plugins/
 ```
 
-Restart `oxidezapd`. The file's name is the plugin's id, so the copy above
+Restart `velod`. The file's name is the plugin's id, so the copy above
 loads as `autoreply`.
 
-Set `OXIDEZAP_PLUGIN_DIR` to load from somewhere else, which is what you want
+Set `VELO_PLUGIN_DIR` to load from somewhere else, which is what you want
 while writing one.
 
 ## Testing it

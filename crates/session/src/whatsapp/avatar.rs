@@ -19,8 +19,8 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 
 use log::debug;
-use oxidezap_chat_store::ChatStore;
-use oxidezap_core::UiEvent;
+use velo_chat_store::ChatStore;
+use velo_core::UiEvent;
 use whatsapp_rust::client::Client;
 use whatsapp_rust::wacore_binary::jid::{Jid, JidExt};
 use whatsapp_rust::{ProfilePictureRequest, ProfilePictureTarget, ProfilePictureType};
@@ -326,7 +326,7 @@ pub(super) async fn resolve(
     client: &Arc<Client>,
     ui_tx: &UiEventSender,
     resolver: &mut Resolver,
-    demands: Vec<oxidezap_core::AvatarDemand>,
+    demands: Vec<velo_core::AvatarDemand>,
     generation: u64,
 ) {
     let mut filtered: HashMap<String, (Jid, Option<String>, bool)> = HashMap::new();
@@ -371,9 +371,9 @@ pub(super) async fn resolve(
 
     let cached: Vec<_> = cached_absent
         .into_iter()
-        .map(|jid| oxidezap_core::AvatarResolution {
+        .map(|jid| velo_core::AvatarResolution {
             jid,
-            outcome: oxidezap_core::AvatarOutcome::NotFound,
+            outcome: velo_core::AvatarOutcome::NotFound,
         })
         .collect();
     for chunk in cached.chunks(AVATAR_CONCURRENCY) {
@@ -420,7 +420,7 @@ pub(super) async fn resolve(
                         AvatarResolutionState::MetadataKnown
                     };
                     (
-                        oxidezap_core::AvatarOutcome::Found {
+                        velo_core::AvatarOutcome::Found {
                             picture_id,
                             source: Some(source),
                         },
@@ -428,7 +428,7 @@ pub(super) async fn resolve(
                     )
                 }
                 Lookup::NotFound => (
-                    oxidezap_core::AvatarOutcome::NotFound,
+                    velo_core::AvatarOutcome::NotFound,
                     AvatarResolutionState::NotFound,
                 ),
                 Lookup::Unchanged => {
@@ -459,7 +459,7 @@ pub(super) async fn resolve(
                 }
             };
             resolver.mark(&jid_str, generation, state);
-            resolutions.push(oxidezap_core::AvatarResolution {
+            resolutions.push(velo_core::AvatarResolution {
                 jid: jid_str,
                 outcome,
             });
@@ -542,7 +542,7 @@ impl WhatsAppClient {
                     let jids = stored_jids(&chat_store).await;
                     let demands = jids
                         .into_iter()
-                        .map(|jid| oxidezap_core::AvatarDemand {
+                        .map(|jid| velo_core::AvatarDemand {
                             jid: jid.to_string(),
                             known_picture_id: None,
                             cache_key: None,
@@ -582,7 +582,7 @@ mod tests {
             .map(|i| {
                 let jid = format!("reopened-{i}@s.whatsapp.net");
                 resolver.mark(&jid, 1, AvatarResolutionState::NotFound);
-                oxidezap_core::AvatarDemand {
+                velo_core::AvatarDemand {
                     jid,
                     known_picture_id: None,
                     cache_key: None,
@@ -602,7 +602,7 @@ mod tests {
             for resolution in resolutions {
                 assert!(matches!(
                     resolution.outcome,
-                    oxidezap_core::AvatarOutcome::NotFound
+                    velo_core::AvatarOutcome::NotFound
                 ));
                 answered.insert(resolution.jid);
             }
@@ -614,7 +614,7 @@ mod tests {
         assert!(excluded[2].parse::<Jid>().is_err());
         let skipped = excluded
             .iter()
-            .map(|jid| oxidezap_core::AvatarDemand {
+            .map(|jid| velo_core::AvatarDemand {
                 jid: (*jid).into(),
                 known_picture_id: None,
                 cache_key: None,

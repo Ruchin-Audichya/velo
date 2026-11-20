@@ -188,20 +188,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6790f58c7ff633d8771f42965289203411a5e5c68388703c06e14f24770b41e"
 
 [[package]]
-name = "oxidezap-call-playout-tests"
+name = "velo-call-playout-tests"
 version = "0.0.0"
 dependencies = [
  "futures-lite",
  "js-sys",
  "log",
- "oxidezap-platform",
+ "velo-platform",
  "wasm-bindgen",
  "wasm-bindgen-test",
  "web-sys",
 ]
 
 [[package]]
-name = "oxidezap-platform"
+name = "velo-platform"
 version = "0.1.0"
 dependencies = [
  "futures-channel",

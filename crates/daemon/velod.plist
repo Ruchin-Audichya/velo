@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleIdentifier</key>
-	<string>com.oxidezap.daemon</string>
+	<string>com.velo.daemon</string>
 	<key>CFBundleName</key>
-	<string>oxidezapd</string>
+	<string>velod</string>
 	<!-- The daemon owns the menu-bar item and WhatsApp session, but it is not
 	     a second user-facing application. Keep AppKit available for NSStatusItem
 	     without registering another Dock icon. -->
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>oxidezap needs the camera so you can be seen on a video call.</string>
+	<string>velo needs the camera so you can be seen on a video call.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>oxidezap needs the microphone so you can be heard on a call and record voice messages.</string>
+	<string>velo needs the microphone so you can be heard on a call and record voice messages.</string>
 </dict>
 </plist>

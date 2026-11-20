@@ -549,7 +549,7 @@ mod capture {
         let stop = Arc::new(AtomicBool::new(false));
         let ending = stop.clone();
         let handle = std::thread::Builder::new()
-            .name("oxidezap-recorder-drain".to_string())
+            .name("velo-recorder-drain".to_string())
             .spawn(move || {
                 let mut block = vec![0.0f32; ring_samples(CAPTURE_SAMPLE_RATE)];
                 // The meter's window, kept here so reading it never touches

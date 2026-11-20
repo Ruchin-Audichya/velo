@@ -20,11 +20,11 @@ use crate::app::WhatsAppApp;
 use crate::components::ProductIcon;
 use crate::components::parts;
 use crate::theme::{ActiveProductTheme as _, Metrics};
-use oxidezap_core::MediaContent;
+use velo_core::MediaContent;
 
 /// How many bars the player draws.
 ///
-/// `oxidezap-audio` emits 64 buckets and WhatsApp ships 64 too, so this is a
+/// `velo-audio` emits 64 buckets and WhatsApp ships 64 too, so this is a
 /// straight read at the common case; anything else is resampled onto it.
 const BARS: usize = 48;
 
@@ -382,7 +382,7 @@ pub fn resample(source: Option<&[u8]>, target: usize) -> Vec<u8> {
 /// `m:ss`, or a placeholder when the length is unknown.
 fn format_clock(secs: Option<u32>) -> String {
     match secs {
-        Some(secs) => oxidezap_core::format_duration(secs),
+        Some(secs) => velo_core::format_duration(secs),
         None => "--:--".to_string(),
     }
 }
@@ -530,9 +530,9 @@ mod tests {
 /// A read tick never means audio was heard; direction names whose play it was.
 pub(super) fn played_label(
     from_me: bool,
-    status: oxidezap_core::MessageStatus,
+    status: velo_core::MessageStatus,
 ) -> Option<&'static str> {
-    (status == oxidezap_core::MessageStatus::Played).then_some(if from_me {
+    (status == velo_core::MessageStatus::Played).then_some(if from_me {
         "Played by recipient"
     } else {
         "Listened"
@@ -542,7 +542,7 @@ pub(super) fn played_label(
 #[cfg(test)]
 mod played_indicator_tests {
     use super::*;
-    use oxidezap_core::MessageStatus;
+    use velo_core::MessageStatus;
 
     #[test]
     fn indicator_distinguishes_local_or_linked_play_from_recipient_receipt() {

@@ -53,10 +53,10 @@ mod imp {
     pub(super) fn logging() {
         // An explicit `RUST_LOG` still wins over the stored choice, and a
         // module named in it wins over the floors below: see
-        // `oxidezap_logging`, which is where both rules are stated once for
+        // `velo_logging`, which is where both rules are stated once for
         // this process and the daemon alike.
-        oxidezap_logging::install(QUIET);
-        oxidezap_logging::activate();
+        velo_logging::install(QUIET);
+        velo_logging::activate();
     }
 
     /// Crates that narrate, held at `warn` however loud the rest is asked to
@@ -123,13 +123,13 @@ mod imp {
         // to tolerate that (`.ok()`); the panic hook it installs — the thing
         // that turns a Rust panic into a trace rather than "unreachable
         // executed" — is what it is still called for.
-        oxidezap_logging::install(QUIET);
+        velo_logging::install(QUIET);
         gpui_platform::web_init();
         // After `web_init`, never before: it sets a level of its own, so a
         // level set ahead of it is the one that gets overwritten.
-        let level = oxidezap_logging::activate();
+        let level = velo_logging::activate();
         if level.filter() > log::LevelFilter::Info {
-            match oxidezap_logging::forced() {
+            match velo_logging::forced() {
                 Some(_) => log::info!("logging at {level}, asked for by the URL"),
                 None => log::info!("logging at {level}, the level this page was left at"),
             }

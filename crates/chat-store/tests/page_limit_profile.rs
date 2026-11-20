@@ -8,10 +8,10 @@
 
 mod common;
 use common::*;
-use oxidezap_chat_store::StoredMessage;
 use portable_atomic::AtomicU64;
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicBool, Ordering};
+use velo_chat_store::StoredMessage;
 
 static COUNT: AtomicBool = AtomicBool::new(false);
 static CALLS: AtomicU64 = AtomicU64::new(0);

@@ -24,10 +24,10 @@ mod store;
 
 use std::sync::Arc;
 
-use oxidezap_core::AccountId;
-use oxidezap_ipc::{ChatSummary, ConnectionState, DaemonEvent, DaemonMessage, PROTOCOL_VERSION};
-use oxidezap_ipc::{StateSnapshot, StateVersion};
 use tokio::sync::{broadcast, watch};
+use velo_core::AccountId;
+use velo_ipc::{ChatSummary, ConnectionState, DaemonEvent, DaemonMessage, PROTOCOL_VERSION};
+use velo_ipc::{StateSnapshot, StateVersion};
 
 pub use fanout::Delivery;
 pub use store::{Change, StateStore, TrayState};
@@ -140,7 +140,7 @@ impl StateHub {
     /// window going away, so a session finds out by offering a frame and being
     /// told it was [`Delivery::Unwanted`]. See that type for what asking
     /// beforehand cost.
-    pub fn publish_video(&self, frame: oxidezap_core::CallVideoFrame) -> Delivery {
+    pub fn publish_video(&self, frame: velo_core::CallVideoFrame) -> Delivery {
         self.out.publish_video(frame)
     }
 
@@ -192,7 +192,7 @@ impl StateHub {
     ///
     /// A re-announcement of the same identity is not news and consumes no
     /// version.
-    pub fn set_account(&self, account: oxidezap_ipc::AccountIdentity) {
+    pub fn set_account(&self, account: velo_ipc::AccountIdentity) {
         if self.state.holds_account(&account) {
             return;
         }
@@ -222,7 +222,7 @@ impl StateHub {
     /// A set that did not change consumes no version and sends no frame — a
     /// plugin that redraws the same button on every message is the ordinary
     /// case, not the exception.
-    pub fn set_plugins(&self, plugins: Vec<oxidezap_core::PluginSurface>) {
+    pub fn set_plugins(&self, plugins: Vec<velo_core::PluginSurface>) {
         if self.state.holds_plugins(&plugins) {
             return;
         }
@@ -231,7 +231,7 @@ impl StateHub {
 
     /// Change what is happening on the call front, and tell everyone.
     ///
-    /// The transitions live in [`oxidezap_core::CallState`], so the daemon and
+    /// The transitions live in [`velo_core::CallState`], so the daemon and
     /// the front end cannot disagree about what a call is. Publishing them is
     /// what keeps a *second* front end in step: the daemon answers a call
     /// itself — it owns the microphone — and no later session event replays
@@ -240,7 +240,7 @@ impl StateHub {
     ///
     /// A change that leaves the state identical consumes no version and sends
     /// no frame: a mute already muted is not news.
-    pub fn calls(&self, change: impl FnOnce(&mut oxidezap_core::CallState)) {
+    pub fn calls(&self, change: impl FnOnce(&mut velo_core::CallState)) {
         if let Some(published) = self.state.change_calls(change, || self.out.claim()) {
             Self::deliver(published);
         }
@@ -259,7 +259,7 @@ impl StateHub {
     /// The snapshot reads the state directly; this is for a caller that wants
     /// only the calls — the bridge asks before placing one, because whether
     /// this account is already on a call is the daemon's fact, not a window's.
-    pub fn call_state(&self) -> oxidezap_core::CallState {
+    pub fn call_state(&self) -> velo_core::CallState {
         self.state.call_state()
     }
 
@@ -367,7 +367,7 @@ impl StateHub {
 mod tests {
     use super::fanout::{BROADCAST_CAPACITY, VIDEO_CAPACITY};
     use super::*;
-    use oxidezap_ipc::MessagePreview;
+    use velo_ipc::MessagePreview;
 
     fn chat(jid: &str, unread: u32, ts: i64) -> ChatSummary {
         ChatSummary {
@@ -456,7 +456,7 @@ mod tests {
     async fn an_account_learned_after_a_window_attached_reaches_it() {
         let hub = StateHub::new();
         let mut window = hub.subscribe();
-        let account = oxidezap_ipc::AccountIdentity {
+        let account = velo_ipc::AccountIdentity {
             name: Some("Ana".to_string()),
             jid: Some("a@s.whatsapp.net".to_string()),
             lid: None,
@@ -490,8 +490,8 @@ mod tests {
         let hub = StateHub::new();
         let mut window = hub.subscribe();
 
-        let call_id: oxidezap_core::CallId = "call-1".to_string();
-        let call = oxidezap_core::IncomingCall::new(
+        let call_id: velo_core::CallId = "call-1".to_string();
+        let call = velo_core::IncomingCall::new(
             call_id.clone(),
             "Ana".to_string(),
             "a@s.whatsapp.net".to_string(),
@@ -540,8 +540,8 @@ mod tests {
         let hub = StateHub::new();
         let mut other = hub.subscribe();
 
-        let call_id: oxidezap_core::CallId = "call-1".to_string();
-        let call = oxidezap_core::IncomingCall::new(
+        let call_id: velo_core::CallId = "call-1".to_string();
+        let call = velo_core::IncomingCall::new(
             call_id.clone(),
             "Ana".to_string(),
             "a@s.whatsapp.net".to_string(),
@@ -701,7 +701,7 @@ mod tests {
         hub.apply(live(chat("a@s.whatsapp.net", 2, 10)));
         assert_eq!(tray.borrow_and_update().unread, 2);
 
-        hub.apply(live(chat(oxidezap_core::STATUS_BROADCAST_JID, 7, 20)));
+        hub.apply(live(chat(velo_core::STATUS_BROADCAST_JID, 7, 20)));
         assert_eq!(
             tray.borrow_and_update().unread,
             2,
@@ -711,7 +711,7 @@ mod tests {
             hub.snapshot()
                 .chats
                 .iter()
-                .any(|c| c.jid == oxidezap_core::STATUS_BROADCAST_JID),
+                .any(|c| c.jid == velo_core::STATUS_BROADCAST_JID),
             "and the chat itself still reaches a client, which draws its own feed"
         );
     }
@@ -779,17 +779,17 @@ mod tests {
         assert_eq!(hub.store_backed_chat_jids(), ["a@s.whatsapp.net"]);
     }
 
-    fn surface(id: &str, label: &str) -> oxidezap_core::PluginSurface {
-        oxidezap_core::PluginSurface {
+    fn surface(id: &str, label: &str) -> velo_core::PluginSurface {
+        velo_core::PluginSurface {
             id: id.into(),
             name: id.into(),
             capabilities: vec!["send messages".into()],
             gated: vec!["send messages".into()],
             approved: true,
-            roots: vec![oxidezap_core::PluginRoot {
-                slot: oxidezap_core::PluginSlot::ChatHeader,
-                node: oxidezap_core::PluginNode {
-                    widget: oxidezap_core::PluginWidget::Button,
+            roots: vec![velo_core::PluginRoot {
+                slot: velo_core::PluginSlot::ChatHeader,
+                node: velo_core::PluginNode {
+                    widget: velo_core::PluginWidget::Button,
                     id: "go".into(),
                     label: label.into(),
                     value: String::new(),
@@ -842,10 +842,10 @@ mod tests {
         assert_eq!(hub.snapshot().version, version, "state still advanced");
     }
 
-    fn video_frame(call_id: &str) -> oxidezap_core::CallVideoFrame {
-        oxidezap_core::CallVideoFrame::new(
+    fn video_frame(call_id: &str) -> velo_core::CallVideoFrame {
+        velo_core::CallVideoFrame::new(
             call_id.to_string(),
-            oxidezap_core::VideoStream::Remote,
+            velo_core::VideoStream::Remote,
             vec![0, 0, 0, 1, 0x65],
             true,
             0,
@@ -1001,7 +1001,7 @@ mod tests {
         )));
         assert_eq!(tray.borrow_and_update().unread, 0);
         assert_eq!(hub.next_mute_expiry(until - 1), Some(until));
-        oxidezap_platform::sleep(std::time::Duration::from_millis(40)).await;
+        velo_platform::sleep(std::time::Duration::from_millis(40)).await;
         hub.refresh_tray();
         assert_eq!(tray.borrow_and_update().unread, 7);
         assert_eq!(hub.chat(&summary.jid).unwrap().unread, 7);

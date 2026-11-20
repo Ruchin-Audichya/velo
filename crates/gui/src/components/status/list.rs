@@ -24,7 +24,7 @@ use crate::responsive::ResponsiveLayout;
 use crate::theme::Metrics;
 use crate::utils::format_status_time;
 
-use oxidezap_core::{StatusAuthor, StatusFeed};
+use velo_core::{StatusAuthor, StatusFeed};
 
 pub struct StatusListProps {
     pub feed: StatusFeed,
@@ -672,9 +672,9 @@ mod visible_cost {
             gpui_component::init(cx);
             crate::theme::init(cx);
         });
-        let mut chat = oxidezap_core::Chat::new("status@broadcast".into());
+        let mut chat = velo_core::Chat::new("status@broadcast".into());
         for n in 0..1000 {
-            chat.messages.push(oxidezap_core::ChatMessage::new_incoming(
+            chat.messages.push(velo_core::ChatMessage::new_incoming(
                 format!("S-{n}"),
                 format!("contact-{n}@s.whatsapp.net"),
                 "Synthetic update".into(),
@@ -741,9 +741,9 @@ mod visible_cost {
             gpui_component::init(cx);
             crate::theme::init(cx);
         });
-        let mut chat = oxidezap_core::Chat::new("status@broadcast".into());
+        let mut chat = velo_core::Chat::new("status@broadcast".into());
         for n in 0..100 {
-            chat.messages.push(oxidezap_core::ChatMessage::new_incoming(
+            chat.messages.push(velo_core::ChatMessage::new_incoming(
                 format!("S-{n}"),
                 format!("contact-{n}@s.whatsapp.net"),
                 "Synthetic update".into(),
@@ -752,13 +752,13 @@ mod visible_cost {
         // Multiple updates group into one row; our own updates add a separate
         // focusable header without changing the contact geometry.
         for n in 0..100 {
-            chat.messages.push(oxidezap_core::ChatMessage::new_incoming(
+            chat.messages.push(velo_core::ChatMessage::new_incoming(
                 format!("second-{n}"),
                 format!("contact-{n}@s.whatsapp.net"),
                 "Second synthetic update".into(),
             ));
         }
-        chat.messages.push(oxidezap_core::ChatMessage::new_outgoing(
+        chat.messages.push(velo_core::ChatMessage::new_outgoing(
             "mine".into(),
             "My synthetic update".into(),
         ));
@@ -876,10 +876,10 @@ mod visible_cost {
             gpui_component::init(cx);
             crate::theme::init(cx);
         });
-        let mut chat = oxidezap_core::Chat::new("status@broadcast".into());
+        let mut chat = velo_core::Chat::new("status@broadcast".into());
         let now = wacore::time::now_utc();
         for n in 0..50 {
-            let mut message = oxidezap_core::ChatMessage::new_incoming(
+            let mut message = velo_core::ChatMessage::new_incoming(
                 format!("S-{n}"),
                 format!("contact-{n}@s.whatsapp.net"),
                 "Synthetic update".into(),
@@ -977,9 +977,9 @@ mod visible_cost {
             gpui_component::init(cx);
             crate::theme::init(cx);
         });
-        let mut chat = oxidezap_core::Chat::new("status@broadcast".into());
+        let mut chat = velo_core::Chat::new("status@broadcast".into());
         for n in 0..count {
-            chat.messages.push(oxidezap_core::ChatMessage::new_incoming(
+            chat.messages.push(velo_core::ChatMessage::new_incoming(
                 format!("S-{n}"),
                 format!("contact-{n}@s.whatsapp.net"),
                 "Synthetic update".into(),
@@ -1025,9 +1025,9 @@ mod visible_cost {
             gpui_component::init(cx);
             crate::theme::init(cx);
         });
-        let mut chat = oxidezap_core::Chat::new("status@broadcast".into());
+        let mut chat = velo_core::Chat::new("status@broadcast".into());
         for n in 0..100 {
-            chat.messages.push(oxidezap_core::ChatMessage::new_incoming(
+            chat.messages.push(velo_core::ChatMessage::new_incoming(
                 format!("S-{n}"),
                 format!("contact-{n}@s.whatsapp.net"),
                 "Synthetic update".into(),

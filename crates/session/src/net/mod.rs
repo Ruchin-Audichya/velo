@@ -161,7 +161,7 @@ pub(crate) fn automatic_channel_previews() -> bool {
 mod image_budget_tests {
     #[test]
     fn native_hq_and_original_limits_remain_distinct() {
-        use oxidezap_core::DownloadableMedia as D;
+        use velo_core::DownloadableMedia as D;
         use whatsapp_rust::download::DownloadLimits;
         assert_eq!(
             super::channel_image_limits(D::CHANNEL_THUMBNAIL_BYTES),

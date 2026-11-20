@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use oxidezap_ipc::{CallAction, ClientRequest, Request};
+use velo_ipc::{CallAction, ClientRequest, Request};
 
 use super::Wire;
 use crate::video::RecoverySink;
@@ -23,7 +23,7 @@ mod imp {
     pub(super) fn sender(wire: Wire) -> std::io::Result<impl Fn(Vec<u8>) -> bool + Send + Sync> {
         let (outgoing, incoming) = std::sync::mpsc::sync_channel::<Vec<u8>>(2);
         std::thread::Builder::new()
-            .name("oxidezap-video-recovery".into())
+            .name("velo-video-recovery".into())
             .spawn(move || {
                 while let Ok(frame) = incoming.recv() {
                     if wire.send_line(&frame).is_err() {

@@ -105,7 +105,7 @@ mod imp {
                     .map(|value| PathBuf::from(value).join("Downloads"))
             })
             .ok_or_else(|| "The Downloads folder could not be located.".to_string())?;
-        Ok(base.join("OxideZap"))
+        Ok(base.join("Velo"))
     }
 
     pub(super) fn scan() -> Result<Vec<Entry>, String> {

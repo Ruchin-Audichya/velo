@@ -1,4 +1,4 @@
-use oxidezap_chat_store::ChatStore;
+use velo_chat_store::ChatStore;
 use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
 use whatsapp_rust::bot::Bot;
 use whatsapp_rust_sqlite_storage::SqliteStore;
@@ -9,7 +9,7 @@ wasm_bindgen_test_configure!(run_in_browser);
 
 #[wasm_bindgen_test]
 async fn bot_builds_with_chat_store_durability_hook() {
-    let backend = SqliteStore::open("file:oxidezap-browser-durability?mode=memory&cache=shared")
+    let backend = SqliteStore::open("file:velo-browser-durability?mode=memory&cache=shared")
         .await
         .expect("in-memory SQLite opens");
     let chat_store = ChatStore::new(&backend).await.expect("chat store opens");
@@ -28,7 +28,7 @@ async fn bot_builds_with_chat_store_durability_hook() {
 
 #[wasm_bindgen_test]
 async fn terminal_recovery_is_account_scoped_and_does_not_require_a_bot() {
-    let backend = SqliteStore::open("file:oxidezap-browser-terminal?mode=memory&cache=shared")
+    let backend = SqliteStore::open("file:velo-browser-terminal?mode=memory&cache=shared")
         .await
         .unwrap();
     let database = backend.database();
@@ -63,7 +63,7 @@ async fn membership_notice_reloads_with_phone_alias_in_browser() {
     use std::sync::Arc;
     use whatsapp_rust::wacore::stanza::groups::{GroupNotificationAction, GroupParticipantInfo};
     use whatsapp_rust::wacore::types::events::{Event, GroupUpdate};
-    let backend = SqliteStore::open("file:oxidezap-browser-membership?mode=memory&cache=shared")
+    let backend = SqliteStore::open("file:velo-browser-membership?mode=memory&cache=shared")
         .await
         .unwrap();
     let store = ChatStore::new(&backend).await.unwrap();
@@ -107,7 +107,7 @@ async fn membership_notice_reloads_with_phone_alias_in_browser() {
         .messages[0];
     assert_eq!(row.content, "Someone added +1 202-555-0123");
     assert!(row.is_read);
-    let Some(oxidezap_core::SystemNotice::GroupMembership(event)) = &row.system else {
+    let Some(velo_core::SystemNotice::GroupMembership(event)) = &row.system else {
         panic!("membership")
     };
     assert_eq!(event.participants[0].jid, lid);

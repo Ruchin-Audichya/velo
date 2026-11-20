@@ -88,17 +88,17 @@ async fn prepare_repairs_recoverable_unknown_kind_idempotently() {
                 "UPDATE messages SET kind = 'unknown' WHERE msg_id = 'OUT-REPAIR-POLL'",
             )
             .execute(conn)
-            .map_err(oxidezap_chat_store::db_err)?;
+            .map_err(velo_chat_store::db_err)?;
             diesel::sql_query(
                 "UPDATE messages SET kind = 'unknown', text_content = NULL WHERE msg_id = 'OUT-REPAIR-TEXT'",
             )
             .execute(conn)
-            .map_err(oxidezap_chat_store::db_err)?;
+            .map_err(velo_chat_store::db_err)?;
             diesel::sql_query(
                 "UPDATE messages SET kind = 'unknown', revoked = 1 WHERE msg_id = 'OUT-REPAIR-TOMBSTONE'",
             )
             .execute(conn)
-            .map_err(oxidezap_chat_store::db_err)?;
+            .map_err(velo_chat_store::db_err)?;
             // A delete-for-me preserves the activity timestamp, which may be
             // newer than the remaining preview head; the next prepare must
             // derive preview from the surviving messages rather than this time.
@@ -108,24 +108,24 @@ async fn prepare_repairs_recoverable_unknown_kind_idempotently() {
             .bind::<diesel::sql_types::BigInt, _>(ts(1_700_000_200).timestamp_millis())
             .bind::<diesel::sql_types::Text, _>(chat_key)
             .execute(conn)
-            .map_err(oxidezap_chat_store::db_err)?;
+            .map_err(velo_chat_store::db_err)?;
             // Simulate a database created before this versioned repair marker.
             diesel::sql_query("DELETE FROM chat_store_meta WHERE key = 'message_kind_classifier'")
                 .execute(conn)
-                .map_err(oxidezap_chat_store::db_err)?;
+                .map_err(velo_chat_store::db_err)?;
             Ok(())
         })
         .await
         .expect("mark historical kind unknown");
 
-    oxidezap_chat_store::ChatStore::prepare(&store)
+    velo_chat_store::ChatStore::prepare(&store)
         .await
         .expect("repair old row");
-    oxidezap_chat_store::ChatStore::prepare(&store)
+    velo_chat_store::ChatStore::prepare(&store)
         .await
         .expect("repeat repair safely");
     chat_store.close().await.unwrap();
-    let chat_store = oxidezap_chat_store::ChatStore::new_prepared(&store)
+    let chat_store = velo_chat_store::ChatStore::new_prepared(&store)
         .await
         .expect("reopen repaired store");
     let repaired_poll = chat_store

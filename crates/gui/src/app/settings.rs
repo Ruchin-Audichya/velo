@@ -7,7 +7,7 @@
 
 use gpui::{App, Context, WeakEntity, Window};
 
-use oxidezap_core::LogLevel;
+use velo_core::LogLevel;
 
 use crate::app::WhatsAppApp;
 use crate::app::notices::Tone;
@@ -162,7 +162,7 @@ pub(super) struct Settings {
     /// epoch no longer matches is dropped rather than displayed.
     account_epoch: usize,
     pub(super) devices: super::call_devices::DeviceUi,
-    pub(super) call_devices: oxidezap_core::CallDevicePreferences,
+    pub(super) call_devices: velo_core::CallDevicePreferences,
 }
 
 impl Settings {
@@ -171,8 +171,8 @@ impl Settings {
             open: None,
             storage: None,
             log_level_asked: (crate::platform::log_store::is_ours()
-                && oxidezap_logging::forced().is_none())
-            .then(oxidezap_logging::stored)
+                && velo_logging::forced().is_none())
+            .then(velo_logging::stored)
             .flatten(),
             account_epoch: 0,
             call_devices: Default::default(),
@@ -549,7 +549,7 @@ impl WhatsAppApp {
     pub fn set_log_level(&mut self, level: LogLevel, cx: &mut Context<Self>) {
         // This process, first and synchronously: it is one atomic store and
         // the point of the control.
-        oxidezap_logging::apply(level);
+        velo_logging::apply(level);
         // Remembered as the window's own ask, so a reconnection can say it
         // again. Not to have the window impose its level on every daemon it
         // reaches — a fresh window at `info` must not quiet a daemon somebody
@@ -627,7 +627,7 @@ impl WhatsAppApp {
     }
 
     /// Preferences saved for calls on this machine.
-    pub fn call_device_preferences(&self, cx: &App) -> oxidezap_core::CallDevicePreferences {
+    pub fn call_device_preferences(&self, cx: &App) -> velo_core::CallDevicePreferences {
         self.settings.read(cx).call_devices.clone()
     }
 

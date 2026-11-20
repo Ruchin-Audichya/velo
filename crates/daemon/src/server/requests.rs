@@ -11,7 +11,7 @@
 
 use std::sync::Arc;
 
-use oxidezap_ipc::{CallAction, ClientRequest, DaemonMessage, ProtocolError, Request, RequestId};
+use velo_ipc::{CallAction, ClientRequest, DaemonMessage, ProtocolError, Request, RequestId};
 
 use super::{always, error_frame};
 use crate::session_bridge::{Action, CommandOutcome, Commands, Outbox, SessionCommand};
@@ -81,7 +81,7 @@ async fn out_of_band(hub: &StateHub, commands: &Commands, id: RequestId, action:
 pub(super) async fn handle_request(
     Request { id, request }: Request,
     hub: &StateHub,
-    plugins: &Arc<oxidezap_plugin_host::Plugins>,
+    plugins: &Arc<velo_plugin_host::Plugins>,
     commands: &Commands,
     outbox: &Outbox,
 ) -> Answer {
@@ -414,7 +414,7 @@ pub(super) async fn handle_request(
             // local account, and billing this one for the whole walk reported
             // every other account's photos as this account's storage.
             let account_media = crate::media::AccountMedia::new(hub.account_id());
-            let measured = oxidezap_session::unblock(move || {
+            let measured = velo_session::unblock(move || {
                 let (media_bytes, media_files) = account_media.usage();
                 (database_bytes(), media_bytes, media_files)
             })
@@ -448,7 +448,7 @@ pub(super) async fn handle_request(
             // correctly nor its own. Cached downloads only: a staged upload
             // belongs to a send that has not run yet. See `media::Wipe`.
             let account_media = crate::media::AccountMedia::new(hub.account_id());
-            let cleared = oxidezap_session::unblock(move || {
+            let cleared = velo_session::unblock(move || {
                 account_media
                     .wipe(crate::media::Wipe::Cache)
                     .map_err(|e| e.to_string())
@@ -488,14 +488,14 @@ pub(super) async fn handle_request(
         // connection for as long as the disk takes. Awaited rather than
         // spawned loose, so the acknowledgement means the choice is on disk.
         ClientRequest::SetLogLevel { level } => {
-            oxidezap_logging::apply(level);
+            velo_logging::apply(level);
             log::info!("logging at {level}, asked for by a front end");
             // `remember` writes the level in force rather than this
             // request's, and serializes the writes: two front ends can ask in
             // the same moment and each is written on a thread of its own, so
             // a write carrying its own level could land after a later one and
             // leave the next start at the earlier answer.
-            let recorded = oxidezap_session::unblock(oxidezap_logging::remember).await;
+            let recorded = velo_session::unblock(velo_logging::remember).await;
             match recorded {
                 Ok(Ok(())) => acted(Ok(())),
                 // The level *did* change; only the memory of it failed. Said
@@ -597,7 +597,7 @@ pub(super) async fn handle_request(
                 Err(refusal) => return refusal,
             };
             let answer_to = outbox.clone();
-            oxidezap_session::spawn(async move {
+            velo_session::spawn(async move {
                 let frame = match install(&request).await {
                     Ok(plugin) => always(
                         Some(id),
@@ -621,7 +621,7 @@ pub(super) async fn handle_request(
         // approval and a settings document imposes.
         ClientRequest::RemovePlugin { plugin } => {
             let answer_to = outbox.clone();
-            oxidezap_session::spawn(async move {
+            velo_session::spawn(async move {
                 let removed = crate::plugins::uninstall(&plugin)
                     .await
                     .map_err(|detail| ProtocolError::Refused { detail });
@@ -635,7 +635,7 @@ pub(super) async fn handle_request(
                 Err(refusal) => return refusal,
             };
             let answer_to = outbox.clone();
-            oxidezap_session::spawn(async move {
+            velo_session::spawn(async move {
                 let frame = match crate::plugins::names().await {
                     Ok(plugins) => always(
                         Some(id),
@@ -699,7 +699,7 @@ pub(super) fn answer_later(answer_to: &Outbox, frame: Option<String>) {
     };
     if let Err(TrySendError::Full(frame)) = answer_to.try_send(frame) {
         let answer_to = answer_to.clone();
-        oxidezap_session::spawn(async move {
+        velo_session::spawn(async move {
             let _ = answer_to.send(frame).await;
         });
     }
@@ -718,15 +718,13 @@ pub(super) fn answer_later(answer_to: &Outbox, frame: Option<String>) {
 /// this is the only copy of the payload, nothing else is ever going to read
 /// it, and a refusal that left it staged would keep a module in the cache
 /// until the account was wiped.
-pub(super) async fn install(
-    request: &oxidezap_ipc::InstallPlugin,
-) -> Result<String, ProtocolError> {
+pub(super) async fn install(request: &velo_ipc::InstallPlugin) -> Result<String, ProtocolError> {
     // Global staged payloads only. A plugin module is the daemon's and lives
     // in the shared catalog, read by every account; a payload staged under an
     // account's own send namespace (`a<id>-u-...`) is that account's data, and
     // moving it into the catalog would let one account install a module for
     // all of them from a key it staged to send.
-    if !oxidezap_ipc::is_global_staged_key(&request.upload) {
+    if !velo_ipc::is_global_staged_key(&request.upload) {
         return Err(ProtocolError::Refused {
             detail: format!(
                 "{} does not name a global staged payload a plugin may be installed from",
@@ -738,7 +736,7 @@ pub(super) async fn install(
     // Off the runtime, for the reason the storage query is: on a desktop this
     // reads a file of up to thirty-two megabytes off a disk, and a page has
     // no pool to leave for and does not need one.
-    let staged = oxidezap_session::unblock(move || crate::media::take(&key)).await;
+    let staged = velo_session::unblock(move || crate::media::take(&key)).await;
     let bytes = match staged {
         Ok(Some(bytes)) => bytes,
         // Nothing under that key: a client whose upload failed, or one naming
@@ -849,7 +847,7 @@ pub(super) fn answer(id: Option<RequestId>, result: Result<(), ProtocolError>) -
 /// a wider change than a number in a settings pane is worth today. Recorded
 /// in `docs/roadmap.md`.
 fn database_bytes() -> u64 {
-    let base = oxidezap_session::resolve_database_path();
+    let base = velo_session::resolve_database_path();
     ["", "-wal", "-shm"]
         .iter()
         .filter_map(|suffix| std::fs::metadata(format!("{base}{suffix}")).ok())
@@ -863,20 +861,20 @@ fn no_session(detail: impl Into<String>) -> ProtocolError {
     }
 }
 
-fn wire_ok(id: u64, payload: oxidezap_wire::response::DaemonResponse) -> Answer {
-    let env = oxidezap_wire::envelope::ResponseEnvelope {
+fn wire_ok(id: u64, payload: velo_wire::response::DaemonResponse) -> Answer {
+    let env = velo_wire::envelope::ResponseEnvelope {
         id: Some(id),
-        result: oxidezap_wire::envelope::ResponseResult::Ok {
+        result: velo_wire::envelope::ResponseResult::Ok {
             payload: Box::new(payload),
         },
     };
     Answer::frame(serde_json::to_string(&env).ok())
 }
 
-fn wire_err(id: u64, error: oxidezap_wire::error::ApiError) -> Answer {
-    let env = oxidezap_wire::envelope::ResponseEnvelope {
+fn wire_err(id: u64, error: velo_wire::error::ApiError) -> Answer {
+    let env = velo_wire::envelope::ResponseEnvelope {
         id: Some(id),
-        result: oxidezap_wire::envelope::ResponseResult::Error { error },
+        result: velo_wire::envelope::ResponseResult::Error { error },
     };
     Answer::frame(serde_json::to_string(&env).ok())
 }
@@ -886,7 +884,7 @@ async fn out_of_band_wire(
     commands: &Commands,
     outbox: &Outbox,
     id: u64,
-    request: oxidezap_wire::request::ClientRequest,
+    request: velo_wire::request::ClientRequest,
 ) -> Answer {
     let action = Action::Wire {
         id,
@@ -898,12 +896,12 @@ async fn out_of_band_wire(
         Err(err) => {
             let api_err = match err {
                 ProtocolError::NoSession { detail } => {
-                    oxidezap_wire::error::ApiError::not_connected(detail)
+                    velo_wire::error::ApiError::not_connected(detail)
                 }
                 ProtocolError::Refused { detail } => {
-                    oxidezap_wire::error::ApiError::permission_denied(detail)
+                    velo_wire::error::ApiError::permission_denied(detail)
                 }
-                other => oxidezap_wire::error::ApiError::internal(other.to_string()),
+                other => velo_wire::error::ApiError::internal(other.to_string()),
             };
             wire_err(id, api_err)
         }
@@ -911,15 +909,15 @@ async fn out_of_band_wire(
 }
 
 pub(super) async fn handle_wire_request(
-    oxidezap_wire::envelope::RequestEnvelope { id, request }: oxidezap_wire::envelope::RequestEnvelope,
+    velo_wire::envelope::RequestEnvelope { id, request }: velo_wire::envelope::RequestEnvelope,
     hub: &StateHub,
-    _plugins: &Arc<oxidezap_plugin_host::Plugins>,
+    _plugins: &Arc<velo_plugin_host::Plugins>,
     commands: &Commands,
     outbox: &Outbox,
 ) -> Answer {
-    use oxidezap_wire::dto::{DoctorDto, StorageDto};
-    use oxidezap_wire::request::ClientRequest as WireRequest;
-    use oxidezap_wire::response::DaemonResponse as WireResponse;
+    use velo_wire::dto::{DoctorDto, StorageDto};
+    use velo_wire::request::ClientRequest as WireRequest;
+    use velo_wire::response::DaemonResponse as WireResponse;
 
     match request {
         WireRequest::Hello { .. } => wire_ok(id, WireResponse::Ack),
@@ -931,12 +929,12 @@ pub(super) async fn handle_wire_request(
             wire_ok(id, WireResponse::Status(status))
         }
         WireRequest::DoctorCheck => {
-            let endpoint_path = oxidezap_ipc::endpoint_path()
+            let endpoint_path = velo_ipc::endpoint_path()
                 .map(|p| p.display().to_string())
                 .unwrap_or_default();
             let db_bytes = database_bytes();
             let (media_bytes, _) = crate::media::cache_usage();
-            let media_dir_str = oxidezap_ipc::media_dir()
+            let media_dir_str = velo_ipc::media_dir()
                 .map(|p| p.display().to_string())
                 .unwrap_or_default();
             let snap = hub.snapshot();
@@ -975,7 +973,7 @@ pub(super) async fn handle_wire_request(
             // Account-scoped: a global wipe both deleted other accounts' cached
             // downloads and failed to match this account's own namespaced keys.
             let account_media = crate::media::AccountMedia::new(hub.account_id());
-            match oxidezap_session::unblock(move || {
+            match velo_session::unblock(move || {
                 account_media
                     .wipe(crate::media::Wipe::Cache)
                     .map_err(|e| e.to_string())
@@ -983,17 +981,17 @@ pub(super) async fn handle_wire_request(
             .await
             {
                 Ok(Ok(())) => wire_ok(id, WireResponse::Ack),
-                Ok(Err(e)) => wire_err(id, oxidezap_wire::error::ApiError::internal(e)),
+                Ok(Err(e)) => wire_err(id, velo_wire::error::ApiError::internal(e)),
                 Err(_) => wire_err(
                     id,
-                    oxidezap_wire::error::ApiError::internal("the cache wipe did not finish"),
+                    velo_wire::error::ApiError::internal("the cache wipe did not finish"),
                 ),
             }
         }
         WireRequest::Shutdown => Answer {
-            frame: serde_json::to_string(&oxidezap_wire::envelope::ResponseEnvelope {
+            frame: serde_json::to_string(&velo_wire::envelope::ResponseEnvelope {
                 id: Some(id),
-                result: oxidezap_wire::envelope::ResponseResult::Ok {
+                result: velo_wire::envelope::ResponseResult::Ok {
                     payload: Box::new(WireResponse::Ack),
                 },
             })
@@ -1088,21 +1086,17 @@ pub(super) async fn handle_wire_request(
             {
                 Ok(()) => wire_ok(id, WireResponse::Ack),
                 Err(ProtocolError::NoSession { detail }) => {
-                    wire_err(id, oxidezap_wire::error::ApiError::not_connected(detail))
+                    wire_err(id, velo_wire::error::ApiError::not_connected(detail))
                 }
-                Err(ProtocolError::Refused { detail }) => wire_err(
-                    id,
-                    oxidezap_wire::error::ApiError::permission_denied(detail),
-                ),
-                Err(other) => wire_err(
-                    id,
-                    oxidezap_wire::error::ApiError::internal(other.to_string()),
-                ),
+                Err(ProtocolError::Refused { detail }) => {
+                    wire_err(id, velo_wire::error::ApiError::permission_denied(detail))
+                }
+                Err(other) => wire_err(id, velo_wire::error::ApiError::internal(other.to_string())),
             }
         }
-        WireRequest::ListAccounts => match oxidezap_session::unblock(list_account_profiles).await {
+        WireRequest::ListAccounts => match velo_session::unblock(list_account_profiles).await {
             Ok(accounts) => wire_ok(id, WireResponse::Accounts { accounts }),
-            Err(e) => wire_err(id, oxidezap_wire::error::ApiError::internal(e.to_string())),
+            Err(e) => wire_err(id, velo_wire::error::ApiError::internal(e.to_string())),
         },
     }
 }
@@ -1111,12 +1105,12 @@ pub(super) async fn handle_wire_request(
 ///
 /// Blocking by nature — directory scan plus connects — so it runs on the
 /// blocking pool, like the media reads it joins.
-fn list_account_profiles() -> Vec<oxidezap_wire::dto::AccountDto> {
-    oxidezap_ipc::account_sockets()
+fn list_account_profiles() -> Vec<velo_wire::dto::AccountDto> {
+    velo_ipc::account_sockets()
         .into_iter()
         .map(|(id, path)| {
             let active = is_daemon_socket_live(&path);
-            oxidezap_wire::dto::AccountDto {
+            velo_wire::dto::AccountDto {
                 id,
                 socket_path: path.to_string_lossy().into_owned(),
                 active,

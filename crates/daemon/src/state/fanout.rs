@@ -27,8 +27,8 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use oxidezap_ipc::{DaemonEvent, DaemonMessage, StateVersion};
 use tokio::sync::{broadcast, watch};
+use velo_ipc::{DaemonEvent, DaemonMessage, StateVersion};
 
 use super::store::TrayState;
 
@@ -228,7 +228,7 @@ impl Fanout {
     /// answer is here: base64 and a JSON pass over every access unit of a call
     /// nobody is watching is real work for no reader — and a daemon holding a
     /// call with its window closed is the ordinary case.
-    pub(super) fn publish_video(&self, frame: oxidezap_core::CallVideoFrame) -> Delivery {
+    pub(super) fn publish_video(&self, frame: velo_core::CallVideoFrame) -> Delivery {
         if self.video.receiver_count() == 0 {
             return Delivery::Unwanted;
         }
@@ -330,10 +330,10 @@ impl Claim<'_> {
 mod tests {
     use super::*;
 
-    fn video_frame(call_id: &str) -> oxidezap_core::CallVideoFrame {
-        oxidezap_core::CallVideoFrame::new(
+    fn video_frame(call_id: &str) -> velo_core::CallVideoFrame {
+        velo_core::CallVideoFrame::new(
             call_id.to_string(),
-            oxidezap_core::VideoStream::Remote,
+            velo_core::VideoStream::Remote,
             vec![0, 0, 0, 1, 0x65],
             true,
             0,

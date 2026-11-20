@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use oxidezap_chat_store::ChatStore;
+use velo_chat_store::ChatStore;
 use whatsapp_rust::InboundDurabilityHook;
 use whatsapp_rust::client::Client;
 use whatsapp_rust::types::durability_hook::InboundMessage;

@@ -13,7 +13,7 @@ use gpui_component::ActiveTheme as _;
 use gpui_component::button::{Button, ButtonVariants};
 use gpui_component::{Icon, IconName};
 
-use oxidezap_core::{Fault, Recovery};
+use velo_core::{Fault, Recovery};
 
 use super::centered_view;
 use crate::app::WhatsAppApp;

@@ -36,9 +36,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use log::{debug, warn};
-use oxidezap_chat_store::ChatStore;
 use portable_atomic::{AtomicU64, Ordering};
 use tokio::sync::{Notify, watch};
+use velo_chat_store::ChatStore;
 use whatsapp_rust::client::Client;
 use whatsapp_rust::wacore_binary::jid::{Jid, JidExt};
 
@@ -78,7 +78,7 @@ pub(crate) enum NameLookup {
     /// same overview; for channels it is absent.
     Found {
         name: String,
-        hierarchy: Option<oxidezap_core::GroupHierarchy>,
+        hierarchy: Option<velo_core::GroupHierarchy>,
         muted: Option<bool>,
     },
     /// The request failed. A global failure is a server-directed throttle;
@@ -99,7 +99,7 @@ pub(crate) struct ResolvedChannel {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ResolvedGroupOverview {
     subject: Option<String>,
-    hierarchy: Option<oxidezap_core::GroupHierarchy>,
+    hierarchy: Option<velo_core::GroupHierarchy>,
 }
 
 /// Fallback cooldown when the server named no delay: transport hiccups and
@@ -248,8 +248,8 @@ impl MetadataSource for Client {
 fn group_hierarchy(
     hierarchy: &whatsapp_rust::features::GroupHierarchy,
     child: &Jid,
-) -> Option<oxidezap_core::GroupHierarchy> {
-    use oxidezap_core::{GroupHierarchy as DomainHierarchy, SubgroupKind as DomainKind};
+) -> Option<velo_core::GroupHierarchy> {
+    use velo_core::{GroupHierarchy as DomainHierarchy, SubgroupKind as DomainKind};
     use whatsapp_rust::features::{GroupHierarchy as EngineHierarchy, SubgroupKind as EngineKind};
 
     match hierarchy {
@@ -704,8 +704,8 @@ async fn retry_after_store_failure(
 fn resolved_metadata_matches(
     stored_name: Option<&str>,
     learned_name: Option<&str>,
-    stored_hierarchy: Option<&oxidezap_core::GroupHierarchy>,
-    expected_hierarchy: Option<&oxidezap_core::GroupHierarchy>,
+    stored_hierarchy: Option<&velo_core::GroupHierarchy>,
+    expected_hierarchy: Option<&velo_core::GroupHierarchy>,
 ) -> bool {
     (learned_name.is_none() || stored_name == learned_name)
         && expected_hierarchy.is_none_or(|expected| stored_hierarchy == Some(expected))
@@ -898,10 +898,10 @@ pub(super) async fn run_pass<S: MetadataSource + ?Sized>(
     // record a cooldown (server backoff honored) so the next sighting
     // retries after the delay rather than on the next message.
     let mut settled: Vec<(String, Option<String>)> = Vec::new();
-    let mut resolved: Vec<oxidezap_chat_store::ChatNameWrite> = Vec::new();
+    let mut resolved: Vec<velo_chat_store::ChatNameWrite> = Vec::new();
     let mut resolved_mutes = Vec::new();
     let mut pre_channel_mutes = Default::default();
-    let mut resolved_hierarchies: Vec<oxidezap_chat_store::GroupHierarchyWrite> = Vec::new();
+    let mut resolved_hierarchies: Vec<velo_chat_store::GroupHierarchyWrite> = Vec::new();
     let mut failed: Vec<(String, std::time::Duration)> = Vec::new();
     let mut global_backoff: Option<std::time::Duration> = None;
     // A full pass has enough scope to use the participating projection once
@@ -924,7 +924,7 @@ pub(super) async fn run_pass<S: MetadataSource + ?Sized>(
                             let key = jid.to_string();
                             if let Some(hierarchy) = meta.hierarchy.clone() {
                                 resolved_hierarchies.push(
-                                    oxidezap_chat_store::GroupHierarchyWrite::checked_json(
+                                    velo_chat_store::GroupHierarchyWrite::checked_json(
                                         jid.clone(),
                                         pre_hierarchy_json.get(&key).cloned().flatten(),
                                         hierarchy,
@@ -940,7 +940,7 @@ pub(super) async fn run_pass<S: MetadataSource + ?Sized>(
                                 Some(name) => {
                                     let name = name.to_owned();
                                     settled.push((key.clone(), Some(name.clone())));
-                                    resolved.push(oxidezap_chat_store::ChatNameWrite::checked(
+                                    resolved.push(velo_chat_store::ChatNameWrite::checked(
                                         jid,
                                         pre.get(&key).cloned().flatten(),
                                         name,
@@ -1015,7 +1015,7 @@ pub(super) async fn run_pass<S: MetadataSource + ?Sized>(
                         // writes against the same pre-pass observation.
                         resolved_hierarchies.retain(|write| write.jid != jid);
                         resolved_hierarchies.push(
-                            oxidezap_chat_store::GroupHierarchyWrite::checked_json(
+                            velo_chat_store::GroupHierarchyWrite::checked_json(
                                 jid.clone(),
                                 pre_hierarchy_json.get(&key).cloned().flatten(),
                                 hierarchy,
@@ -1023,7 +1023,7 @@ pub(super) async fn run_pass<S: MetadataSource + ?Sized>(
                         );
                     }
                     if usable_name(&name) {
-                        resolved.push(oxidezap_chat_store::ChatNameWrite::checked(
+                        resolved.push(velo_chat_store::ChatNameWrite::checked(
                             jid,
                             pre.get(&key).cloned().flatten(),
                             name,
@@ -1098,7 +1098,7 @@ pub(super) async fn run_pass<S: MetadataSource + ?Sized>(
                             let key = jid.to_string();
                             settled.push((key.clone(), usable_name(&name).then(|| name.clone())));
                             if usable_name(&name) {
-                                resolved.push(oxidezap_chat_store::ChatNameWrite::checked(
+                                resolved.push(velo_chat_store::ChatNameWrite::checked(
                                     jid,
                                     pre.get(&key).cloned().flatten(),
                                     name,
@@ -1145,7 +1145,7 @@ pub(super) async fn run_pass<S: MetadataSource + ?Sized>(
                                 settled
                                     .push((key.clone(), usable_name(&name).then(|| name.clone())));
                                 if usable_name(&name) {
-                                    resolved.push(oxidezap_chat_store::ChatNameWrite::checked(
+                                    resolved.push(velo_chat_store::ChatNameWrite::checked(
                                         jid,
                                         pre.get(&key).cloned().flatten(),
                                         name,
@@ -1272,11 +1272,10 @@ pub(super) async fn run_pass<S: MetadataSource + ?Sized>(
     // per JID; if a later message recreates a row, its new name still has to
     // be looked up in this generation. The read races teardown like the
     // network and flushes above, so a large account cannot hold shutdown.
-    let hierarchy_expectations: HashMap<String, oxidezap_core::GroupHierarchy> =
-        resolved_hierarchies
-            .iter()
-            .map(|write| (write.jid.to_string(), write.hierarchy.clone()))
-            .collect();
+    let hierarchy_expectations: HashMap<String, velo_core::GroupHierarchy> = resolved_hierarchies
+        .iter()
+        .map(|write| (write.jid.to_string(), write.hierarchy.clone()))
+        .collect();
     let confirmation_jids: Vec<Jid> = settled
         .iter()
         .filter_map(|(jid, _)| jid.parse::<Jid>().ok())
@@ -1289,7 +1288,7 @@ pub(super) async fn run_pass<S: MetadataSource + ?Sized>(
     };
     match confirmation {
         Ok(rows) => {
-            let rows: HashMap<String, oxidezap_chat_store::ChatEntry> = rows
+            let rows: HashMap<String, velo_chat_store::ChatEntry> = rows
                 .into_iter()
                 .map(|entry| (entry.jid.to_string(), entry))
                 .collect();
@@ -1425,7 +1424,7 @@ mod tests {
 
     #[test]
     fn a_name_match_does_not_settle_when_the_requested_hierarchy_did_not_land() {
-        let expected = oxidezap_core::GroupHierarchy::Community;
+        let expected = velo_core::GroupHierarchy::Community;
         assert!(!resolved_metadata_matches(
             Some("same name"),
             Some("same name"),
@@ -1450,7 +1449,7 @@ mod tests {
     /// included — none of which a live client can be asked for.
     struct FakeMeta {
         groups: StdMutex<HashMap<String, String>>,
-        group_hierarchies: StdMutex<HashMap<String, oxidezap_core::GroupHierarchy>>,
+        group_hierarchies: StdMutex<HashMap<String, velo_core::GroupHierarchy>>,
         channels: StdMutex<HashMap<String, String>>,
         channel_mutes: StdMutex<HashMap<String, bool>>,
         listed: StdMutex<Option<HashMap<String, String>>>,
@@ -1504,7 +1503,7 @@ mod tests {
                     (*jid).to_string(),
                     ResolvedGroupOverview {
                         subject: Some((*subject).to_string()),
-                        hierarchy: Some(oxidezap_core::GroupHierarchy::Standalone),
+                        hierarchy: Some(velo_core::GroupHierarchy::Standalone),
                     },
                 );
             }
@@ -1676,9 +1675,9 @@ mod tests {
         };
         assert_eq!(
             group_hierarchy(&hierarchy, &child),
-            Some(oxidezap_core::GroupHierarchy::Subgroup {
+            Some(velo_core::GroupHierarchy::Subgroup {
                 parent_jid: GROUP_TWO.into(),
-                kind: oxidezap_core::SubgroupKind::General,
+                kind: velo_core::SubgroupKind::General,
             })
         );
 
@@ -1689,13 +1688,13 @@ mod tests {
         assert_eq!(group_hierarchy(&self_parent, &child), None);
         assert_eq!(
             group_hierarchy(&whatsapp_rust::features::GroupHierarchy::Standalone, &child,),
-            Some(oxidezap_core::GroupHierarchy::Standalone)
+            Some(velo_core::GroupHierarchy::Standalone)
         );
     }
 
     async fn test_store(name: &str) -> Arc<ChatStore> {
         let backend = whatsapp_rust::store::SqliteStore::open(&format!(
-            "file:oxidezap-names-{name}?mode=memory&cache=shared",
+            "file:velo-names-{name}?mode=memory&cache=shared",
         ))
         .await
         .expect("in-memory store");
@@ -1838,7 +1837,7 @@ mod tests {
     /// and a later selective answer without hierarchy does not erase it.
     #[tokio::test]
     async fn group_hierarchy_survives_partial_answers_and_refreshes_on_reconnect() {
-        use oxidezap_core::{GroupHierarchy, SubgroupKind};
+        use velo_core::{GroupHierarchy, SubgroupKind};
 
         let store = test_store("group-hierarchy-reconnect").await;
         feed(&store, group_message(GROUP, "MSG-GH1")).await;
@@ -2011,7 +2010,7 @@ mod tests {
             .group_hierarchies
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .insert(GROUP.into(), oxidezap_core::GroupHierarchy::Community);
+            .insert(GROUP.into(), velo_core::GroupHierarchy::Community);
         let signal = ChatNameResolveSignal::new();
         signal.request_full();
         let request = signal.next().await;
@@ -2031,7 +2030,7 @@ mod tests {
                 .expect("read resolved hierarchy")
                 .expect("group exists")
                 .group_hierarchy,
-            Some(oxidezap_core::GroupHierarchy::Community),
+            Some(velo_core::GroupHierarchy::Community),
             "the selective hierarchy answer supersedes the blank-subject overview"
         );
     }

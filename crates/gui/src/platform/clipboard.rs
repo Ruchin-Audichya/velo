@@ -172,7 +172,7 @@ mod tests {
         assert_eq!(images.len(), 1);
         assert_eq!(images[0].file_name, "pasted.png");
         assert_eq!(images[0].mime_type, "image/png");
-        assert_eq!(images[0].kind, oxidezap_core::OutgoingMedia::Image);
+        assert_eq!(images[0].kind, velo_core::OutgoingMedia::Image);
         assert_eq!(images[0].bytes, vec![1, 2, 3]);
     }
 
@@ -195,7 +195,7 @@ mod tests {
     /// near-limit file, not ride out beside it as twice the ceiling.
     #[test]
     fn images_share_the_trip_budget_with_copied_files() {
-        let ceiling = oxidezap_ipc::MAX_STAGED_BYTES;
+        let ceiling = velo_ipc::MAX_STAGED_BYTES;
         let mut budget = Budget::default();
         budget.took(ceiling - 8);
         let image = Picked::automatic("pasted.png".into(), "image/png".into(), vec![0; 16]);
@@ -208,7 +208,7 @@ mod tests {
     /// from what is left rather than from a fresh ceiling.
     #[test]
     fn a_fitting_image_is_charged_before_the_files() {
-        let ceiling = oxidezap_ipc::MAX_STAGED_BYTES;
+        let ceiling = velo_ipc::MAX_STAGED_BYTES;
         let mut budget = Budget::default();
         let image = Picked::automatic("pasted.png".into(), "image/png".into(), vec![0; 16]);
         let (kept, refused) = fit_images(vec![image], &mut budget);

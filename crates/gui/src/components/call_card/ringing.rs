@@ -11,7 +11,7 @@ use gpui::{App, Entity, InteractiveElement, IntoElement, ParentElement, Styled, 
 use gpui_component::ActiveTheme as _;
 use gpui_component::Icon;
 use gpui_component::button::{Button, ButtonVariants as _};
-use oxidezap_core::{IncomingCall, OutgoingCall};
+use velo_core::{IncomingCall, OutgoingCall};
 
 use crate::app::WhatsAppApp;
 use crate::components::parts;

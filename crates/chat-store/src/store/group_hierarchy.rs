@@ -25,7 +25,7 @@ pub(super) fn apply_group_hierarchies(
         let hierarchy = serde_json::to_string(&write.hierarchy).expect("hierarchy serializes");
         if expected
             .as_deref()
-            .and_then(|raw| serde_json::from_str::<oxidezap_core::GroupHierarchy>(raw).ok())
+            .and_then(|raw| serde_json::from_str::<velo_core::GroupHierarchy>(raw).ok())
             .as_ref()
             == Some(&write.hierarchy)
         {

@@ -25,7 +25,7 @@
 //! rather than above it, so it copied the browser timer instead, and so did
 //! the window. What is left here is the part that really is the session's —
 //! the runtime it owns, the thread it drives, and the tasks it has to be able
-//! to wait for — over [`oxidezap_platform`], which is the seam proper.
+//! to wait for — over [`velo_platform`], which is the seam proper.
 
 #[cfg_attr(target_family = "wasm", path = "web.rs")]
 #[cfg_attr(not(target_family = "wasm"), path = "native.rs")]
@@ -49,7 +49,7 @@ pub use platform::{Executor, Task, breathe, let_go, spawn, spawn_owned, unblock}
 /// Re-exported rather than declared, so the session, the plugin host and the
 /// store draw one line rather than three that can be drawn differently: this
 /// is still where the session asks for a wait, and no caller above changes.
-pub use oxidezap_platform::{MaybeSend, sleep, with_timeout};
+pub use velo_platform::{MaybeSend, sleep, with_timeout};
 
 /// The task did not finish, and nothing is coming.
 ///

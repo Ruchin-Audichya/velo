@@ -6,7 +6,7 @@
 //!
 //! *Which store* — a page keeps its own answer in the origin's
 //! `localStorage`, and a desktop window does not keep one at all: the level
-//! it would write goes in the config file `oxidezapd` writes, and the daemon
+//! it would write goes in the config file `velod` writes, and the daemon
 //! is the process that reads it first, holds the session, and is told every
 //! change. Two processes writing one file is a race with a benign outcome
 //! and no upside — the next start would be at whichever of two nearly
@@ -44,7 +44,7 @@ mod imp {
     use gpui::AppContext as _;
 
     pub(super) async fn remember(cx: &mut gpui::AsyncApp) -> Result<(), String> {
-        cx.background_spawn(async { oxidezap_logging::remember() })
+        cx.background_spawn(async { velo_logging::remember() })
             .await
     }
 }
@@ -54,6 +54,6 @@ mod imp {
     pub(super) async fn remember(_cx: &mut gpui::AsyncApp) -> Result<(), String> {
         // On the window thread deliberately: `localStorage` exists on the
         // window global and on no worker, and this is a handful of bytes.
-        oxidezap_logging::remember()
+        velo_logging::remember()
     }
 }

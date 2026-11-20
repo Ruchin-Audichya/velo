@@ -10,8 +10,8 @@ use std::collections::{HashMap, VecDeque};
 
 use wacore_binary::jid::{Jid, JidExt as _};
 
-use oxidezap_core::{CallHistoryEntry, UiEvent};
-use oxidezap_wire::dto::CallEventDto;
+use velo_core::{CallHistoryEntry, UiEvent};
+use velo_wire::dto::CallEventDto;
 
 use crate::state::StateHub;
 
@@ -229,7 +229,7 @@ fn now_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oxidezap_core::IncomingCall;
+    use velo_core::IncomingCall;
 
     fn incoming(id: &str) -> UiEvent {
         UiEvent::IncomingCall(IncomingCall {

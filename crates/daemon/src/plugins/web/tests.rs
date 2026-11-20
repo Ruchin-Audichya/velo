@@ -19,7 +19,7 @@
 //! CHROMEDRIVER=$(which chromedriver) \
 //! RUSTFLAGS='--cfg web_sys_unstable_apis' \
 //! CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-bindgen-test-runner \
-//!   cargo test -p oxidezap-daemon --lib --target wasm32-unknown-unknown
+//!   cargo test -p velo-daemon --lib --target wasm32-unknown-unknown
 //! ```
 //!
 //! The driver has to match the browser's major version, and it finds the
@@ -200,7 +200,7 @@ async fn a_name_that_is_not_an_id_is_refused() {
 /// with it — and a panic fails this test whatever it would have answered.
 #[wasm_bindgen_test]
 async fn approving_a_plugin_does_not_need_a_blocking_pool() {
-    let host = std::sync::Arc::new(oxidezap_plugin_host::Plugins::nothing_loaded(
+    let host = std::sync::Arc::new(velo_plugin_host::Plugins::nothing_loaded(
         std::sync::Arc::new(|_| {}),
     ));
     assert!(
@@ -219,12 +219,12 @@ async fn approving_a_plugin_does_not_need_a_blocking_pool() {
 #[wasm_bindgen_test]
 async fn a_page_reloads_its_plugins_from_its_own_folder() {
     empty_the_folder().await;
-    let host = std::sync::Arc::new(oxidezap_plugin_host::Plugins::nothing_loaded(
+    let host = std::sync::Arc::new(velo_plugin_host::Plugins::nothing_loaded(
         std::sync::Arc::new(|_| {}),
     ));
     assert_eq!(
-        super::super::reload(&host, oxidezap_core::AccountId::LEGACY).await,
-        oxidezap_plugin_host::Reloaded::Ran(0),
+        super::super::reload(&host, velo_core::AccountId::LEGACY).await,
+        velo_plugin_host::Reloaded::Ran(0),
         "an empty folder runs nothing, and that is a reload that happened"
     );
 
@@ -237,17 +237,17 @@ async fn a_page_reloads_its_plugins_from_its_own_folder() {
         .await
         .expect("a module is installed");
     assert_eq!(
-        super::super::reload(&host, oxidezap_core::AccountId::LEGACY).await,
-        oxidezap_plugin_host::Reloaded::Ran(0)
+        super::super::reload(&host, velo_core::AccountId::LEGACY).await,
+        velo_plugin_host::Reloaded::Ran(0)
     );
     empty_the_folder().await;
 }
 
 #[wasm_bindgen_test]
 fn plugin_authority_and_settings_are_isolated_between_retained_and_successor_accounts() {
-    use oxidezap_plugin_host::{Backing, Origin};
-    let a = oxidezap_core::AccountId::new(900001).unwrap();
-    let b = oxidezap_core::AccountId::new(900002).unwrap();
+    use velo_plugin_host::{Backing, Origin};
+    let a = velo_core::AccountId::new(900001).unwrap();
+    let b = velo_core::AccountId::new(900002).unwrap();
     assert!(Origin::forget_account(a));
     assert!(Origin::forget_account(b));
     let retained = Origin::storage_for_account(a);

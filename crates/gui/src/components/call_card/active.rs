@@ -17,7 +17,7 @@ use crate::app::WhatsAppApp;
 use crate::components::parts;
 use crate::components::{Avatar, ProductIcon};
 use crate::theme::Metrics;
-use oxidezap_core::ActiveCall;
+use velo_core::ActiveCall;
 
 /// The header and window controls for a live call.
 pub fn live_header(

@@ -36,7 +36,7 @@ impl MediaType {
     }
 }
 
-/// What a file the user picked is sent as. See `oxidezap_ipc::SendMedia`.
+/// What a file the user picked is sent as. See `velo_ipc::SendMedia`.
 ///
 /// Three kinds and not five: a sticker is a pack's, not a file picker's, and
 /// a voice note is recorded rather than chosen — `SendAudio` carries that

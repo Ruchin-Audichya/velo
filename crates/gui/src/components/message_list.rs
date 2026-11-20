@@ -29,7 +29,7 @@ use crate::responsive::ResponsiveLayout;
 use crate::theme::{ActiveProductTheme as _, Metrics};
 use crate::utils::format_date_divider;
 
-use oxidezap_core::{MediaType, TypingSummary};
+use velo_core::{MediaType, TypingSummary};
 
 /// A list state for a conversation, anchored at its newest row.
 ///
@@ -222,7 +222,7 @@ pub fn render_message_list(
 #[allow(clippy::too_many_arguments)]
 fn render_row(
     items: &[TimelineItem],
-    messages: &[Arc<oxidezap_core::ChatMessage>],
+    messages: &[Arc<velo_core::ChatMessage>],
     ids: &[BubbleIds],
     text: &[BubbleText],
     ix: usize,

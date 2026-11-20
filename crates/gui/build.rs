@@ -3,7 +3,7 @@
 //! icons.
 //!
 //! The revision is what a bug report is worth reading with. A nightly moves
-//! every push and the version string does not move with it, so "oxidezap
+//! every push and the version string does not move with it, so "velo
 //! 0.1.0" names a hundred different builds; the short hash beside it names
 //! one, and the window makes it a link to that commit.
 //!
@@ -24,7 +24,7 @@ use std::path::{Path, PathBuf};
 include!("../../packaging/windows/version_resource.rs");
 
 fn main() {
-    embed_windows_resources("../../packaging/windows/velo.ico", "Velo", "oxidezap.exe");
+    embed_windows_resources("../../packaging/windows/velo.ico", "Velo", "velo.exe");
     println!("cargo:rerun-if-changed=build.rs");
     revision();
 
@@ -77,7 +77,7 @@ fn main() {
 /// window saying `unknown` there would be a worse line than no line at all —
 /// `render_versions` draws nothing when this is unset.
 ///
-///   1. `OXIDEZAP_REV`, which is how a release build says it. CI has the
+///   1. `VELO_REV`, which is how a release build says it. CI has the
 ///      revision in the environment and often builds from an export rather
 ///      than a repository, so asking git there would answer nothing.
 ///   2. `git rev-parse`, which is every ordinary build from a checkout.
@@ -87,9 +87,9 @@ fn main() {
 /// release title carries — and long enough that GitHub resolves it, which is
 /// what makes the link work.
 fn revision() {
-    println!("cargo:rerun-if-env-changed=OXIDEZAP_REV");
+    println!("cargo:rerun-if-env-changed=VELO_REV");
 
-    let from_env = std::env::var("OXIDEZAP_REV")
+    let from_env = std::env::var("VELO_REV")
         .ok()
         .filter(|rev| !rev.trim().is_empty());
     let Some(rev) = from_env.or_else(git_revision) else {
@@ -102,7 +102,7 @@ fn revision() {
         .take(7)
         .collect();
     if !short.is_empty() {
-        println!("cargo:rustc-env=OXIDEZAP_REV={short}");
+        println!("cargo:rustc-env=VELO_REV={short}");
     }
 }
 

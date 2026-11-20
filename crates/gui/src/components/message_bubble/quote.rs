@@ -3,7 +3,7 @@
 use gpui::{App, Entity, IntoElement, ParentElement, SharedString, Styled, div};
 use gpui_component::ActiveTheme as _;
 use gpui_component::button::{Button, ButtonVariants as _};
-use oxidezap_core::{QuotedMessage, plain_message_text};
+use velo_core::{QuotedMessage, plain_message_text};
 
 use crate::app::WhatsAppApp;
 use crate::components::parts;

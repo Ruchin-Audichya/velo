@@ -1,4 +1,4 @@
-# The oxidezap plugin ABI
+# The Velo plugin ABI
 
 What a `.wasm` has to do to be a plugin, written for somebody who is not using
 the Rust SDK. The SDK is a convenience over exactly this — nothing in it is
@@ -9,7 +9,7 @@ Everything below is `i32` and `i64`. There are no strings in the type system,
 no structs, no component model: a string is a pointer and a length into the
 module's own linear memory, and the host reads it from there.
 
-**There is no WASI.** Not a restricted one — none. The `oxidezap` import
+**There is no WASI.** Not a restricted one — none. The `velo` import
 module is a plugin's entire outside world, so a plugin cannot open a file or a
 socket because no function exists that would.
 
@@ -28,7 +28,7 @@ answered and its exports found.
 
 ## What the host provides
 
-All in the import module `oxidezap`. Pointers are byte offsets into the
+All in the import module `velo`. Pointers are byte offsets into the
 module's exported memory.
 
 ### Declaring — callable only from inside `oxi_init`
@@ -332,8 +332,8 @@ sandbox.
 
 ## Where a plugin lives
 
-`~/.local/share/oxidezap/plugins` on Linux, `%LOCALAPPDATA%` on Windows, and
-`OXIDEZAP_PLUGIN_DIR` overrides it. **The file's name is the plugin's id** —
+`~/.local/share/velo/plugins` on Linux, `%LOCALAPPDATA%` on Windows, and
+`VELO_PLUGIN_DIR` overrides it. **The file's name is the plugin's id** —
 `autoreply.wasm` is `autoreply` — and that id is what a user's answer is
 recorded against, what its settings are filed under, and what two files may
 not share.
@@ -343,7 +343,7 @@ mode both, the directory and every module in it: an answer recorded against a
 name is one somebody else's file under that name would inherit. A symlink is
 refused rather than followed — the target's own mode says nothing about who
 may replace it — so a module has to be a file in that directory. Point
-`OXIDEZAP_PLUGIN_DIR` at your build directory instead while writing one.
+`VELO_PLUGIN_DIR` at your build directory instead while writing one.
 
 An approval is recorded against the **id and the mask, not a hash of the
 bytes**, so replacing the file with a new build does not ask again. That is
@@ -359,8 +359,8 @@ nothing:
 
 ```wat
 (module
-  (import "oxidezap" "oxi_subscribe" (func $subscribe (param i64)))
-  (import "oxidezap" "oxi_set_name"  (func $set_name (param i32 i32) (result i32)))
+  (import "velo" "oxi_subscribe" (func $subscribe (param i64)))
+  (import "velo" "oxi_set_name"  (func $set_name (param i32 i32) (result i32)))
   (memory (export "memory") 1)
   (data (i32.const 0) "Minimal")
   (func (export "oxi_abi_version") (result i32) (i32.const 1))

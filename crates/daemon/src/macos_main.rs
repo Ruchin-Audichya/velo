@@ -44,7 +44,7 @@ pub fn run(runtime: tokio::runtime::Runtime, hub: Arc<TrayHub>) -> Result<()> {
     };
 
     let worker = std::thread::Builder::new()
-        .name("oxidezap-main".to_string())
+        .name("velo-main".to_string())
         .spawn({
             let hub = Arc::clone(&hub);
             move || runtime.block_on(super::run(hub))

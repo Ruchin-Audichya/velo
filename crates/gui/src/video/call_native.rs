@@ -29,8 +29,8 @@ use gpui::RenderImage;
 use image::{Frame, RgbaImage};
 use openh264::decoder::{DecodedYUV, Decoder};
 use openh264::formats::YUVSource as _;
-use oxidezap_core::{CallVideoFrame, VideoStream};
 use smallvec::SmallVec;
+use velo_core::{CallVideoFrame, VideoStream};
 
 use super::geometry::{Rotation, swap_rb_in_place, write_bgra_rotated};
 
@@ -83,7 +83,7 @@ impl LatestFrames {
     }
 
     /// Leave pictures whose enabling state has not reached the UI in their slots.
-    pub fn take_for(&self, calls: &oxidezap_core::CallState) -> SmallVec<[CallFrame; 2]> {
+    pub fn take_for(&self, calls: &velo_core::CallState) -> SmallVec<[CallFrame; 2]> {
         let Some(call) = calls.active() else {
             return SmallVec::new();
         };
@@ -202,8 +202,8 @@ impl Stream {
         let recovery = Arc::new(Recovery::new(call_id.clone(), stream, recover));
         let decoding_recovery = recovery.clone();
         let name = match stream {
-            VideoStream::Local => "oxidezap-selfview",
-            VideoStream::Remote => "oxidezap-callvideo",
+            VideoStream::Local => "velo-selfview",
+            VideoStream::Remote => "velo-callvideo",
         };
         // A thread that cannot be spawned leaves the queue's receiver dropped,
         // which makes every `accept` a no-op: the call runs without a picture

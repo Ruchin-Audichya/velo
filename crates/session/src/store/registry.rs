@@ -18,8 +18,8 @@
 
 use std::sync::Arc;
 
-use oxidezap_core::AccountId;
 use tokio::sync::OnceCell;
+use velo_core::AccountId;
 use wacore::store::error::StoreError;
 
 #[cfg(not(target_family = "wasm"))]
@@ -164,9 +164,9 @@ impl StoreRegistry {
     pub async fn existing_pairing_successor(
         &self,
         id: AccountId,
-    ) -> Result<Option<AccountId>, oxidezap_chat_store::ChatStoreError> {
+    ) -> Result<Option<AccountId>, velo_chat_store::ChatStoreError> {
         let store = self.store(id).await?;
-        oxidezap_chat_store::ChatStore::pairing_successor(&store)
+        velo_chat_store::ChatStore::pairing_successor(&store)
             .await?
             .map(|raw| {
                 AccountId::new(raw)
@@ -179,15 +179,14 @@ impl StoreRegistry {
     pub async fn pairing_successor(
         &self,
         id: AccountId,
-    ) -> Result<AccountId, oxidezap_chat_store::ChatStoreError> {
+    ) -> Result<AccountId, velo_chat_store::ChatStoreError> {
         let store = self.store(id).await?;
-        match oxidezap_chat_store::ChatStore::pairing_successor(&store).await? {
+        match velo_chat_store::ChatStore::pairing_successor(&store).await? {
             Some(id) => Ok(AccountId::new(id)
                 .map_err(|_| StoreError::Validation("invalid pairing account".into()))?),
             None => {
                 let next = self.create_account().await?;
-                oxidezap_chat_store::ChatStore::record_pairing_successor(&store, next.as_i32())
-                    .await?;
+                velo_chat_store::ChatStore::record_pairing_successor(&store, next.as_i32()).await?;
                 Ok(next)
             }
         }
@@ -248,23 +247,22 @@ impl StoreRegistry {
 
     pub async fn retirements(
         &self,
-    ) -> Result<Vec<oxidezap_chat_store::AccountRetirement>, oxidezap_chat_store::ChatStoreError>
-    {
+    ) -> Result<Vec<velo_chat_store::AccountRetirement>, velo_chat_store::ChatStoreError> {
         let store = self.store(AccountId::LEGACY).await?;
         self.prepare_chat_schema(&store).await?;
-        oxidezap_chat_store::ChatStore::account_retirements(&store).await
+        velo_chat_store::ChatStore::account_retirements(&store).await
     }
 
     pub async fn begin_retirement(
         &self,
         old: &StoredAccount,
         new: &StoredAccount,
-    ) -> Result<bool, oxidezap_chat_store::ChatStoreError> {
+    ) -> Result<bool, velo_chat_store::ChatStoreError> {
         if !super::is_durable() || !super::same_account_identity(old, new) {
             return Ok(false);
         }
         let store = self.store(old.id).await?;
-        oxidezap_chat_store::ChatStore::begin_account_retirement(
+        velo_chat_store::ChatStore::begin_account_retirement(
             &store,
             old.id.get(),
             new.id.get(),
@@ -279,9 +277,9 @@ impl StoreRegistry {
     pub async fn finish_retirement(
         &self,
         old: AccountId,
-    ) -> Result<(), oxidezap_chat_store::ChatStoreError> {
+    ) -> Result<(), velo_chat_store::ChatStoreError> {
         let store = self.store(old).await?;
-        oxidezap_chat_store::ChatStore::finish_account_retirement(&store, old.get()).await
+        velo_chat_store::ChatStore::finish_account_retirement(&store, old.get()).await
     }
 
     /// Wipe one account's WhatsApp state and start it over under the same id.
@@ -328,11 +326,11 @@ impl StoreRegistry {
     pub async fn prepare_chat_schema(
         &self,
         store: &Store,
-    ) -> Result<(), oxidezap_chat_store::ChatStoreError> {
+    ) -> Result<(), velo_chat_store::ChatStoreError> {
         self.chat_schema
             .get_or_try_init(|| async {
-                oxidezap_chat_store::ChatStore::prepare(store).await?;
-                Ok::<(), oxidezap_chat_store::ChatStoreError>(())
+                velo_chat_store::ChatStore::prepare(store).await?;
+                Ok::<(), velo_chat_store::ChatStoreError>(())
             })
             .await
             .map(|_| ())
@@ -393,10 +391,10 @@ mod tests {
         second.expect("second preparation observes the same completed schema");
 
         // Both account-scoped writers can now open without repreparing.
-        oxidezap_chat_store::ChatStore::new_prepared(&store_a)
+        velo_chat_store::ChatStore::new_prepared(&store_a)
             .await
             .expect("writer A opens against the prepared schema");
-        oxidezap_chat_store::ChatStore::new_prepared(&store_b)
+        velo_chat_store::ChatStore::new_prepared(&store_b)
             .await
             .expect("writer B opens against the prepared schema");
     }
@@ -426,7 +424,7 @@ mod tests {
             static COUNTER: AtomicU64 = AtomicU64::new(0);
             let id = COUNTER.fetch_add(1, Ordering::Relaxed);
             let path = std::env::temp_dir().join(format!(
-                "oxidezap_store_registry_{tag}_{}_{id}.db",
+                "velo_store_registry_{tag}_{}_{id}.db",
                 std::process::id()
             ));
             let _ = std::fs::remove_file(&path);
@@ -497,7 +495,7 @@ mod tests {
         let old = registry.create_account().await.unwrap();
         let store = registry.store(old).await.unwrap();
         registry.prepare_chat_schema(&store).await.unwrap();
-        let history = oxidezap_chat_store::ChatStore::new_prepared(&store)
+        let history = velo_chat_store::ChatStore::new_prepared(&store)
             .await
             .unwrap();
         let peer: whatsapp_rust::wacore_binary::Jid =
@@ -520,7 +518,7 @@ mod tests {
         assert_eq!(registry.pairing_successor(old).await.unwrap(), next);
         assert!(history.message(&peer, "RETAINED").await.unwrap().is_some());
         let new_store = registry.store(next).await.unwrap();
-        let new_history = oxidezap_chat_store::ChatStore::new_prepared(&new_store)
+        let new_history = velo_chat_store::ChatStore::new_prepared(&new_store)
             .await
             .unwrap();
         assert!(
@@ -553,7 +551,7 @@ mod tests {
         assert_eq!(reopened.pairing_successor(old).await.unwrap(), next);
         assert_eq!(reopened.accounts().await.unwrap().len(), 2);
         let retained_store = reopened.store(old).await.unwrap();
-        let retained = oxidezap_chat_store::ChatStore::new_prepared(&retained_store)
+        let retained = velo_chat_store::ChatStore::new_prepared(&retained_store)
             .await
             .unwrap();
         assert_eq!(
@@ -581,10 +579,10 @@ mod tests {
             .prepare_chat_schema(&store_a)
             .await
             .expect("prepare schema");
-        let chat_a = oxidezap_chat_store::ChatStore::new_prepared(&store_a)
+        let chat_a = velo_chat_store::ChatStore::new_prepared(&store_a)
             .await
             .expect("chat store A");
-        let chat_b = oxidezap_chat_store::ChatStore::new_prepared(&store_b)
+        let chat_b = velo_chat_store::ChatStore::new_prepared(&store_b)
             .await
             .expect("chat store B");
 
@@ -649,10 +647,10 @@ mod tests {
             .prepare_chat_schema(&store_a)
             .await
             .expect("prepare schema");
-        let chat_a = oxidezap_chat_store::ChatStore::new_prepared(&store_a)
+        let chat_a = velo_chat_store::ChatStore::new_prepared(&store_a)
             .await
             .expect("chat store A");
-        let chat_b = oxidezap_chat_store::ChatStore::new_prepared(&store_b)
+        let chat_b = velo_chat_store::ChatStore::new_prepared(&store_b)
             .await
             .expect("chat store B");
 

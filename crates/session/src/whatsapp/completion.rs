@@ -1,7 +1,7 @@
 use whatsapp_rust::wacore::types::events::ConnectFailureReason;
 use whatsapp_rust::{ConflictKind, ProtocolTerminalReason, RunCompletionReason};
 
-use oxidezap_core::UiEvent;
+use velo_core::UiEvent;
 
 pub(super) fn completion_event(reason: &RunCompletionReason) -> Option<UiEvent> {
     match reason {

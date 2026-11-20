@@ -7,7 +7,7 @@
   "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
   "cpu": "AMD EPYC 9V74 80-Core Processor",
   "cpu_quota": "4 CPUs; affinity allows 5 logical CPUs",
-  "build": "cargo test -p oxidezap-chat-store --release --all-features --test page_limit_profile --no-run",
+  "build": "cargo test -p velo-chat-store --release --all-features --test page_limit_profile --no-run",
   "profile": "workspace release, opt-level=3, fat LTO, codegen-units=1; identical flags and ordinary Cargo target/cache for both",
   "iterations": 32,
   "pairs_per_case_and_mode": 7,

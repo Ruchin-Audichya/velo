@@ -23,7 +23,7 @@ use super::{Wipe, is_disposable};
 /// [`WEB_MEDIA_BUDGET_BYTES`] is where the number and the reasoning live: the
 /// page's three media budgets are three ceilings on one heap, so they are one
 /// number or they are their sum.
-use oxidezap_core::WEB_MEDIA_BUDGET_BYTES as CACHE_BUDGET_BYTES;
+use velo_core::WEB_MEDIA_BUDGET_BYTES as CACHE_BUDGET_BYTES;
 
 /// One entry, and when it was last useful.
 struct Entry {
@@ -268,14 +268,14 @@ pub(super) fn delete_unscoped(scope: Wipe) -> Result<()> {
     with(|cache| {
         let mut removed = 0u64;
         cache.entries.retain(|name, entry| {
-            if oxidezap_ipc::account_prefix_of(name).is_some() {
+            if velo_ipc::account_prefix_of(name).is_some() {
                 return true;
             }
             // A bare staged key is the daemon's now, not this account's: plugin
             // installation is global and reads `u-<name>` from whichever front
             // end asked, so a legacy-account wipe must not take a payload
             // another account's install is still going to consume.
-            if oxidezap_ipc::is_global_staged_key(name) {
+            if velo_ipc::is_global_staged_key(name) {
                 return true;
             }
             let taken = scope.takes(name) && !(entry.claims > 0 && scope == Wipe::Cache);
@@ -400,8 +400,7 @@ mod owned_tests {
 
     #[wasm_bindgen_test::wasm_bindgen_test]
     fn epoch_checked_download_transfers_allocation_without_a_claim() {
-        let account =
-            super::super::AccountMedia::new(oxidezap_core::AccountId::new(990003).unwrap());
+        let account = super::super::AccountMedia::new(velo_core::AccountId::new(990003).unwrap());
         account.wipe(Wipe::Cache).unwrap();
         let epoch = account.epoch();
         let bytes = vec![7u8; 4096];
@@ -514,7 +513,7 @@ mod owned_tests {
     #[wasm_bindgen_test::wasm_bindgen_test]
     fn account_clear_and_removal_keep_budget_and_other_accounts_intact() {
         use super::super::AccountMedia;
-        use oxidezap_core::AccountId;
+        use velo_core::AccountId;
 
         let a = AccountMedia::new(AccountId::new(990007).unwrap());
         let b = AccountMedia::new(AccountId::new(990008).unwrap());

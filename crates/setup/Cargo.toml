@@ -27,8 +27,8 @@ gpui = { package = "gpui-fast", version = "0.1.13" }
 gpui-component = { git = "https://github.com/longbridge/gpui-kit.git", features = ["gpui-fast"] }
 gpui-kit-assets = { git = "https://github.com/longbridge/gpui-kit.git", features = ["gpui-fast"] }
 gpui_platform = { package = "gpui-fast-platform", version = "0.1.13", features = ["font-kit", "x11", "wayland", "runtime_shaders"] }
-oxidezap-ipc = { path = "../ipc" }
-oxidezap-wire = { path = "../wire" }
+velo-ipc = { path = "../ipc" }
+velo-wire = { path = "../wire" }
 windows-registry = "0.6.1"
 windows = { version = "0.62.2", features = [
     "Win32_Foundation",

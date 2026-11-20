@@ -55,7 +55,7 @@ unsafe impl GlobalAlloc for Counting {
 }
 #[global_allocator]
 static ALLOCATOR: Counting = Counting;
-fn sample(f: impl FnOnce() -> oxidezap_wire::ResponseEnvelope) -> (usize, usize, usize) {
+fn sample(f: impl FnOnce() -> velo_wire::ResponseEnvelope) -> (usize, usize, usize) {
     LIVE.with(|v| v.set(0));
     PEAK.with(|v| v.set(0));
     CALLS.with(|v| v.set(0));

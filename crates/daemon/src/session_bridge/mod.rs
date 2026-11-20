@@ -18,9 +18,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result};
-use oxidezap_core::UiEvent;
-use oxidezap_session::{StoreRegistry, WhatsAppClient};
 use tokio::sync::Semaphore;
+use velo_core::UiEvent;
+use velo_session::{StoreRegistry, WhatsAppClient};
 
 use crate::state::StateHub;
 
@@ -304,10 +304,10 @@ pub enum DispositionOutcome {
 /// [`AccountDisposition`] that was merely asked for — see that type's own
 /// doc for why a caller must not conflate the two.
 pub async fn run(
-    account_id: oxidezap_core::AccountId,
+    account_id: velo_core::AccountId,
     stores: Arc<StoreRegistry>,
     hub: Arc<StateHub>,
-    plugins: Arc<oxidezap_plugin_host::Plugins>,
+    plugins: Arc<velo_plugin_host::Plugins>,
     mut commands: tokio::sync::mpsc::Receiver<SessionCommand>,
     lifecycle: RuntimeLifecycle,
     shutdown: impl std::future::Future<Output = ()>,
@@ -448,7 +448,7 @@ pub async fn run(
     // departed account's handles rather than every handle from here on.
     let plugins_closed = {
         let plugins = Arc::clone(&bridge.plugins);
-        let result = oxidezap_session::unblock(move || plugins.shutdown()).await;
+        let result = velo_session::unblock(move || plugins.shutdown()).await;
         if result.is_err() {
             log::error!("the plugin threads did not finish");
         }
@@ -486,7 +486,7 @@ pub async fn run(
             log::error!(
                 "local state was NOT reset: the session is still closing, and resetting the \
                  account from under it could let it repopulate what the reset just cleared. \
-                 Start oxidezap again and repeat \"clear data and pair again\"."
+                 Start Velo again and repeat \"clear data and pair again\"."
             );
             disposition.incomplete()
         } else {
@@ -496,7 +496,7 @@ pub async fn run(
     } else {
         if !closed || !plugins_closed {
             log::error!(
-                "account {} did not close; restart oxidezap before retrying",
+                "account {} did not close; restart Velo before retrying",
                 account_id.get()
             );
         }
@@ -547,7 +547,7 @@ fn session_exit(
 /// this assumes nothing is writing to the store any more. That is exactly the
 /// caller obligation [`StoreRegistry::reset_account`] documents.
 pub async fn finish_forget(
-    account_id: oxidezap_core::AccountId,
+    account_id: velo_core::AccountId,
     stores: &Arc<StoreRegistry>,
     hub: &Arc<StateHub>,
     disposition: AccountDisposition,
@@ -564,7 +564,7 @@ pub async fn finish_forget(
         log::error!(
             "local state was NOT reset: the plugins' recorded permissions could not be \
              cleared, and resetting now would let them outlive the account that granted them. \
-             Start oxidezap again and repeat \"clear data and pair again\"."
+             Start Velo again and repeat \"clear data and pair again\"."
         );
         return disposition.incomplete();
     }
@@ -631,7 +631,7 @@ pub async fn finish_forget(
 /// `true` when there was nothing to remove, which is the ordinary case: an
 /// account with no plugins has no permissions to retire.
 #[cfg_attr(target_family = "wasm", allow(unused_variables))]
-fn approvals_retired(account_id: oxidezap_core::AccountId) -> bool {
+fn approvals_retired(account_id: velo_core::AccountId) -> bool {
     // A page keeps them in its origin's storage rather than in a directory,
     // and clears the plugins' settings in the same sweep: there is no
     // directory below to remove afterwards, so the two halves that are
@@ -640,14 +640,14 @@ fn approvals_retired(account_id: oxidezap_core::AccountId) -> bool {
     //
     #[cfg(target_family = "wasm")]
     {
-        oxidezap_plugin_host::Origin::forget_account(account_id)
+        velo_plugin_host::Origin::forget_account(account_id)
     }
     #[cfg(not(target_family = "wasm"))]
     {
         let Some(dir) = crate::plugins::account_state_dir(account_id) else {
             return true;
         };
-        match oxidezap_plugin_host::forget_approvals(&dir) {
+        match velo_plugin_host::forget_approvals(&dir) {
             Ok(()) => true,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => true,
             Err(e) => {
@@ -684,7 +684,7 @@ struct Bridge {
     /// them down: a plugin writing its settings while the account's data is
     /// being deleted is the same race the publish thread has, and it is
     /// solved the same way.
-    plugins: Arc<oxidezap_plugin_host::Plugins>,
+    plugins: Arc<velo_plugin_host::Plugins>,
     /// Events on their way to the front ends that asked for them.
     ///
     /// A thread of its own, because preparing one writes every photo it
@@ -713,12 +713,12 @@ struct Bridge {
     /// The bridge does the byte write through [`crate::avatar`]; the store
     /// lives in the session. This is the seam, and it is what keeps the
     /// descriptor write behind the byte write.
-    avatar_recorder: oxidezap_session::AvatarRecorder,
+    avatar_recorder: velo_session::AvatarRecorder,
 }
 
 impl Bridge {
     #[cfg(test)]
-    fn new(hub: Arc<StateHub>, plugins: Arc<oxidezap_plugin_host::Plugins>) -> Self {
+    fn new(hub: Arc<StateHub>, plugins: Arc<velo_plugin_host::Plugins>) -> Self {
         // No session behind it: these tests fold events without opening a
         // store, so every avatar descriptor write is dropped, which is the
         // honest answer for a bridge with no store to point at one.
@@ -726,7 +726,7 @@ impl Bridge {
             hub,
             plugins,
             RuntimeLifecycle::new(),
-            oxidezap_session::AvatarRecorder::detached(),
+            velo_session::AvatarRecorder::detached(),
         );
         bridge.devices = call_devices::Devices::isolated(&bridge.hub);
         bridge
@@ -734,9 +734,9 @@ impl Bridge {
 
     fn with_lifecycle(
         hub: Arc<StateHub>,
-        plugins: Arc<oxidezap_plugin_host::Plugins>,
+        plugins: Arc<velo_plugin_host::Plugins>,
         lifecycle: RuntimeLifecycle,
-        avatar_recorder: oxidezap_session::AvatarRecorder,
+        avatar_recorder: velo_session::AvatarRecorder,
     ) -> Self {
         // Unbounded, and the bound that matters is upstream: the only producer
         // is the event loop draining the session's own unbounded channel, so a
@@ -789,7 +789,7 @@ async fn wait_for_mute_expiry(hub: Arc<StateHub>) {
     hub.refresh_tray();
     match hub.next_mute_expiry(now_ms) {
         Some(until) => {
-            oxidezap_platform::sleep(std::time::Duration::from_millis(
+            velo_platform::sleep(std::time::Duration::from_millis(
                 (until - now_ms).clamp(1, 60_000) as u64,
             ))
             .await

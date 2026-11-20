@@ -41,7 +41,7 @@ async fn poll_pages_continue_past_unsupported_variants() {
     assert_eq!(first[0].id, "POLL-V5");
     assert_eq!(first[0].kind, MessageKind::Poll);
     assert!(first[0].message.as_deref().is_none_or(|message| {
-        oxidezap_chat_store::supported_poll_creation_message(message).is_none()
+        velo_chat_store::supported_poll_creation_message(message).is_none()
     }));
     let cursor = MessageCursor::from(&first[0]);
     let next = chat_store
@@ -51,7 +51,7 @@ async fn poll_pages_continue_past_unsupported_variants() {
     assert_eq!(next[0].id, "POLL-LEGACY");
     assert_eq!(next[0].kind, MessageKind::Poll);
     assert!(next[0].message.as_deref().is_some_and(|message| {
-        oxidezap_chat_store::supported_poll_creation_message(message).is_some()
+        velo_chat_store::supported_poll_creation_message(message).is_some()
     }));
 }
 

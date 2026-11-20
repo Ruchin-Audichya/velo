@@ -44,7 +44,7 @@ unsafe impl GlobalAlloc for Count {
 #[global_allocator]
 static ALLOCATOR: Count = Count;
 fn sample(tag: &str, n: usize, left: bool) {
-    use oxidezap_core::{GroupMembership, MembershipAction, NoticeParticipant};
+    use velo_core::{GroupMembership, MembershipAction, NoticeParticipant};
     let actor = NoticeParticipant {
         jid: "12025550123@s.whatsapp.net".into(),
         phone_jid: None,
@@ -73,7 +73,7 @@ fn sample(tag: &str, n: usize, left: bool) {
         if left {
             assert_eq!(std::hint::black_box(event.summary()), "Alex left");
         } else {
-            std::hint::black_box(oxidezap_core::format_phone_jid(std::hint::black_box(
+            std::hint::black_box(velo_core::format_phone_jid(std::hint::black_box(
                 "12025550123@s.whatsapp.net",
             )));
         }
@@ -125,7 +125,7 @@ fn main() {
             "١٢٠٢٥٥٥٠١٢٣@s.whatsapp.net",   // non-ASCII JID user
             "broken",
         ] {
-            println!("{raw}\t{:?}", oxidezap_core::format_phone_jid(raw));
+            println!("{raw}\t{:?}", velo_core::format_phone_jid(raw));
         }
         return;
     }
@@ -137,10 +137,10 @@ fn main() {
                 for fill in ['0', '9'] {
                     let digits = format!("{code}{}", fill.to_string().repeat(len));
                     let jid = format!("{digits}@s.whatsapp.net");
-                    let result = oxidezap_core::format_phone_jid(&jid);
+                    let result = velo_core::format_phone_jid(&jid);
                     assert_eq!(
                         result,
-                        oxidezap_core::format_phone_jid(&format!("{digits}:7@s.whatsapp.net"))
+                        velo_core::format_phone_jid(&format!("{digits}:7@s.whatsapp.net"))
                     );
                     println!("{digits}\t{result:?}");
                 }

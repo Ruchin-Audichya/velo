@@ -6,8 +6,8 @@
 //! filesystem for. The web half of this crate has tests of its own that run in
 //! a browser; see `plugins/web/tests.rs`.
 
-use oxidezap_ipc::{ClientScope, PROTOCOL_VERSION};
 use tokio::io::AsyncBufReadExt as _;
+use velo_ipc::{ClientScope, PROTOCOL_VERSION};
 
 use super::accept::{acquire_startup_lock, prepare_state_dir, reject};
 use super::handshake::{Attached, check_hello, handshake, read_frame};
@@ -21,7 +21,7 @@ use crate::session_bridge::{CommandOutcome, Outbox, SessionCommand};
 #[test]
 fn an_answer_that_cannot_be_encoded_is_still_an_answer() {
     let frame = always(
-        Some(oxidezap_ipc::RequestId::from(7u64)),
+        Some(velo_ipc::RequestId::from(7u64)),
         Err(anyhow::anyhow!("the encoder gave up")),
     )
     .expect("there is always a frame");
@@ -35,7 +35,7 @@ fn hello(protocol: u32, session_events: bool) -> String {
     serde_json::to_string(&ClientRequest::Hello {
         protocol,
         scope: ClientScope::Account {
-            account: oxidezap_core::AccountId::LEGACY,
+            account: velo_core::AccountId::LEGACY,
         },
         session_events,
         owns_window: true,
@@ -48,7 +48,7 @@ fn attached(session_events: bool, owns_window: bool, call_video: bool) -> Attach
     Attached {
         session_events,
         scope: ClientScope::Account {
-            account: oxidezap_core::AccountId::LEGACY,
+            account: velo_core::AccountId::LEGACY,
         },
         owns_window,
         call_video,
@@ -74,7 +74,7 @@ async fn a_control_connection_lists_accounts_and_rejects_account_requests() {
     let hub = connected_hub();
     let (commands, _taken) = bridge(CommandOutcome::Accepted);
     assert!(registry.insert(Arc::new(AccountRuntime::new(
-        oxidezap_core::AccountId::LEGACY,
+        velo_core::AccountId::LEGACY,
         hub,
         no_plugins(),
         commands,
@@ -149,18 +149,18 @@ async fn a_control_connection_lists_accounts_and_rejects_account_requests() {
 #[tokio::test]
 async fn an_account_connection_is_bound_to_the_requested_runtime() {
     let registry = AccountRegistry::new();
-    let account_a = StateHub::for_account(oxidezap_core::AccountId::LEGACY);
-    let account_b_id = oxidezap_core::AccountId::new(2).expect("positive account id");
+    let account_a = StateHub::for_account(velo_core::AccountId::LEGACY);
+    let account_b_id = velo_core::AccountId::new(2).expect("positive account id");
     let account_b = StateHub::for_account(account_b_id);
     account_b.apply(crate::state::Change::live(
-        oxidezap_ipc::DaemonEvent::ConnectionChanged(oxidezap_ipc::ConnectionState::Disconnected {
+        velo_ipc::DaemonEvent::ConnectionChanged(velo_ipc::ConnectionState::Disconnected {
             reason: "account b".to_string(),
         }),
     ));
     let (commands_a, _taken_a) = bridge(CommandOutcome::Accepted);
     let (commands_b, _taken_b) = bridge(CommandOutcome::Accepted);
     assert!(registry.insert(Arc::new(AccountRuntime::new(
-        oxidezap_core::AccountId::LEGACY,
+        velo_core::AccountId::LEGACY,
         account_a,
         no_plugins(),
         commands_a,
@@ -196,7 +196,7 @@ async fn an_account_connection_is_bound_to_the_requested_runtime() {
         DaemonMessage::Hello { snapshot, .. }
             if matches!(
                 snapshot.connection,
-                oxidezap_ipc::ConnectionState::Disconnected { ref reason }
+                velo_ipc::ConnectionState::Disconnected { ref reason }
                     if reason == "account b"
             )
     ));
@@ -211,7 +211,7 @@ async fn an_account_connection_is_bound_to_the_requested_runtime() {
 #[tokio::test]
 async fn a_stopping_account_refuses_a_new_connection() {
     let registry = AccountRegistry::new();
-    let account = oxidezap_core::AccountId::LEGACY;
+    let account = velo_core::AccountId::LEGACY;
     let hub = StateHub::for_account(account);
     let (commands, _taken) = bridge(CommandOutcome::Accepted);
     let runtime = Arc::new(AccountRuntime::new(account, hub, no_plugins(), commands));
@@ -314,7 +314,7 @@ async fn a_control_connection_resets_and_removes_a_named_account() {
 
     let registry = AccountRegistry::new();
     // The lifecycle is the supervisor's to run, so the registry needs one.
-    let stores = Arc::new(oxidezap_session::StoreRegistry::new(format!(
+    let stores = Arc::new(velo_session::StoreRegistry::new(format!(
         "file:memdb_control_lifecycle_{}?mode=memory&cache=shared",
         std::process::id()
     )));
@@ -322,7 +322,7 @@ async fn a_control_connection_resets_and_removes_a_named_account() {
     // a dropped supervisor would leave `change_account` with nowhere to go.
     let _supervisor = crate::account::AccountSupervisor::new(Arc::clone(&registry), stores, 4);
 
-    let target_id = oxidezap_core::AccountId::new(2).expect("positive account id");
+    let target_id = velo_core::AccountId::new(2).expect("positive account id");
     let (commands, taken) = bridge(CommandOutcome::Accepted);
     assert!(registry.insert(Arc::new(AccountRuntime::new(
         target_id,
@@ -334,7 +334,7 @@ async fn a_control_connection_resets_and_removes_a_named_account() {
     // above: registering it *during* the conversation would race this
     // connection's own `AccountsChanged` push against the next request's
     // answer, and this test is about the answers, not that push.
-    let other_id = oxidezap_core::AccountId::new(3).expect("positive account id");
+    let other_id = velo_core::AccountId::new(3).expect("positive account id");
     let (commands, taken_other) = bridge(CommandOutcome::Accepted);
     assert!(registry.insert(Arc::new(AccountRuntime::new(
         other_id,
@@ -419,7 +419,7 @@ async fn a_control_connection_resets_and_removes_a_named_account() {
 
     // An id nothing is registered under is refused rather than silently
     // accepted.
-    let unknown_id = oxidezap_core::AccountId::new(99).expect("positive account id");
+    let unknown_id = velo_core::AccountId::new(99).expect("positive account id");
     let reset_unknown = serde_json::to_string(&Request {
         id: Some(7),
         request: ClientRequest::ResetAccount {
@@ -485,7 +485,7 @@ async fn the_control_plane_answers_the_process_wide_requests() {
     let level = serde_json::to_string(&Request {
         id: Some(3),
         request: ClientRequest::SetLogLevel {
-            level: oxidezap_core::LogLevel::Info,
+            level: velo_core::LogLevel::Info,
         },
     })
     .unwrap();
@@ -557,7 +557,7 @@ fn a_client_can_subscribe_to_video_without_owning_a_window() {
     let account = serde_json::to_string(&ClientRequest::Hello {
         protocol: PROTOCOL_VERSION,
         scope: ClientScope::Account {
-            account: oxidezap_core::AccountId::LEGACY,
+            account: velo_core::AccountId::LEGACY,
         },
         session_events: true,
         owns_window: false,
@@ -634,7 +634,7 @@ fn a_daemon_before_manual_whatsapp_retry_is_rejected() {
 async fn manual_whatsapp_retry_reaches_the_session_while_offline() {
     let hub = connected_hub();
     hub.apply(crate::state::Change::live(
-        oxidezap_ipc::DaemonEvent::ConnectionChanged(oxidezap_ipc::ConnectionState::Disconnected {
+        velo_ipc::DaemonEvent::ConnectionChanged(velo_ipc::ConnectionState::Disconnected {
             reason: "synthetic drop".into(),
         }),
     ));
@@ -675,7 +675,7 @@ fn state_is_not_served_before_a_hello() {
 fn connected_hub() -> Arc<StateHub> {
     let hub = StateHub::new();
     hub.apply(crate::state::Change::live(
-        oxidezap_ipc::DaemonEvent::ConnectionChanged(oxidezap_ipc::ConnectionState::Connected),
+        velo_ipc::DaemonEvent::ConnectionChanged(velo_ipc::ConnectionState::Connected),
     ));
     hub
 }
@@ -692,10 +692,8 @@ fn outbox() -> Outbox {
 
 /// A host with nothing loaded, for the requests that are not about
 /// plugins — which is every request but one.
-fn no_plugins() -> Arc<oxidezap_plugin_host::Plugins> {
-    Arc::new(oxidezap_plugin_host::Plugins::nothing_loaded(Arc::new(
-        |_| {},
-    )))
+fn no_plugins() -> Arc<velo_plugin_host::Plugins> {
+    Arc::new(velo_plugin_host::Plugins::nothing_loaded(Arc::new(|_| {})))
 }
 
 fn parse(frame: Option<String>) -> DaemonMessage {
@@ -731,7 +729,7 @@ async fn a_command_reaches_the_session_rather_than_being_refused() {
     let hub = connected_hub();
     let (commands, taken) = bridge(CommandOutcome::Accepted);
 
-    let request = bare(ClientRequest::SendText(Box::new(oxidezap_ipc::SendText {
+    let request = bare(ClientRequest::SendText(Box::new(velo_ipc::SendText {
         jid: "a@s.whatsapp.net".into(),
         text: "hi".into(),
         local_id: None,
@@ -745,7 +743,7 @@ async fn a_command_reaches_the_session_rather_than_being_refused() {
     assert!(!answer.shutdown);
     assert!(matches!(
         taken.await.unwrap(),
-        Some(Action::SendText(oxidezap_ipc::SendText { jid, text, .. }))
+        Some(Action::SendText(velo_ipc::SendText { jid, text, .. }))
             if jid == "a@s.whatsapp.net" && text == "hi"
     ));
 }
@@ -761,15 +759,15 @@ async fn a_picked_file_reaches_the_session_as_it_was_described() {
 
     // Every optional field carries a value, because the ones that default to
     // `None` are exactly the ones a handler can drop without failing anything.
-    let sent = oxidezap_ipc::SendMedia {
+    let sent = velo_ipc::SendMedia {
         jid: "a@s.whatsapp.net".into(),
         upload: "u-local-1".into(),
-        kind: oxidezap_core::OutgoingMedia::Image,
+        kind: velo_core::OutgoingMedia::Image,
         mime_type: "image/jpeg".into(),
         file_name: "praia.jpg".into(),
         caption: Some("olha isso".into()),
         local_id: Some("local-1".into()),
-        quoted: Some(oxidezap_core::QuotedMessage {
+        quoted: Some(velo_core::QuotedMessage {
             message_id: "3EB0A".into(),
             sender: "b@s.whatsapp.net".into(),
             sender_name: "quem quer que seja".into(),
@@ -797,7 +795,7 @@ async fn a_picked_file_reaches_the_session_as_it_was_described() {
 
 /// The media send inside an action, or nothing. A helper rather than a
 /// `matches!`, so the assertion above can be an equality.
-fn describe(action: Action) -> oxidezap_ipc::SendMedia {
+fn describe(action: Action) -> velo_ipc::SendMedia {
     match action {
         Action::SendMedia(request) => request,
         other => panic!("that is not a media send: {other:?}"),
@@ -811,17 +809,17 @@ async fn gui_edit_and_delete_reach_the_session_without_an_early_ack() {
     let hub = connected_hub();
     let plugins = no_plugins();
     for request in [
-        ClientRequest::EditMessage(oxidezap_ipc::EditMessage {
+        ClientRequest::EditMessage(velo_ipc::EditMessage {
             jid: "a@s.whatsapp.net".into(),
             message_id: "EDIT-1".into(),
             new_text: "after".into(),
         }),
-        ClientRequest::RevokeMessage(oxidezap_ipc::RevokeMessage {
+        ClientRequest::RevokeMessage(velo_ipc::RevokeMessage {
             jid: "a@s.whatsapp.net".into(),
             message_id: "DELETE-1".into(),
             for_everyone: false,
         }),
-        ClientRequest::RevokeMessage(oxidezap_ipc::RevokeMessage {
+        ClientRequest::RevokeMessage(velo_ipc::RevokeMessage {
             jid: "a@s.whatsapp.net".into(),
             message_id: "DELETE-EVERYONE-1".into(),
             for_everyone: true,
@@ -866,12 +864,12 @@ async fn gui_message_mutations_require_an_answer_id() {
     let hub = connected_hub();
     let (commands, _taken) = bridge(CommandOutcome::Accepted);
     for request in [
-        ClientRequest::EditMessage(oxidezap_ipc::EditMessage {
+        ClientRequest::EditMessage(velo_ipc::EditMessage {
             jid: "a@s.whatsapp.net".into(),
             message_id: "EDIT-1".into(),
             new_text: "after".into(),
         }),
-        ClientRequest::RevokeMessage(oxidezap_ipc::RevokeMessage {
+        ClientRequest::RevokeMessage(velo_ipc::RevokeMessage {
             jid: "a@s.whatsapp.net".into(),
             message_id: "DELETE-1".into(),
             for_everyone: true,
@@ -899,7 +897,7 @@ async fn a_refusal_at_execution_time_reaches_the_client() {
     let hub = connected_hub();
     let (commands, _taken) = bridge(CommandOutcome::Refused("has moved on".into()));
 
-    let request = bare(ClientRequest::MarkRead(oxidezap_ipc::MarkRead {
+    let request = bare(ClientRequest::MarkRead(velo_ipc::MarkRead {
         jid: "a@s.whatsapp.net".into(),
         through_message_id: None,
     }));
@@ -921,7 +919,7 @@ async fn a_session_lost_mid_command_is_reported_as_such() {
     let hub = connected_hub();
     let (commands, _taken) = bridge(CommandOutcome::NoSession("not connected".into()));
 
-    let request = bare(ClientRequest::SendText(Box::new(oxidezap_ipc::SendText {
+    let request = bare(ClientRequest::SendText(Box::new(velo_ipc::SendText {
         jid: "a@s.whatsapp.net".into(),
         text: "hi".into(),
         local_id: None,
@@ -946,7 +944,7 @@ async fn a_command_is_refused_while_there_is_no_session_to_carry_it() {
     let hub = StateHub::new();
     let (commands, taken) = bridge(CommandOutcome::Accepted);
 
-    let request = bare(ClientRequest::SendText(Box::new(oxidezap_ipc::SendText {
+    let request = bare(ClientRequest::SendText(Box::new(velo_ipc::SendText {
         jid: "a@s.whatsapp.net".into(),
         text: "hi".into(),
         local_id: None,
@@ -1088,7 +1086,7 @@ async fn the_size_cap_applies_to_each_frame_separately() {
 
     // More total bytes than the cap, in frames far below it.
     let frame = "x".repeat(1000);
-    let frames = (oxidezap_ipc::MAX_REQUEST_BYTES / 1000) + 10;
+    let frames = (velo_ipc::MAX_REQUEST_BYTES / 1000) + 10;
     tokio::spawn(async move {
         use tokio::io::AsyncWriteExt as _;
         for _ in 0..frames {
@@ -1099,7 +1097,7 @@ async fn the_size_cap_applies_to_each_frame_separately() {
 
     for i in 0..frames {
         match read_frame(&mut reader, &mut buf).await {
-            Ok(Some(oxidezap_ipc::FrameRead::Line(line))) => assert_eq!(line.len(), 1000),
+            Ok(Some(velo_ipc::FrameRead::Line(line))) => assert_eq!(line.len(), 1000),
             other => panic!("frame {i} of {frames} was cut short: {other:?}"),
         }
     }
@@ -1122,12 +1120,12 @@ async fn invalid_utf8_is_a_recoverable_frame_not_a_dead_connection() {
 
     assert!(matches!(
         read_frame(&mut reader, &mut buf).await,
-        Ok(Some(oxidezap_ipc::FrameRead::NotUtf8))
+        Ok(Some(velo_ipc::FrameRead::NotUtf8))
     ));
     // The stream survives it.
     assert!(matches!(
         read_frame(&mut reader, &mut buf).await,
-        Ok(Some(oxidezap_ipc::FrameRead::Line(_)))
+        Ok(Some(velo_ipc::FrameRead::Line(_)))
     ));
 }
 
@@ -1156,7 +1154,7 @@ async fn a_frame_interrupted_by_an_update_is_not_lost() {
 
     client.write_all(b"shot\"}\n").await.unwrap();
     match read_frame(&mut reader, &mut buf).await {
-        Ok(Some(oxidezap_ipc::FrameRead::Line(line))) => {
+        Ok(Some(velo_ipc::FrameRead::Line(line))) => {
             assert!(
                 matches!(
                     serde_json::from_str::<ClientRequest>(&line),
@@ -1177,11 +1175,11 @@ async fn a_carried_prefix_still_counts_against_the_cap() {
     let (client, server) = tokio::io::duplex(1024);
     let mut reader = BufReader::new(server);
     // As if a cancelled read had already consumed a full frame's worth.
-    let mut buf = vec![b'x'; oxidezap_ipc::MAX_REQUEST_BYTES];
+    let mut buf = vec![b'x'; velo_ipc::MAX_REQUEST_BYTES];
 
     assert!(matches!(
         read_frame(&mut reader, &mut buf).await,
-        Ok(Some(oxidezap_ipc::FrameRead::TooLong))
+        Ok(Some(velo_ipc::FrameRead::TooLong))
     ));
     assert!(buf.is_empty(), "a refused frame leaves nothing behind");
     drop(client);
@@ -1254,7 +1252,7 @@ async fn a_client_that_wants_only_summaries_stays_connected() {
 
     // Still there: a summary reaches it rather than an EOF.
     hub.apply(crate::state::Change::live(
-        oxidezap_ipc::DaemonEvent::ChatRemoved {
+        velo_ipc::DaemonEvent::ChatRemoved {
             jid: "a@s.whatsapp.net".into(),
         },
     ));
@@ -1295,7 +1293,7 @@ async fn a_client_that_asked_for_events_receives_them() {
 
     hub.publish_session(
         serde_json::to_string(&DaemonMessage::Session {
-            event: Box::new(oxidezap_core::UiEvent::Connected),
+            event: Box::new(velo_core::UiEvent::Connected),
         })
         .unwrap(),
     );
@@ -1318,8 +1316,8 @@ async fn a_client_that_asked_for_events_receives_them() {
 /// lag now ends the connection, which is the whole recovery.
 #[tokio::test]
 async fn a_wire_client_that_lags_is_disconnected_rather_than_stalled() {
-    use oxidezap_wire::envelope::RequestEnvelope;
-    use oxidezap_wire::request::ClientRequest as WireRequest;
+    use velo_wire::envelope::RequestEnvelope;
+    use velo_wire::request::ClientRequest as WireRequest;
 
     let (mut client, server) = tokio::io::duplex(1024);
     let hub = connected_hub();
@@ -1336,7 +1334,7 @@ async fn a_wire_client_that_lags_is_disconnected_rather_than_stalled() {
         request: WireRequest::Hello {
             local_account: None,
             account_selection: false,
-            protocol: oxidezap_wire::envelope::CURRENT_PROTOCOL_VERSION,
+            protocol: velo_wire::envelope::CURRENT_PROTOCOL_VERSION,
             client_name: "test".into(),
             read_only: false,
             session_events: false,
@@ -1356,7 +1354,7 @@ async fn a_wire_client_that_lags_is_disconnected_rather_than_stalled() {
     // behind before it is ever polled.
     for i in 0..2000 {
         hub.apply(crate::state::Change::live(
-            oxidezap_ipc::DaemonEvent::ChatRemoved {
+            velo_ipc::DaemonEvent::ChatRemoved {
                 jid: format!("{i}@s.whatsapp.net"),
             },
         ));
@@ -1403,13 +1401,13 @@ fn the_local_actions_do_not_need_a_connection() {
     // A view is one local row and no stanza, over history a disconnected
     // window can still read — and the ring it watched is already drawn.
     assert!(
-        !Action::MarkStatusWatched(oxidezap_ipc::MarkStatusWatched {
+        !Action::MarkStatusWatched(velo_ipc::MarkStatusWatched {
             message_ids: vec!["3EB0".into()],
         })
         .needs_network()
     );
     assert!(
-        Action::SendText(oxidezap_ipc::SendText {
+        Action::SendText(velo_ipc::SendText {
             jid: "a@s.whatsapp.net".into(),
             text: "hi".into(),
             local_id: None,
@@ -1426,7 +1424,7 @@ fn the_local_actions_do_not_need_a_connection() {
 fn requesting_a_pair_code_does_not_need_a_live_connection() {
     let action = Action::Wire {
         id: 1,
-        request: oxidezap_wire::request::ClientRequest::RequestPairCode {
+        request: velo_wire::request::ClientRequest::RequestPairCode {
             phone: "5511999999999".into(),
         },
         answer_to: outbox(),
@@ -1445,7 +1443,7 @@ fn requesting_a_pair_code_does_not_need_a_live_connection() {
 /// needs one.
 #[test]
 fn wire_requests_classify_their_network_dependency() {
-    use oxidezap_wire::request::ClientRequest as R;
+    use velo_wire::request::ClientRequest as R;
 
     let action = |request: R| Action::Wire {
         id: 1,
@@ -1541,7 +1539,7 @@ async fn a_plugin_install_takes_nothing_but_a_staged_payload() {
 
     let request = Request {
         id: Some(11),
-        request: ClientRequest::InstallPlugin(oxidezap_ipc::InstallPlugin {
+        request: ClientRequest::InstallPlugin(velo_ipc::InstallPlugin {
             file_name: "autoreply.wasm".into(),
             // A download's key, which is the daemon's own cache and not a
             // key space a front end writes.
@@ -1571,9 +1569,9 @@ async fn a_plugin_install_whose_payload_never_arrived_is_refused() {
 
     let request = Request {
         id: Some(12),
-        request: ClientRequest::InstallPlugin(oxidezap_ipc::InstallPlugin {
+        request: ClientRequest::InstallPlugin(velo_ipc::InstallPlugin {
             file_name: "autoreply.wasm".into(),
-            upload: oxidezap_ipc::staged_key(&format!("no-such-plugin-{}", std::process::id())),
+            upload: velo_ipc::staged_key(&format!("no-such-plugin-{}", std::process::id())),
         }),
     };
     let answer = handle_request(request, &hub, &no_plugins(), &commands, &outbox).await;
@@ -1596,9 +1594,9 @@ async fn the_plugin_answers_that_are_the_answer_need_an_id() {
     let (outbox, mut answers) = answers();
 
     for request in [
-        ClientRequest::InstallPlugin(oxidezap_ipc::InstallPlugin {
+        ClientRequest::InstallPlugin(velo_ipc::InstallPlugin {
             file_name: "autoreply.wasm".into(),
-            upload: oxidezap_ipc::staged_key("plugin-1"),
+            upload: velo_ipc::staged_key("plugin-1"),
         }),
         ClientRequest::ListInstalledPlugins,
     ] {
@@ -1659,8 +1657,8 @@ async fn an_ensure_avatars_request_dispatches_to_session_bridge() {
 
     let request = Request {
         id: Some(99),
-        request: ClientRequest::EnsureAvatars(oxidezap_ipc::EnsureAvatars {
-            items: vec![oxidezap_core::AvatarDemand {
+        request: ClientRequest::EnsureAvatars(velo_ipc::EnsureAvatars {
+            items: vec![velo_core::AvatarDemand {
                 jid: "123@s.whatsapp.net".into(),
                 known_picture_id: Some("pic_1".into()),
                 cache_key: Some("a-123".into()),
@@ -1699,7 +1697,7 @@ async fn a_refusal_names_the_request_it_refused() {
 
     let request = Request {
         id: Some(42),
-        request: ClientRequest::SendText(Box::new(oxidezap_ipc::SendText {
+        request: ClientRequest::SendText(Box::new(velo_ipc::SendText {
             jid: "a@s.whatsapp.net".into(),
             text: "hi".into(),
             local_id: Some("local_1".into()),
@@ -1787,7 +1785,7 @@ async fn a_refused_client_is_told_the_daemon_is_full() {
 #[test]
 fn the_startup_lock_is_exclusive() {
     let _exclusive = crate::one_at_a_time();
-    let dir = std::env::temp_dir().join(format!("oxidezap-lock-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("velo-lock-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let socket = dir.join("daemon.sock");
@@ -1855,7 +1853,7 @@ fn the_startup_lock_is_exclusive() {
 #[cfg(unix)]
 #[test]
 fn a_symlinked_socket_dir_is_refused() {
-    let base = std::env::temp_dir().join(format!("oxidezap-symlink-{}", std::process::id()));
+    let base = std::env::temp_dir().join(format!("velo-symlink-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&base);
     std::fs::create_dir_all(&base).unwrap();
 
@@ -1881,7 +1879,7 @@ fn a_symlinked_socket_dir_is_refused() {
 fn a_loose_but_owned_dir_is_tightened_rather_than_refused() {
     use std::os::unix::fs::PermissionsExt;
 
-    let dir = std::env::temp_dir().join(format!("oxidezap-loose-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("velo-loose-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o777)).unwrap();
@@ -1896,16 +1894,16 @@ fn a_loose_but_owned_dir_is_tightened_rather_than_refused() {
 
 #[tokio::test]
 async fn wire_hello_and_diagnostics_flow() {
-    use oxidezap_wire::envelope::{RequestEnvelope, ResponseEnvelope, ResponseResult};
-    use oxidezap_wire::request::ClientRequest as WireRequest;
-    use oxidezap_wire::response::DaemonResponse as WireResponse;
+    use velo_wire::envelope::{RequestEnvelope, ResponseEnvelope, ResponseResult};
+    use velo_wire::request::ClientRequest as WireRequest;
+    use velo_wire::response::DaemonResponse as WireResponse;
 
     let wire_hello = serde_json::to_string(&RequestEnvelope {
         id: 1,
         request: WireRequest::Hello {
             local_account: None,
             account_selection: false,
-            protocol: oxidezap_wire::envelope::CURRENT_PROTOCOL_VERSION,
+            protocol: velo_wire::envelope::CURRENT_PROTOCOL_VERSION,
             client_name: "test-client".into(),
             read_only: true,
             session_events: false,
@@ -2005,10 +2003,10 @@ async fn wire_hello_and_diagnostics_flow() {
 /// One wire request reaches the session bridge as an [`Action::Wire`].
 async fn assert_wire_routed(
     hub: &Arc<StateHub>,
-    plugins: &Arc<oxidezap_plugin_host::Plugins>,
-    request: oxidezap_wire::request::ClientRequest,
+    plugins: &Arc<velo_plugin_host::Plugins>,
+    request: velo_wire::request::ClientRequest,
 ) {
-    use oxidezap_wire::envelope::RequestEnvelope;
+    use velo_wire::envelope::RequestEnvelope;
 
     let (commands, taken) = bridge(CommandOutcome::Accepted);
     let env = RequestEnvelope {
@@ -2030,8 +2028,8 @@ async fn assert_wire_routed(
 /// unsupported: sends, chat mutations, presence and single-chat reads.
 #[tokio::test]
 async fn wire_phase4_requests_reach_the_session() {
-    use oxidezap_wire::dto::PresenceState;
-    use oxidezap_wire::request::ClientRequest as WireRequest;
+    use velo_wire::dto::PresenceState;
+    use velo_wire::request::ClientRequest as WireRequest;
 
     let hub = connected_hub();
     let plugins = no_plugins();
@@ -2150,7 +2148,7 @@ async fn wire_phase4_requests_reach_the_session() {
 /// edits, polls, groups, channels, profile, contacts, media and history.
 #[tokio::test]
 async fn wire_phase56_requests_reach_the_session() {
-    use oxidezap_wire::request::ClientRequest as WireRequest;
+    use velo_wire::request::ClientRequest as WireRequest;
 
     let hub = connected_hub();
     let plugins = no_plugins();
@@ -2225,7 +2223,7 @@ async fn wire_phase56_requests_reach_the_session() {
         WireRequest::ManageGroupParticipant {
             group_jid: group.clone(),
             participant_jid: chat.clone(),
-            action: oxidezap_wire::dto::GroupParticipantAction::Add,
+            action: velo_wire::dto::GroupParticipantAction::Add,
         },
         WireRequest::GetGroupInviteLink {
             group_jid: group.clone(),
@@ -2314,8 +2312,8 @@ async fn wire_phase56_requests_reach_the_session() {
 /// session: two commands, in that order.
 #[tokio::test]
 async fn wire_history_backfill_reloads_then_dispatches() {
-    use oxidezap_wire::envelope::RequestEnvelope;
-    use oxidezap_wire::request::ClientRequest as WireRequest;
+    use velo_wire::envelope::RequestEnvelope;
+    use velo_wire::request::ClientRequest as WireRequest;
 
     let hub = connected_hub();
     let plugins = no_plugins();
@@ -2356,8 +2354,8 @@ async fn wire_history_backfill_reloads_then_dispatches() {
 /// not an out-of-band dispatch.
 #[tokio::test]
 async fn wire_forget_session_answers_a_wire_ack() {
-    use oxidezap_wire::envelope::{RequestEnvelope, ResponseEnvelope, ResponseResult};
-    use oxidezap_wire::request::ClientRequest as WireRequest;
+    use velo_wire::envelope::{RequestEnvelope, ResponseEnvelope, ResponseResult};
+    use velo_wire::request::ClientRequest as WireRequest;
 
     let hub = connected_hub();
     let plugins = no_plugins();
@@ -2381,8 +2379,8 @@ async fn wire_forget_session_answers_a_wire_ack() {
 /// Listing accounts answers directly, without touching the session bridge.
 #[tokio::test]
 async fn wire_list_accounts_answers_directly() {
-    use oxidezap_wire::envelope::{RequestEnvelope, ResponseEnvelope, ResponseResult};
-    use oxidezap_wire::request::ClientRequest as WireRequest;
+    use velo_wire::envelope::{RequestEnvelope, ResponseEnvelope, ResponseResult};
+    use velo_wire::request::ClientRequest as WireRequest;
 
     let hub = connected_hub();
     let plugins = no_plugins();
@@ -2401,7 +2399,7 @@ async fn wire_list_accounts_answers_directly() {
 async fn terminal_offline_requests_never_reach_the_session_channel() {
     let hub = StateHub::new();
     hub.apply(crate::state::Change::live(
-        oxidezap_ipc::DaemonEvent::ConnectionChanged(oxidezap_ipc::ConnectionState::LoggedOut {
+        velo_ipc::DaemonEvent::ConnectionChanged(velo_ipc::ConnectionState::LoggedOut {
             message: "synthetic unlink".into(),
         }),
     ));
@@ -2411,12 +2409,12 @@ async fn terminal_offline_requests_never_reach_the_session_channel() {
         Action::EnsureAvatars(vec![]),
         Action::Wire {
             id: 2,
-            request: oxidezap_wire::request::ClientRequest::GetProfile {
+            request: velo_wire::request::ClientRequest::GetProfile {
                 jid: Some("999000@s.whatsapp.net".into()),
             },
             answer_to: destination.clone(),
         },
-        Action::SendText(oxidezap_ipc::SendText {
+        Action::SendText(velo_ipc::SendText {
             jid: "999000@s.whatsapp.net".into(),
             text: "must stay local".into(),
             local_id: None,
@@ -2440,7 +2438,7 @@ async fn replacing_an_account_runtime_closes_old_frontend_attachments() {
     let registry = AccountRegistry::new();
     let (commands, receiver) = tokio::sync::mpsc::channel(MAX_CLIENTS);
     assert!(registry.insert(Arc::new(AccountRuntime::new(
-        oxidezap_core::AccountId::LEGACY,
+        velo_core::AccountId::LEGACY,
         connected_hub(),
         no_plugins(),
         commands,
@@ -2450,7 +2448,7 @@ async fn replacing_an_account_runtime_closes_old_frontend_attachments() {
     let request = Request::bare(ClientRequest::Hello {
         protocol: PROTOCOL_VERSION,
         scope: ClientScope::Account {
-            account: oxidezap_core::AccountId::LEGACY,
+            account: velo_core::AccountId::LEGACY,
         },
         session_events: false,
         owns_window: false,
@@ -2476,25 +2474,23 @@ async fn replacing_an_account_runtime_closes_old_frontend_attachments() {
 #[tokio::test]
 async fn offline_and_terminal_audio_observations_reach_only_the_local_action() {
     for state in [
-        oxidezap_ipc::ConnectionState::Disconnected {
+        velo_ipc::ConnectionState::Disconnected {
             reason: "synthetic offline".into(),
         },
-        oxidezap_ipc::ConnectionState::LoggedOut {
+        velo_ipc::ConnectionState::LoggedOut {
             message: "synthetic unlink".into(),
         },
     ] {
         let hub = StateHub::new();
         hub.apply(crate::state::Change::live(
-            oxidezap_ipc::DaemonEvent::ConnectionChanged(state),
+            velo_ipc::DaemonEvent::ConnectionChanged(state),
         ));
         let (commands, taken) = bridge(CommandOutcome::Accepted);
         let answer = handle_request(
-            bare(ClientRequest::MarkAudioPlayed(
-                oxidezap_ipc::MarkAudioPlayed {
-                    jid: "559900000001@s.whatsapp.net".into(),
-                    message_id: "SYNTHETIC-AUDIO".into(),
-                },
-            )),
+            bare(ClientRequest::MarkAudioPlayed(velo_ipc::MarkAudioPlayed {
+                jid: "559900000001@s.whatsapp.net".into(),
+                message_id: "SYNTHETIC-AUDIO".into(),
+            })),
             &hub,
             &no_plugins(),
             &commands,
@@ -2514,16 +2510,16 @@ async fn offline_and_terminal_audio_observations_reach_only_the_local_action() {
 
 #[tokio::test]
 async fn scoped_wire_hello_confirms_successor_and_never_rebinds_after_selection_changes() {
-    use oxidezap_wire::{
+    use velo_wire::{
         envelope::{RequestEnvelope, ResponseEnvelope, ResponseResult},
         request::ClientRequest as WireRequest,
         response::DaemonResponse as WireResponse,
     };
     let registry = AccountRegistry::new();
-    let successor = oxidezap_core::AccountId::new(2).unwrap();
+    let successor = velo_core::AccountId::new(2).unwrap();
     let hub = StateHub::for_account(successor);
     hub.apply(crate::state::Change::live(
-        oxidezap_ipc::DaemonEvent::ConnectionChanged(oxidezap_ipc::ConnectionState::Connected),
+        velo_ipc::DaemonEvent::ConnectionChanged(velo_ipc::ConnectionState::Connected),
     ));
     let (commands, _receiver) = tokio::sync::mpsc::channel(1);
     registry.insert(Arc::new(AccountRuntime::new(
@@ -2540,7 +2536,7 @@ async fn scoped_wire_hello_confirms_successor_and_never_rebinds_after_selection_
     let hello = RequestEnvelope {
         id: 1,
         request: WireRequest::Hello {
-            protocol: oxidezap_wire::envelope::CURRENT_PROTOCOL_VERSION,
+            protocol: velo_wire::envelope::CURRENT_PROTOCOL_VERSION,
             client_name: "synthetic".into(),
             local_account: None,
             account_selection: true,
@@ -2562,7 +2558,7 @@ async fn scoped_wire_hello_confirms_successor_and_never_rebinds_after_selection_
 
     // A different account now owns a window. The established connection still
     // reads the selected successor, rather than following a new default.
-    let other_id = oxidezap_core::AccountId::new(3).unwrap();
+    let other_id = velo_core::AccountId::new(3).unwrap();
     let other = StateHub::for_account(other_id);
     let _window = other.attach_window();
     let (commands, _receiver) = tokio::sync::mpsc::channel(1);

@@ -15,7 +15,7 @@
 //! the browser decodes Opus itself and encodes it too, so a page plays and
 //! records voice notes rather than refusing them.
 //!
-//! A caller sees one API either way. `oxidezap-gui` has no `cfg` in it about
+//! A caller sees one API either way. `velo-gui` has no `cfg` in it about
 //! sound.
 
 /// How one call's audio endpoints ended, and on whose account: the engine

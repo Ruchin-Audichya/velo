@@ -20,10 +20,10 @@ pub use std::sync::Arc;
 pub use buffa::MessageField;
 pub use chrono::{DateTime, Datelike, TimeZone, Utc};
 pub use diesel::RunQueryDsl;
-pub use oxidezap_chat_store::{
+pub use std::time::Duration;
+pub use velo_chat_store::{
     ChatCursor, ChatStore, MessageCursor, MessageKind, MessageStatus, StoreChange, db_err,
 };
-pub use std::time::Duration;
 pub use wacore::proto_helpers::MessageBuilderExt;
 pub use wacore::types::events::{
     BatchOrigin, Event, InboundMessage, LazyHistorySync, MessageBatch, Receipt, ServerAck,

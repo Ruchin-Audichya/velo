@@ -25,15 +25,15 @@ use std::sync::atomic::Ordering;
 use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
-use oxidezap_core::AccountId;
-use oxidezap_ipc::{AccountOverview, AccountStatus, AccountsSnapshot};
 use tokio::sync::{mpsc, watch};
+use velo_core::AccountId;
+use velo_ipc::{AccountOverview, AccountStatus, AccountsSnapshot};
 
 use crate::session_bridge::{
     self, AccountDisposition, Action, CommandOutcome, Commands, RuntimeLifecycle, SessionCommand,
 };
 use crate::state::StateHub;
-use oxidezap_session::StoreRegistry;
+use velo_session::StoreRegistry;
 
 /// All daemon-owned state and work queues for one local account.
 ///
@@ -44,7 +44,7 @@ pub struct AccountRuntime {
     id: AccountId,
     hub: Arc<StateHub>,
     commands: Commands,
-    plugins: Arc<oxidezap_plugin_host::Plugins>,
+    plugins: Arc<velo_plugin_host::Plugins>,
     stores: Arc<StoreRegistry>,
     lifecycle: RuntimeLifecycle,
     status: RwLock<AccountStatus>,
@@ -59,10 +59,10 @@ impl AccountRuntime {
     pub fn new(
         id: AccountId,
         hub: Arc<StateHub>,
-        plugins: Arc<oxidezap_plugin_host::Plugins>,
+        plugins: Arc<velo_plugin_host::Plugins>,
         commands: Commands,
     ) -> Self {
-        let stores = Arc::new(StoreRegistry::new(oxidezap_session::resolve_database_path()));
+        let stores = Arc::new(StoreRegistry::new(velo_session::resolve_database_path()));
         Self::new_with_registry(id, hub, plugins, commands, stores)
     }
 
@@ -71,7 +71,7 @@ impl AccountRuntime {
     pub fn new_with_registry(
         id: AccountId,
         hub: Arc<StateHub>,
-        plugins: Arc<oxidezap_plugin_host::Plugins>,
+        plugins: Arc<velo_plugin_host::Plugins>,
         commands: Commands,
         stores: Arc<StoreRegistry>,
     ) -> Self {
@@ -107,7 +107,7 @@ impl AccountRuntime {
 
     /// Account-local plugin host and authority.
     #[must_use]
-    pub fn plugins(&self) -> Arc<oxidezap_plugin_host::Plugins> {
+    pub fn plugins(&self) -> Arc<velo_plugin_host::Plugins> {
         Arc::clone(&self.plugins)
     }
 
@@ -201,7 +201,7 @@ pub struct AccountRegistry {
     accounts: RwLock<HashMap<AccountId, Arc<AccountRuntime>>>,
     overview: watch::Sender<Arc<AccountsSnapshot>>,
     retirements: watch::Sender<Vec<(AccountId, AccountId)>>,
-    retirement_proofs: RwLock<HashMap<AccountId, oxidezap_session::StoredAccount>>,
+    retirement_proofs: RwLock<HashMap<AccountId, velo_session::StoredAccount>>,
     retired_ids: RwLock<std::collections::HashSet<AccountId>>,
     retirement_pending: RwLock<std::collections::HashSet<AccountId>>,
     retirement_ready: RwLock<std::collections::HashSet<AccountId>>,
@@ -309,7 +309,7 @@ impl AccountRegistry {
         anyhow::ensure!(
             matches!(
                 old.hub.connection(),
-                oxidezap_ipc::ConnectionState::LoggedOut { .. }
+                velo_ipc::ConnectionState::LoggedOut { .. }
             ),
             "this account has not been logged out"
         );
@@ -332,7 +332,7 @@ impl AccountRegistry {
             return;
         };
         let registry = Arc::clone(self);
-        oxidezap_session::spawn(async move {
+        velo_session::spawn(async move {
             let mut failures = 0u32;
             loop {
                 let outcome = registry
@@ -355,7 +355,7 @@ impl AccountRegistry {
                         }
                         failures += 1;
                         tokio::select! {
-                            _ = oxidezap_session::sleep(std::time::Duration::from_secs(u64::from(failures))) => {},
+                            _ = velo_session::sleep(std::time::Duration::from_secs(u64::from(failures))) => {},
                             _ = crate::shutdown::requested() => break,
                         }
                         registry.remove(id);
@@ -1066,7 +1066,7 @@ impl AccountSupervisor {
         let generation = self.bump_generation(id);
         let supervisor = Arc::clone(self);
         tokio::spawn(async move {
-            oxidezap_session::sleep(delay).await;
+            velo_session::sleep(delay).await;
             let _ = supervisor
                 .commands
                 .send(SupervisorCommand::RestartDue { id, generation });
@@ -1704,30 +1704,28 @@ impl FailureCounts {
 mod tests {
     use super::{AccountRegistry, AccountRuntime};
     use crate::state::StateHub;
-    use oxidezap_core::AccountId;
-    use oxidezap_ipc::AccountStatus;
     use std::sync::Arc;
+    use velo_core::AccountId;
+    use velo_ipc::AccountStatus;
 
     fn runtime(id: i32) -> Arc<AccountRuntime> {
         let id = AccountId::new(id).expect("positive account id");
         let hub = StateHub::for_account(id);
         let (commands, _receiver) = tokio::sync::mpsc::channel(1);
-        let plugins = Arc::new(oxidezap_plugin_host::Plugins::nothing_loaded(Arc::new(
-            |_| {},
-        )));
+        let plugins = Arc::new(velo_plugin_host::Plugins::nothing_loaded(Arc::new(|_| {})));
         Arc::new(AccountRuntime::new(id, hub, plugins, commands))
     }
 
     #[tokio::test]
     async fn concurrent_frontends_reuse_the_retained_accounts_pairing_successor() {
-        let stores = Arc::new(oxidezap_session::StoreRegistry::new(format!(
+        let stores = Arc::new(velo_session::StoreRegistry::new(format!(
             "file:relink-frontends-{}?mode=memory&cache=shared",
             std::process::id()
         )));
         let old = stores.create_account().await.unwrap();
         let backend = stores.store(old).await.unwrap();
         stores.prepare_chat_schema(&backend).await.unwrap();
-        let history = oxidezap_chat_store::ChatStore::new_prepared(&backend)
+        let history = velo_chat_store::ChatStore::new_prepared(&backend)
             .await
             .unwrap();
         history
@@ -1741,8 +1739,8 @@ mod tests {
             let hub = StateHub::for_account(id);
             if id == old {
                 hub.apply(crate::state::Change::live(
-                    oxidezap_ipc::DaemonEvent::ConnectionChanged(
-                        oxidezap_ipc::ConnectionState::LoggedOut {
+                    velo_ipc::DaemonEvent::ConnectionChanged(
+                        velo_ipc::ConnectionState::LoggedOut {
                             message: "Synthetic unlink".into(),
                         },
                     ),
@@ -1750,9 +1748,7 @@ mod tests {
             }
             let (commands, receiver) = tokio::sync::mpsc::channel(1);
             receivers.push(receiver);
-            let plugins = Arc::new(oxidezap_plugin_host::Plugins::nothing_loaded(Arc::new(
-                |_| {},
-            )));
+            let plugins = Arc::new(velo_plugin_host::Plugins::nothing_loaded(Arc::new(|_| {})));
             assert!(registry.insert(Arc::new(AccountRuntime::new_with_registry(
                 id,
                 hub,
@@ -1768,7 +1764,7 @@ mod tests {
         assert_eq!(stores.accounts().await.unwrap().len(), 2);
         assert!(matches!(
             registry.get(old).unwrap().hub.connection(),
-            oxidezap_ipc::ConnectionState::LoggedOut { .. }
+            velo_ipc::ConnectionState::LoggedOut { .. }
         ));
         assert!(registry.relink(next).await.is_err());
         assert!(
@@ -1827,7 +1823,7 @@ mod tests {
     #[tokio::test]
     async fn concurrent_supervisor_construction_reuses_one_runtime() {
         let registry = AccountRegistry::new();
-        let stores = Arc::new(oxidezap_session::StoreRegistry::new(format!(
+        let stores = Arc::new(velo_session::StoreRegistry::new(format!(
             "file:concurrent-construction-{}?mode=memory&cache=shared",
             std::process::id()
         )));
@@ -1896,7 +1892,7 @@ mod tests {
     #[tokio::test]
     async fn supervisor_attaches_itself_to_its_registry_and_lets_it_go_when_dropped() {
         use super::AccountSupervisor;
-        use oxidezap_session::StoreRegistry;
+        use velo_session::StoreRegistry;
 
         let registry = AccountRegistry::new();
         let stores = Arc::new(StoreRegistry::new(format!(
@@ -1937,7 +1933,7 @@ mod tests {
     async fn handle_exit_reacts_to_the_real_outcome_not_the_bare_request() {
         use super::{AccountRun, AccountSupervisor, RestartPolicy};
         use crate::session_bridge::AccountExit;
-        use oxidezap_session::StoreRegistry;
+        use velo_session::StoreRegistry;
 
         fn run(id: i32, exit: AccountExit) -> AccountRun {
             AccountRun {
@@ -2084,7 +2080,7 @@ mod tests {
     #[tokio::test]
     async fn a_reset_racing_shutdown_still_finishes() {
         use super::{AccountRun, AccountSupervisor, RestartPolicy};
-        use oxidezap_session::StoreRegistry;
+        use velo_session::StoreRegistry;
 
         let registry = AccountRegistry::new();
         let stores = Arc::new(StoreRegistry::new(format!(
@@ -2172,7 +2168,7 @@ mod tests {
         use super::{AccountRun, AccountSupervisor, RestartPolicy};
 
         let registry = AccountRegistry::new();
-        let stores = Arc::new(oxidezap_session::StoreRegistry::new(format!(
+        let stores = Arc::new(velo_session::StoreRegistry::new(format!(
             "file:memdb_account_supervisor_legacy_remove_{}?mode=memory&cache=shared",
             std::process::id()
         )));
@@ -2234,7 +2230,7 @@ mod tests {
     #[tokio::test]
     async fn a_terminal_account_can_still_be_removed() {
         use super::{AccountSupervisor, LifecycleOutcome, RestartPolicy};
-        use oxidezap_session::StoreRegistry;
+        use velo_session::StoreRegistry;
 
         let registry = AccountRegistry::new();
         let stores = Arc::new(StoreRegistry::new(format!(
@@ -2295,7 +2291,7 @@ mod tests {
     async fn a_joined_panic_releases_cleanup_waiters_without_authorizing_storage_removal() {
         use super::{AccountSupervisor, LifecycleOutcome, RestartPolicy};
         let registry = AccountRegistry::new();
-        let stores = Arc::new(oxidezap_session::StoreRegistry::new(format!(
+        let stores = Arc::new(velo_session::StoreRegistry::new(format!(
             "file:terminal-panic-{}?mode=memory&cache=shared",
             std::process::id()
         )));
@@ -2348,7 +2344,7 @@ mod tests {
     async fn pending_terminal_cleanup_does_not_block_the_supervisor() {
         use super::{AccountSupervisor, LifecycleOutcome, RestartPolicy};
         let registry = AccountRegistry::new();
-        let stores = Arc::new(oxidezap_session::StoreRegistry::new(format!(
+        let stores = Arc::new(velo_session::StoreRegistry::new(format!(
             "file:terminal-join-wait-{}?mode=memory&cache=shared",
             std::process::id()
         )));
@@ -2399,7 +2395,7 @@ mod tests {
         use super::{AccountSupervisor, LifecycleOutcome, RestartPolicy};
         use crate::session_bridge::{AccountDisposition, AccountExit};
         let registry = AccountRegistry::new();
-        let stores = Arc::new(oxidezap_session::StoreRegistry::new(format!(
+        let stores = Arc::new(velo_session::StoreRegistry::new(format!(
             "file:terminal-cleanup-retry-{}?mode=memory&cache=shared",
             std::process::id()
         )));
@@ -2456,7 +2452,7 @@ mod tests {
     #[tokio::test]
     async fn a_stale_restart_timer_does_not_resurrect_a_removed_account() {
         use super::{AccountSupervisor, RestartPolicy};
-        use oxidezap_session::StoreRegistry;
+        use velo_session::StoreRegistry;
 
         let registry = AccountRegistry::new();
         let stores = Arc::new(StoreRegistry::new(format!(

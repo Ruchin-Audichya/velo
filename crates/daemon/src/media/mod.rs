@@ -45,7 +45,7 @@ pub use platform::{deliver, read};
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 
-use oxidezap_core::AccountId;
+use velo_core::AccountId;
 
 use anyhow::Result;
 
@@ -92,7 +92,7 @@ pub fn download_key(file_enc_sha256: &[u8]) -> Option<String> {
 /// enough to read.
 const KEY_HASH_BYTES: usize = 16;
 
-/// Spell a key in the characters [`oxidezap_ipc::media_path`] accepts,
+/// Spell a key in the characters [`velo_ipc::media_path`] accepts,
 /// without letting two ids meet under one name.
 ///
 /// Message ids come off the network. One carrying a separator would name a
@@ -179,7 +179,7 @@ impl Wipe {
 /// Only these producer-owned names are disposable. Unknown files and saved
 /// payloads are never reclaimed by a generic cache budget.
 pub(super) fn is_disposable(key: &str) -> bool {
-    let local = oxidezap_ipc::key_local_name(key);
+    let local = velo_ipc::key_local_name(key);
     ["f-", "d-", "a-", "m-"]
         .iter()
         .any(|prefix| local.starts_with(prefix))
@@ -268,13 +268,13 @@ impl AccountMedia {
     /// the account's media.
     #[must_use]
     pub fn staged_key(self, name: &str) -> String {
-        oxidezap_ipc::account_staged_key(self.account, name)
+        velo_ipc::account_staged_key(self.account, name)
     }
 
     /// Whether `key` is one of this account's staged sends.
     #[must_use]
     pub fn is_staged(self, key: &str) -> bool {
-        oxidezap_ipc::account_staged_prefix_of(key) == Some(self.account)
+        velo_ipc::account_staged_prefix_of(key) == Some(self.account)
     }
 
     /// Take one of this account's staged sends, if it is here.
@@ -334,7 +334,7 @@ pub(super) fn is_staged_upload(name: &str) -> bool {
     // orphan reclaim) pass the whole name, where the account form must also
     // be recognised or a send payload would be evicted as an ordinary cache
     // entry.
-    oxidezap_ipc::is_staged_key(name)
+    velo_ipc::is_staged_key(name)
 }
 
 /// What a staged upload is called while it is still being written.
@@ -586,7 +586,7 @@ mod tests {
             put_since(b, b_epoch, "f-3EB0OTHERACCT", b"a photo of B's").is_ok(),
             "A's clear refused a write B had already prepared"
         );
-        if let Some(path) = oxidezap_ipc::media_path("f-3EB0OTHERACCT") {
+        if let Some(path) = velo_ipc::media_path("f-3EB0OTHERACCT") {
             let _ = std::fs::remove_file(path);
         }
     }
@@ -601,7 +601,7 @@ mod tests {
     #[test]
     fn a_write_that_checked_the_epoch_still_reaches_the_disk() {
         let _alone = alone();
-        let Some(dir) = oxidezap_ipc::state_dir() else {
+        let Some(dir) = velo_ipc::state_dir() else {
             return; // Nowhere to write, so nothing to race over.
         };
         let _ = std::fs::create_dir_all(&dir);
@@ -621,7 +621,7 @@ mod tests {
             .expect("the write never answered: the lock was taken twice");
 
         assert!(landed.is_ok(), "the write itself failed: {landed:?}");
-        if let Some(path) = oxidezap_ipc::media_path("f-3EB0LOCKCHECK") {
+        if let Some(path) = velo_ipc::media_path("f-3EB0LOCKCHECK") {
             let _ = std::fs::remove_file(path);
         }
     }
@@ -723,7 +723,7 @@ mod tests {
         for id in ["../../etc/passwd", "a/b", "..", "with space", "\0"] {
             let key = message_key(id);
             assert!(
-                oxidezap_ipc::media_path(&key).is_some(),
+                velo_ipc::media_path(&key).is_some(),
                 "{id} produced an unusable key: {key}"
             );
             assert!(!key.contains('/'), "{key}");
@@ -761,7 +761,7 @@ mod tests {
     fn an_id_too_long_to_name_a_file_is_refused_rather_than_cut() {
         let long = message_key(&"/".repeat(60));
         assert!(
-            oxidezap_ipc::media_path(&long).is_none(),
+            velo_ipc::media_path(&long).is_none(),
             "an id this long was cut to fit, and the cut is another id's key"
         );
         assert_ne!(long, message_key(&"/".repeat(61)));

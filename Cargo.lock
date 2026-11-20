@@ -6535,347 +6535,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "oxidezap-audio"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "async-channel",
- "cpal",
- "futures-channel",
- "futures-lite",
- "getrandom 0.2.17",
- "getrandom 0.4.3",
- "js-sys",
- "log",
- "ogg",
- "opus",
- "oxidezap-core",
- "oxidezap-platform",
- "portable-atomic",
- "ringbuf",
- "symphonia",
- "tokio",
- "wacore",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "wasm-bindgen-test",
- "web-sys",
-]
-
-[[package]]
-name = "oxidezap-chat-store"
-version = "1.0.0"
-dependencies = [
- "buffa",
- "chrono",
- "diesel",
- "diesel_migrations",
- "encoding_rs",
- "flate2",
- "getrandom 0.2.17",
- "getrandom 0.4.3",
- "log",
- "oxidezap-core",
- "oxidezap-platform",
- "portable-atomic",
- "serde_json",
- "thiserror 2.0.21",
- "tokio",
- "wacore",
- "wacore-binary",
- "waproto",
- "whatsapp-rust-sqlite-storage",
-]
-
-[[package]]
-name = "oxidezap-cli"
-version = "1.0.0"
-dependencies = [
- "oxidezap-ipc",
- "oxidezap-wire",
- "serde",
- "serde_json",
- "usage-rs",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "oxidezap-core"
-version = "1.0.0"
-dependencies = [
- "async-trait",
- "chrono",
- "getrandom 0.2.17",
- "log",
- "phonenumber",
- "regex",
- "serde",
- "serde_json",
- "wacore",
- "wacore-binary",
-]
-
-[[package]]
-name = "oxidezap-daemon"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "async-channel",
- "async-trait",
- "base64 0.23.1",
- "chrono",
- "core-foundation 0.10.1",
- "embed-resource",
- "futures-channel",
- "futures-util",
- "getrandom 0.2.17",
- "getrandom 0.4.3",
- "image",
- "js-sys",
- "ksni",
- "log",
- "objc2 0.6.5",
- "objc2-app-kit 0.3.2",
- "oxidezap-audio",
- "oxidezap-chat-store",
- "oxidezap-core",
- "oxidezap-ipc",
- "oxidezap-logging",
- "oxidezap-platform",
- "oxidezap-plugin-host",
- "oxidezap-session",
- "oxidezap-video",
- "oxidezap-wire",
- "portable-atomic",
- "rustix 1.1.6",
- "serde",
- "serde_json",
- "sha1 0.11.0",
- "tokio",
- "tokio-tungstenite",
- "tray-icon",
- "ureq",
- "wacore",
- "wacore-binary",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "wasm-bindgen-test",
- "web-sys",
- "windows 0.62.2",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "oxidezap-gui"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "block2 0.6.2",
- "chrono",
- "embed-resource",
- "futures-channel",
- "futures-lite",
- "getrandom 0.4.3",
- "gpui-base",
- "gpui-component",
- "gpui-fast",
- "gpui-fast-platform",
- "gpui-fast-wgpu",
- "gpui-kit-assets",
- "image",
- "indexmap",
- "js-sys",
- "log",
- "mp4",
- "objc2 0.6.5",
- "objc2-app-kit 0.3.2",
- "objc2-foundation 0.3.2",
- "objc2-user-notifications",
- "openh264",
- "oxidezap-audio",
- "oxidezap-core",
- "oxidezap-daemon",
- "oxidezap-ipc",
- "oxidezap-logging",
- "oxidezap-platform",
- "oxidezap-video",
- "portable-atomic",
- "qrcode",
- "raw-window-handle",
- "rust-embed",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "smallvec",
- "smol",
- "symphonia",
- "tokio",
- "wacore",
- "wacore-binary",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "oxidezap-ipc"
-version = "1.0.0"
-dependencies = [
- "futures-channel",
- "futures-lite",
- "js-sys",
- "libc",
- "log",
- "oxidezap-core",
- "oxidezap-wire",
- "rustix 1.1.6",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "tokio",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "oxidezap-logging"
-version = "1.0.0"
-dependencies = [
- "env_logger",
- "log",
- "oxidezap-core",
- "wasm-bindgen",
- "web-sys",
-]
-
-[[package]]
-name = "oxidezap-platform"
-version = "1.0.0"
-dependencies = [
- "futures-channel",
- "futures-lite",
- "js-sys",
- "log",
- "tokio",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "windows 0.62.2",
- "windows-registry 0.6.1",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "oxidezap-plugin"
-version = "1.0.0"
-dependencies = [
- "oxidezap-plugin-abi",
-]
-
-[[package]]
-name = "oxidezap-plugin-abi"
-version = "1.0.0"
-dependencies = [
- "oxidezap-plugin-abi",
-]
-
-[[package]]
-name = "oxidezap-plugin-host"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "chrono",
- "futures-lite",
- "log",
- "oxidezap-core",
- "oxidezap-platform",
- "oxidezap-plugin-abi",
- "portable-atomic",
- "rustix 1.1.6",
- "serde_json",
- "tokio",
- "wacore",
- "wasmi",
- "wat",
- "web-sys",
-]
-
-[[package]]
-name = "oxidezap-session"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "async-channel",
- "async-trait",
- "bytes",
- "diesel",
- "futures-channel",
- "futures-lite",
- "getrandom 0.2.17",
- "getrandom 0.4.3",
- "image",
- "js-sys",
- "log",
- "mp4",
- "oxidezap-audio",
- "oxidezap-chat-store",
- "oxidezap-core",
- "oxidezap-platform",
- "oxidezap-video",
- "oxidezap-wire",
- "portable-atomic",
- "serde_json",
- "sqlite-wasm-rs",
- "sqlite-wasm-vfs",
- "tempfile",
- "tokio",
- "wacore",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "wasm-bindgen-test",
- "web-sys",
- "whatsapp-rust",
- "whatsapp-rust-sqlite-storage",
-]
-
-[[package]]
-name = "oxidezap-video"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "async-channel",
- "futures-lite",
- "getrandom 0.2.17",
- "getrandom 0.4.3",
- "image",
- "js-sys",
- "log",
- "mp4",
- "nokhwa",
- "nokhwa-bindings-macos",
- "openh264",
- "oxidezap-platform",
- "portable-atomic",
- "tokio",
- "wacore",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
-
-[[package]]
-name = "oxidezap-wire"
-version = "1.0.0"
-dependencies = [
- "serde",
- "serde_json",
- "thiserror 2.0.21",
-]
-
-[[package]]
 name = "page_size"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10374,6 +10033,313 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
+name = "velo-audio"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "async-channel",
+ "cpal",
+ "futures-channel",
+ "futures-lite",
+ "getrandom 0.2.17",
+ "getrandom 0.4.3",
+ "js-sys",
+ "log",
+ "ogg",
+ "opus",
+ "portable-atomic",
+ "ringbuf",
+ "symphonia",
+ "tokio",
+ "velo-core",
+ "velo-platform",
+ "wacore",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-bindgen-test",
+ "web-sys",
+]
+
+[[package]]
+name = "velo-chat-store"
+version = "1.0.0"
+dependencies = [
+ "buffa",
+ "chrono",
+ "diesel",
+ "diesel_migrations",
+ "encoding_rs",
+ "flate2",
+ "getrandom 0.2.17",
+ "getrandom 0.4.3",
+ "log",
+ "portable-atomic",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "velo-core",
+ "velo-platform",
+ "wacore",
+ "wacore-binary",
+ "waproto",
+ "whatsapp-rust-sqlite-storage",
+]
+
+[[package]]
+name = "velo-cli"
+version = "1.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "usage-rs",
+ "velo-ipc",
+ "velo-wire",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "velo-core"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "getrandom 0.2.17",
+ "log",
+ "phonenumber",
+ "regex",
+ "serde",
+ "serde_json",
+ "wacore",
+ "wacore-binary",
+]
+
+[[package]]
+name = "velo-daemon"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "async-channel",
+ "async-trait",
+ "base64 0.23.1",
+ "chrono",
+ "core-foundation 0.10.1",
+ "embed-resource",
+ "futures-channel",
+ "futures-util",
+ "getrandom 0.2.17",
+ "getrandom 0.4.3",
+ "image",
+ "js-sys",
+ "ksni",
+ "log",
+ "objc2 0.6.5",
+ "objc2-app-kit 0.3.2",
+ "portable-atomic",
+ "rustix 1.1.6",
+ "serde",
+ "serde_json",
+ "sha1 0.11.0",
+ "tokio",
+ "tokio-tungstenite",
+ "tray-icon",
+ "ureq",
+ "velo-audio",
+ "velo-chat-store",
+ "velo-core",
+ "velo-ipc",
+ "velo-logging",
+ "velo-platform",
+ "velo-plugin-host",
+ "velo-session",
+ "velo-video",
+ "velo-wire",
+ "wacore",
+ "wacore-binary",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-bindgen-test",
+ "web-sys",
+ "windows 0.62.2",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "velo-gui"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "block2 0.6.2",
+ "chrono",
+ "embed-resource",
+ "futures-channel",
+ "futures-lite",
+ "getrandom 0.4.3",
+ "gpui-base",
+ "gpui-component",
+ "gpui-fast",
+ "gpui-fast-platform",
+ "gpui-fast-wgpu",
+ "gpui-kit-assets",
+ "image",
+ "indexmap",
+ "js-sys",
+ "log",
+ "mp4",
+ "objc2 0.6.5",
+ "objc2-app-kit 0.3.2",
+ "objc2-foundation 0.3.2",
+ "objc2-user-notifications",
+ "openh264",
+ "portable-atomic",
+ "qrcode",
+ "raw-window-handle",
+ "rust-embed",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "smallvec",
+ "smol",
+ "symphonia",
+ "tokio",
+ "velo-audio",
+ "velo-core",
+ "velo-daemon",
+ "velo-ipc",
+ "velo-logging",
+ "velo-platform",
+ "velo-video",
+ "wacore",
+ "wacore-binary",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "velo-ipc"
+version = "1.0.0"
+dependencies = [
+ "futures-channel",
+ "futures-lite",
+ "js-sys",
+ "libc",
+ "log",
+ "rustix 1.1.6",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "velo-core",
+ "velo-wire",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "velo-logging"
+version = "1.0.0"
+dependencies = [
+ "env_logger",
+ "log",
+ "velo-core",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
+name = "velo-platform"
+version = "1.0.0"
+dependencies = [
+ "futures-channel",
+ "futures-lite",
+ "js-sys",
+ "log",
+ "tokio",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "windows 0.62.2",
+ "windows-registry 0.6.1",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "velo-plugin"
+version = "1.0.0"
+dependencies = [
+ "velo-plugin-abi",
+]
+
+[[package]]
+name = "velo-plugin-abi"
+version = "1.0.0"
+dependencies = [
+ "velo-plugin-abi",
+]
+
+[[package]]
+name = "velo-plugin-host"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "futures-lite",
+ "log",
+ "portable-atomic",
+ "rustix 1.1.6",
+ "serde_json",
+ "tokio",
+ "velo-core",
+ "velo-platform",
+ "velo-plugin-abi",
+ "wacore",
+ "wasmi",
+ "wat",
+ "web-sys",
+]
+
+[[package]]
+name = "velo-session"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "async-channel",
+ "async-trait",
+ "bytes",
+ "diesel",
+ "futures-channel",
+ "futures-lite",
+ "getrandom 0.2.17",
+ "getrandom 0.4.3",
+ "image",
+ "js-sys",
+ "log",
+ "mp4",
+ "portable-atomic",
+ "serde_json",
+ "sqlite-wasm-rs",
+ "sqlite-wasm-vfs",
+ "tempfile",
+ "tokio",
+ "velo-audio",
+ "velo-chat-store",
+ "velo-core",
+ "velo-platform",
+ "velo-video",
+ "velo-wire",
+ "wacore",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-bindgen-test",
+ "web-sys",
+ "whatsapp-rust",
+ "whatsapp-rust-sqlite-storage",
+]
+
+[[package]]
 name = "velo-setup"
 version = "1.0.0"
 dependencies = [
@@ -10383,10 +10349,45 @@ dependencies = [
  "gpui-fast",
  "gpui-fast-platform",
  "gpui-kit-assets",
- "oxidezap-ipc",
- "oxidezap-wire",
+ "velo-ipc",
+ "velo-platform",
+ "velo-wire",
  "windows 0.62.2",
  "windows-registry 0.6.1",
+]
+
+[[package]]
+name = "velo-video"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "async-channel",
+ "futures-lite",
+ "getrandom 0.2.17",
+ "getrandom 0.4.3",
+ "image",
+ "js-sys",
+ "log",
+ "mp4",
+ "nokhwa",
+ "nokhwa-bindings-macos",
+ "openh264",
+ "portable-atomic",
+ "tokio",
+ "velo-platform",
+ "wacore",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "velo-wire"
+version = "1.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

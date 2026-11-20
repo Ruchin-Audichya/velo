@@ -10,7 +10,7 @@ use gpui::{
 use gpui_component::ActiveTheme as _;
 use gpui_component::button::{Button, ButtonVariants as _};
 use gpui_component::{Icon, Sizable as _};
-use oxidezap_core::{CallRecord, SystemNotice};
+use velo_core::{CallRecord, SystemNotice};
 
 use crate::app::WhatsAppApp;
 use crate::components::ProductIcon;

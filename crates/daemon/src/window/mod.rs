@@ -24,7 +24,7 @@ mod platform;
 
 use std::time::Duration;
 
-use oxidezap_ipc::DaemonMessage;
+use velo_ipc::DaemonMessage;
 use wacore::time::Instant;
 
 use crate::state::StateHub;

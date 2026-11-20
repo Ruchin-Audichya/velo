@@ -36,4 +36,4 @@ const DB_FILE: &str = "whatsapp.db";
 /// shipped a release, so there is no installed base to migrate and carrying
 /// lookup code for one would be permanent dead weight.
 #[cfg_attr(target_family = "wasm", allow(dead_code))]
-const DATA_DIR: &str = "oxidezap";
+const DATA_DIR: &str = "velo";

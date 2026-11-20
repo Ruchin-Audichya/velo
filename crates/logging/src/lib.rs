@@ -6,7 +6,7 @@
 //! level raised in Settings was refused by the logger underneath it. The
 //! second is that the answer has to survive a restart, and both processes
 //! that write logs have to read the same one — a level a person sets in the
-//! window and a level `oxidezapd` starts at are one setting, not two.
+//! window and a level `velod` starts at are one setting, not two.
 //!
 //! So the shape here is the shape the rest of the tree already has: one
 //! interface, two implementations, and no `cfg` above it. A desktop reads
@@ -23,7 +23,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, PoisonError};
 
-pub use oxidezap_core::LogLevel;
+pub use velo_core::LogLevel;
 
 mod store;
 
@@ -85,7 +85,7 @@ pub fn activate() -> LogLevel {
 /// The level this run was started with from outside, if it was.
 ///
 /// `RUST_LOG=debug` on a desktop and `?log=debug` in a page. Only the level
-/// with no module attached: `RUST_LOG=oxidezap_session=debug` says something
+/// with no module attached: `RUST_LOG=velo_session=debug` says something
 /// about one target and nothing about how loud the process is, and the
 /// logger's own filter is what answers that.
 #[must_use]
@@ -126,7 +126,7 @@ pub fn apply(level: LogLevel) {
     //
     // And never below what `RUST_LOG` named a target for: that maximum is
     // checked before a record exists and knows no targets, so a process at
-    // `info` with `RUST_LOG=oxidezap_session=debug` would drop the debug
+    // `info` with `RUST_LOG=velo_session=debug` would drop the debug
     // records at the macro and never reach the filter that wants them. The
     // logger is still what decides which of them are written.
     log::set_max_level(level.filter().max(imp::named_ceiling()));
@@ -198,9 +198,9 @@ mod imp {
     /// recognise is a directive the dynamic gate then refuses. Three of them
     /// are easy to miss and all three are real:
     ///
-    /// - `RUST_LOG=oxidezap_session` — a bare word that is not a level names
+    /// - `RUST_LOG=velo_session` — a bare word that is not a level names
     ///   a *target*, at `trace`.
-    /// - `RUST_LOG=oxidezap_session=` — an empty level does the same.
+    /// - `RUST_LOG=velo_session=` — an empty level does the same.
     /// - `RUST_LOG==debug` — an empty *target* is a prefix that matches
     ///   every target, so it reads as a global level in all but name.
     /// - `RUST_LOG=debug/stanza` — the `/` and everything after it is a
@@ -354,7 +354,7 @@ mod imp {
         /// Whether `RUST_LOG` asked for this record by name.
         ///
         /// The dynamic level is a gate over everything *nobody named*, and
-        /// only that. `RUST_LOG=oxidezap_session=debug` says how loud one
+        /// only that. `RUST_LOG=velo_session=debug` says how loud one
         /// target should be and nothing about how loud the process is — so
         /// it leaves `forced` empty and the stored choice in force, and a
         /// gate that treated the stored choice as a ceiling would refuse the
@@ -363,8 +363,8 @@ mod imp {
         /// answer through.
         ///
         /// Longest prefix wins, which is `env_filter`'s own rule: a
-        /// directive for `oxidezap_session` and one for
-        /// `oxidezap_session::whatsapp` are two answers about one record, and
+        /// directive for `velo_session` and one for
+        /// `velo_session::whatsapp` are two answers about one record, and
         /// the more specific one is the one that was meant.
         ///
         /// A bare prefix and not one that has to end at a `::`, which is also
@@ -420,7 +420,7 @@ mod imp {
         fn the_bare_directive_is_the_global_level() {
             assert_eq!(global_level("debug"), Some(LogLevel::Debug));
             assert_eq!(
-                global_level("warn,oxidezap_session=trace"),
+                global_level("warn,velo_session=trace"),
                 Some(LogLevel::Warn)
             );
             assert_eq!(global_level("info,debug"), Some(LogLevel::Debug));
@@ -432,8 +432,8 @@ mod imp {
         #[test]
         fn the_targets_a_filter_names_are_read_back() {
             assert_eq!(
-                named_targets("info,oxidezap_session=debug"),
-                vec![("oxidezap_session".to_string(), log::LevelFilter::Debug)]
+                named_targets("info,velo_session=debug"),
+                vec![("velo_session".to_string(), log::LevelFilter::Debug)]
             );
             assert_eq!(
                 named_targets("gpui=warn,naga=off/some regex"),
@@ -461,15 +461,15 @@ mod imp {
         #[test]
         fn a_target_named_without_a_level_is_named_at_its_loudest() {
             assert_eq!(
-                named_targets("oxidezap_session"),
-                vec![("oxidezap_session".to_string(), log::LevelFilter::Trace)]
+                named_targets("velo_session"),
+                vec![("velo_session".to_string(), log::LevelFilter::Trace)]
             );
             assert_eq!(
-                named_targets("oxidezap_session="),
-                vec![("oxidezap_session".to_string(), log::LevelFilter::Trace)]
+                named_targets("velo_session="),
+                vec![("velo_session".to_string(), log::LevelFilter::Trace)]
             );
             // And it is a statement about that target, not about the process.
-            assert_eq!(global_level("oxidezap_session"), None);
+            assert_eq!(global_level("velo_session"), None);
         }
 
         /// The `/` and what follows it is a regular expression over the
@@ -479,7 +479,7 @@ mod imp {
         fn a_message_regex_is_not_part_of_the_level() {
             assert_eq!(global_level("debug/stanza"), Some(LogLevel::Debug));
             assert_eq!(
-                global_level("info,oxidezap_session=debug/pair-device"),
+                global_level("info,velo_session=debug/pair-device"),
                 Some(LogLevel::Info)
             );
         }
@@ -488,7 +488,7 @@ mod imp {
         /// process is, so the stored choice is still the answer.
         #[test]
         fn a_filter_of_targets_alone_forces_nothing() {
-            assert_eq!(global_level("oxidezap_session=debug"), None);
+            assert_eq!(global_level("velo_session=debug"), None);
             assert_eq!(global_level("gpui=warn,naga=off"), None);
             assert_eq!(global_level(""), None);
         }

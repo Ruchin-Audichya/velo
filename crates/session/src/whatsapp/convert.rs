@@ -9,7 +9,7 @@
 
 use std::sync::Arc;
 
-use oxidezap_core::{ChatMessage, MessageStatus, PollContent, UiEvent};
+use velo_core::{ChatMessage, MessageStatus, PollContent, UiEvent};
 use whatsapp_rust::client::Client;
 use whatsapp_rust::waproto::whatsapp as wa;
 
@@ -20,7 +20,7 @@ use crate::quoting::quoted_from;
 /// rows that contributed to the durable counter. Local revoke placeholders
 /// stay read and cannot displace a real unread message or its receipt.
 pub(super) fn stored_with_unread_tail(
-    rows: Vec<oxidezap_chat_store::StoredMessage>,
+    rows: Vec<velo_chat_store::StoredMessage>,
     unread: u32,
 ) -> Vec<ChatMessage> {
     let mut remaining = unread;
@@ -31,8 +31,8 @@ pub(super) fn stored_with_unread_tail(
             let eligible = !row.from_me
                 && !row.local_revoke_placeholder
                 && !row.received_as_shared_history
-                && row.kind != oxidezap_chat_store::MessageKind::HistoryNotice
-                && row.kind != oxidezap_chat_store::MessageKind::GroupMembership;
+                && row.kind != velo_chat_store::MessageKind::HistoryNotice
+                && row.kind != velo_chat_store::MessageKind::GroupMembership;
             let mut message = stored_to_chat_message(row);
             if eligible && remaining > 0 {
                 message.is_read = false;
@@ -47,19 +47,19 @@ pub(super) fn stored_with_unread_tail(
 
 /// Convert a durable store row into the UI message model. Media stays
 /// download-on-demand (the encoded proto lives in the store if needed later).
-pub(super) fn stored_to_chat_message(stored: oxidezap_chat_store::StoredMessage) -> ChatMessage {
+pub(super) fn stored_to_chat_message(stored: velo_chat_store::StoredMessage) -> ChatMessage {
     // The stored proto still carries the media envelope: hydrate thumbnails +
     // download info so historical media renders and stays fetchable, instead
     // of degrading to a [kind] text row until a live redelivery.
     let base_message = (!stored.revoked)
         .then_some(stored.message.as_deref())
         .flatten()
-        .map(oxidezap_chat_store::normalized_message);
+        .map(velo_chat_store::normalized_message);
     let media = base_message.and_then(|message| media::media_of(message, None));
     let poll = base_message.and_then(poll_of);
-    let business = base_message.and_then(oxidezap_chat_store::business_content);
-    let contacts = base_message.and_then(oxidezap_chat_store::shared_contacts_text);
-    let pack = base_message.and_then(oxidezap_chat_store::sticker_pack_text);
+    let business = base_message.and_then(velo_chat_store::business_content);
+    let contacts = base_message.and_then(velo_chat_store::shared_contacts_text);
+    let pack = base_message.and_then(velo_chat_store::sticker_pack_text);
     let content = match (&stored.text, stored.revoked) {
         (_, true) => "[Message deleted]".to_string(),
         (_, _) if business.is_some() => business
@@ -74,7 +74,7 @@ pub(super) fn stored_to_chat_message(stored: oxidezap_chat_store::StoredMessage)
             .map(|p| p.question.clone())
             .unwrap_or_default(),
         (None, _) if media.is_some() => String::new(),
-        (None, _) => oxidezap_chat_store::message_fallback(&stored.kind).to_owned(),
+        (None, _) => velo_chat_store::message_fallback(&stored.kind).to_owned(),
     };
     // Outgoing ticks come from the stored delivery status; incoming default
     // to read and load_history un-reads the chat's unread tail (per-incoming
@@ -82,7 +82,7 @@ pub(super) fn stored_to_chat_message(stored: oxidezap_chat_store::StoredMessage)
     let is_read = if stored.from_me {
         matches!(
             stored.status,
-            oxidezap_chat_store::MessageStatus::Read | oxidezap_chat_store::MessageStatus::Played
+            velo_chat_store::MessageStatus::Read | velo_chat_store::MessageStatus::Played
         )
     } else {
         true
@@ -90,19 +90,19 @@ pub(super) fn stored_to_chat_message(stored: oxidezap_chat_store::StoredMessage)
     let quoted = base_message.and_then(quoted_from);
     let system = stored
         .group_membership
-        .map(|event| oxidezap_core::SystemNotice::GroupMembership(Box::new(event)))
+        .map(|event| velo_core::SystemNotice::GroupMembership(Box::new(event)))
         .or_else(|| match stored.kind {
-            oxidezap_chat_store::MessageKind::HistoryNotice => {
-                Some(oxidezap_core::SystemNotice::GroupChanged(content.clone()))
+            velo_chat_store::MessageKind::HistoryNotice => {
+                Some(velo_core::SystemNotice::GroupChanged(content.clone()))
             }
-            oxidezap_chat_store::MessageKind::GroupMembership => Some(
-                oxidezap_core::SystemNotice::GroupChanged("Group membership changed".to_owned()),
+            velo_chat_store::MessageKind::GroupMembership => Some(
+                velo_core::SystemNotice::GroupChanged("Group membership changed".to_owned()),
             ),
             _ => None,
         });
     let content = match &system {
-        Some(oxidezap_core::SystemNotice::GroupMembership(event)) => event.summary(),
-        Some(oxidezap_core::SystemNotice::GroupChanged(text)) => text.clone(),
+        Some(velo_core::SystemNotice::GroupMembership(event)) => event.summary(),
+        Some(velo_core::SystemNotice::GroupChanged(text)) => text.clone(),
         _ => content,
     };
     ChatMessage {
@@ -110,7 +110,7 @@ pub(super) fn stored_to_chat_message(stored: oxidezap_chat_store::StoredMessage)
         sender: stored.sender_jid.to_string(),
         sender_name: None,
         content,
-        is_text: stored.kind == oxidezap_chat_store::MessageKind::Text,
+        is_text: stored.kind == velo_chat_store::MessageKind::Text,
         timestamp: stored.timestamp,
         is_from_me: stored.from_me,
         is_read: is_read || system.is_some(),
@@ -119,7 +119,7 @@ pub(super) fn stored_to_chat_message(stored: oxidezap_chat_store::StoredMessage)
         // The store has tracked the real delivery state all along; the UI used
         // to flatten it to a bool and lose the delivered/read distinction that
         // the second tick exists to show.
-        status: if stored.from_me || stored.status == oxidezap_chat_store::MessageStatus::Played {
+        status: if stored.from_me || stored.status == velo_chat_store::MessageStatus::Played {
             store_status(stored.status)
         } else {
             MessageStatus::default()
@@ -170,12 +170,12 @@ pub(super) fn poll_of(message: &wa::Message) -> Option<PollContent> {
 /// and teaching the bubble to draw one while the vote refuses it would be
 /// the disagreement this sharing exists to prevent.
 pub(super) fn poll_creation_of(message: &wa::Message) -> Option<&wa::message::PollCreationMessage> {
-    oxidezap_chat_store::supported_poll_creation_message(message)
+    velo_chat_store::supported_poll_creation_message(message)
 }
 
 /// Map the store's durable delivery state onto the one the UI draws.
-fn store_status(status: oxidezap_chat_store::MessageStatus) -> MessageStatus {
-    use oxidezap_chat_store::MessageStatus as Stored;
+fn store_status(status: velo_chat_store::MessageStatus) -> MessageStatus {
+    use velo_chat_store::MessageStatus as Stored;
     match status {
         // Error is terminal for from_me rows (a nack or a local send failure),
         // so hydration restores the failure indicator rather than grey ticks.
@@ -194,8 +194,8 @@ fn store_status(status: oxidezap_chat_store::MessageStatus) -> MessageStatus {
 /// stores the original protobuf, and the preview is what the quote bar shows
 /// on both sides. Its id and its author are what actually thread the reply,
 /// and those are exact.
-pub(super) fn quote_context(quoted: &oxidezap_core::QuotedMessage) -> wa::ContextInfo {
-    use oxidezap_core::QuotedKind;
+pub(super) fn quote_context(quoted: &velo_core::QuotedMessage) -> wa::ContextInfo {
+    use velo_core::QuotedKind;
     use whatsapp_rust::buffa::MessageField;
 
     let caption = (!quoted.preview.is_empty()).then(|| quoted.preview.clone());
@@ -287,7 +287,7 @@ mod tests {
         let expected = super::super::live_content_fallback(&proto, false);
         let mut row = stored_poll_creation();
         row.chat_jid = "120363000000000001@newsletter".parse().unwrap();
-        row.kind = oxidezap_chat_store::MessageKind::Unknown;
+        row.kind = velo_chat_store::MessageKind::Unknown;
         row.text = None;
         row.message = Some(Box::new(proto));
         let rendered = stored_to_chat_message(row.clone());
@@ -304,16 +304,16 @@ mod tests {
     fn future_channel_payload_has_same_safe_fallback_live_and_after_reload() {
         let mut row = stored_poll_creation();
         row.chat_jid = "120363000000000001@newsletter".parse().unwrap();
-        row.kind = oxidezap_chat_store::MessageKind::Other("future-internal-label".into());
+        row.kind = velo_chat_store::MessageKind::Other("future-internal-label".into());
         row.text = None;
         row.message = None;
         assert_eq!(
             stored_to_chat_message(row).content,
-            oxidezap_chat_store::message_fallback(&oxidezap_chat_store::MessageKind::Unknown)
+            velo_chat_store::message_fallback(&velo_chat_store::MessageKind::Unknown)
         );
     }
 
-    pub(super) fn stored_poll_creation() -> oxidezap_chat_store::StoredMessage {
+    pub(super) fn stored_poll_creation() -> velo_chat_store::StoredMessage {
         let proto = {
             let mut constructed: wa::Message = Default::default();
             constructed.poll_creation_message_v3 = MessageField::some({
@@ -333,17 +333,17 @@ mod tests {
             });
             constructed
         };
-        oxidezap_chat_store::StoredMessage {
+        velo_chat_store::StoredMessage {
             group_membership: None,
             chat_jid: "559900000001-1620000000@g.us".parse().unwrap(),
             id: "3EB0C".to_string(),
             sender_jid: "559900000001@s.whatsapp.net".parse().unwrap(),
             from_me: false,
             timestamp: wacore::time::now_utc(),
-            kind: oxidezap_chat_store::MessageKind::Poll,
+            kind: velo_chat_store::MessageKind::Poll,
             text: None,
             message: Some(Box::new(proto)),
-            status: oxidezap_chat_store::MessageStatus::Delivered,
+            status: velo_chat_store::MessageStatus::Delivered,
             starred: false,
             edited_at: None,
             revoked: false,
@@ -363,13 +363,13 @@ mod tests {
         assert!(!messages[0].is_read);
         assert!(messages[1].is_read);
         let mut notice = stored_poll_creation();
-        notice.kind = oxidezap_chat_store::MessageKind::HistoryNotice;
+        notice.kind = velo_chat_store::MessageKind::HistoryNotice;
         notice.text = Some("Shared earlier messages with group members".into());
         notice.message = None;
         let rendered = stored_to_chat_message(notice);
         assert!(matches!(
             rendered.system,
-            Some(oxidezap_core::SystemNotice::GroupChanged(_))
+            Some(velo_core::SystemNotice::GroupChanged(_))
         ));
         assert!(!rendered.content.contains("unknown"));
     }
@@ -391,7 +391,7 @@ mod tests {
     #[test]
     fn legacy_contact_rows_project_the_proto_without_a_stored_text_column() {
         let mut stored = stored_poll_creation();
-        stored.kind = oxidezap_chat_store::MessageKind::Contact;
+        stored.kind = velo_chat_store::MessageKind::Contact;
         stored.message = Some(Box::new({
             let mut constructed: wa::Message = Default::default();
             constructed.contact_message = MessageField::some({
@@ -456,12 +456,12 @@ mod tests {
         assert_eq!(poll.options[1], "Praia");
     }
 
-    fn stored_poll_v2() -> oxidezap_chat_store::StoredMessage {
+    fn stored_poll_v2() -> velo_chat_store::StoredMessage {
         let mut stored = stored_poll_creation();
         let proto = stored.message.as_mut().expect("proto");
         let creation = proto.poll_creation_message_v3.take().expect("v3 creation");
         proto.poll_creation_message_v2 = MessageField::some(creation);
-        stored.kind = oxidezap_chat_store::MessageKind::Poll;
+        stored.kind = velo_chat_store::MessageKind::Poll;
         stored
     }
 
@@ -523,7 +523,7 @@ mod tests {
             constructed
         };
         let mut stored = stored_poll_creation();
-        stored.kind = oxidezap_chat_store::MessageKind::Image;
+        stored.kind = velo_chat_store::MessageKind::Image;
         stored.text = None;
         stored.message = Some(Box::new({
             let mut constructed: wa::Message = Default::default();
@@ -547,7 +547,7 @@ mod tests {
     }
     #[test]
     fn outgoing_delivery_evidence_survives_hydration_without_promoting_server_ack() {
-        use oxidezap_chat_store::MessageStatus as Stored;
+        use velo_chat_store::MessageStatus as Stored;
         let mut row = stored_poll_creation();
         row.from_me = true;
         for (stored, ui) in [
@@ -564,17 +564,17 @@ mod tests {
     #[test]
     fn incoming_played_survives_hydration_without_turning_read_into_played() {
         let mut stored = stored_poll_creation();
-        stored.kind = oxidezap_chat_store::MessageKind::Audio;
+        stored.kind = velo_chat_store::MessageKind::Audio;
         for from_me in [false, true] {
             stored.from_me = from_me;
-            stored.status = oxidezap_chat_store::MessageStatus::Played;
+            stored.status = velo_chat_store::MessageStatus::Played;
             assert_eq!(
                 stored_to_chat_message(stored.clone()).status,
                 MessageStatus::Played
             );
         }
         stored.from_me = false;
-        stored.status = oxidezap_chat_store::MessageStatus::Read;
+        stored.status = velo_chat_store::MessageStatus::Read;
         assert_ne!(stored_to_chat_message(stored).status, MessageStatus::Played);
     }
 }
@@ -596,7 +596,7 @@ mod business_tests {
         let mut proto = wa::Message::default();
         proto.template_message = MessageField::some(template);
         let mut stored = tests::stored_poll_creation();
-        stored.kind = oxidezap_chat_store::MessageKind::Template;
+        stored.kind = velo_chat_store::MessageKind::Template;
         stored.message = Some(Box::new(proto));
         stored.text = None;
         let projected = stored_to_chat_message(stored.clone());
@@ -606,7 +606,7 @@ mod business_tests {
             stored
                 .message
                 .as_deref()
-                .and_then(oxidezap_chat_store::business_content)
+                .and_then(velo_chat_store::business_content)
         );
         stored.revoked = true;
         let revoked = stored_to_chat_message(stored);
@@ -617,7 +617,7 @@ mod business_tests {
     #[test]
     fn a_membership_row_with_missing_facts_has_an_honest_read_notice() {
         let mut row = tests::stored_poll_creation();
-        row.kind = oxidezap_chat_store::MessageKind::GroupMembership;
+        row.kind = velo_chat_store::MessageKind::GroupMembership;
         row.message = None;
         let messages = stored_with_unread_tail(vec![row], 1);
         assert_eq!(messages[0].content, "Group membership changed");

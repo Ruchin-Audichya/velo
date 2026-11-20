@@ -1,8 +1,8 @@
 #[path = "support/response_cases.rs"]
 mod cases;
 
-use oxidezap_wire::{ResponseEnvelope, ResponseResult};
 use serde_json::{Value, json};
+use velo_wire::{ResponseEnvelope, ResponseResult};
 
 fn compare(frame: &[u8]) {
     match (cases::baseline(frame), cases::candidate(frame)) {

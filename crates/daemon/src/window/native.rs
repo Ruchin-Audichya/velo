@@ -13,7 +13,7 @@
 use std::process::{Child, Command};
 use std::sync::{Mutex, PoisonError};
 
-use oxidezap_ipc::DaemonMessage;
+use velo_ipc::DaemonMessage;
 
 use crate::state::StateHub;
 
@@ -41,7 +41,7 @@ pub fn show(hub: &StateHub) {
         // Said rather than guessed at: with nothing beside this binary there
         // is no front end this daemon ships with, and the answer is to name
         // one rather than to search the environment for something called
-        // `oxidezap`.
+        // `velo`.
         hub.signal(&DaemonMessage::ShowWindow);
         log::warn!(
             "no front end beside this binary; set {FRONT_END_ENV} to name one \
@@ -123,7 +123,7 @@ fn detached_command(program: &std::path::Path) -> Command {
 /// point of the split — so the one name it does have to know is the one thing
 /// worth making overridable. A TUI, or a second GUI, says here what to start;
 /// everyone else gets the pair the release packages together.
-const FRONT_END_ENV: &str = "OXIDEZAP_FRONT_END";
+const FRONT_END_ENV: &str = "VELO_FRONT_END";
 
 /// Where to find the front end.
 ///
@@ -140,11 +140,7 @@ const FRONT_END_ENV: &str = "OXIDEZAP_FRONT_END";
 /// anyway. A `cargo`-run build finds its sibling in `target/debug` without
 /// any of this.
 fn front_end_program() -> Option<std::path::PathBuf> {
-    const NAME: &str = if cfg!(windows) {
-        "oxidezap.exe"
-    } else {
-        "oxidezap"
-    };
+    const NAME: &str = if cfg!(windows) { "velo.exe" } else { "velo" };
     if let Some(named) = std::env::var_os(FRONT_END_ENV).filter(|value| !value.is_empty()) {
         // The user's own variable naming their own program: theirs to
         // resolve however they wrote it.
@@ -160,7 +156,7 @@ fn front_end_program() -> Option<std::path::PathBuf> {
 mod tests {
     use super::*;
 
-    /// The release ships `oxidezap` and `oxidezapd` in one directory, so the
+    /// The release ships `velo` and `velod` in one directory, so the
     /// daemon's own location is the first place to look — and the name it
     /// looks for is the platform's.
     #[test]
@@ -171,7 +167,7 @@ mod tests {
             return;
         }
 
-        // The test binary's directory holds no `oxidezap`, so this exercises
+        // The test binary's directory holds no `velo`, so this exercises
         // the answer for that: nothing. A bare name here would be resolved
         // through the `PATH` this process inherited.
         assert_eq!(front_end_program(), None);
@@ -223,7 +219,7 @@ mod tests {
         /// a window would.
         fn fake_front_end(name: &str) -> (std::path::PathBuf, std::path::PathBuf) {
             let dir =
-                std::env::temp_dir().join(format!("oxidezap-window-{}-{name}", std::process::id()));
+                std::env::temp_dir().join(format!("velo-window-{}-{name}", std::process::id()));
             std::fs::create_dir_all(&dir).unwrap();
             let marker = dir.join("ran");
             let program = dir.join("front-end");

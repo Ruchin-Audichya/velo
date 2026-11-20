@@ -1,5 +1,5 @@
 [package]
-name = "oxidezap-platform"
+name = "velo-platform"
 description = "The seam under everything: where a task runs, and how it waits"
 version.workspace = true
 edition.workspace = true

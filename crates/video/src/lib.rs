@@ -1,6 +1,6 @@
 //! Camera capture and H.264 encoding for video calls. No UI, no IPC.
 //!
-//! The sibling of `oxidezap-audio`, and the same shape: a device opened on a
+//! The sibling of `velo-audio`, and the same shape: a device opened on a
 //! dedicated thread, feeding a channel the session hands straight to the
 //! library. What crosses the boundary is *encoded* — the VoIP stack
 //! transports pre-encoded H.264 access units and never touches a pixel — so
@@ -16,7 +16,7 @@
 //! nokhwa is three operating systems and OpenH264 is C, so neither reaches
 //! `wasm32-unknown-unknown`. A browser has both anyway — `getUserMedia` is
 //! the device and `VideoEncoder` is the codec — so the split is the same one
-//! `oxidezap-audio` makes: one set of names, two implementations behind it,
+//! `velo-audio` makes: one set of names, two implementations behind it,
 //! and the same Annex-B access units out of either. See [`web`].
 
 #[cfg(not(target_family = "wasm"))]
@@ -268,10 +268,10 @@ impl VideoQuality {
     #[must_use]
     pub fn from_environment() -> Self {
         let wanted = Self {
-            width: env_pair("OXIDEZAP_VIDEO_SIZE").map_or(DEFAULT_WIDTH, |(w, _)| w),
-            height: env_pair("OXIDEZAP_VIDEO_SIZE").map_or(DEFAULT_HEIGHT, |(_, h)| h),
-            fps: env_u32("OXIDEZAP_VIDEO_FPS").unwrap_or(DEFAULT_FPS),
-            bitrate_kbps: env_u32("OXIDEZAP_VIDEO_BITRATE_KBPS").unwrap_or(DEFAULT_BITRATE_KBPS),
+            width: env_pair("VELO_VIDEO_SIZE").map_or(DEFAULT_WIDTH, |(w, _)| w),
+            height: env_pair("VELO_VIDEO_SIZE").map_or(DEFAULT_HEIGHT, |(_, h)| h),
+            fps: env_u32("VELO_VIDEO_FPS").unwrap_or(DEFAULT_FPS),
+            bitrate_kbps: env_u32("VELO_VIDEO_BITRATE_KBPS").unwrap_or(DEFAULT_BITRATE_KBPS),
         };
         match wanted.checked() {
             Ok(quality) => quality,

@@ -1,5 +1,5 @@
 [package]
-name = "oxidezap-session"
+name = "velo-session"
 description = "Headless WhatsApp session: connection, event stream, sends, store hydration"
 version.workspace = true
 edition.workspace = true
@@ -38,20 +38,20 @@ mp4 = "0.14.0"
 # target that measurement is about.
 wacore = { workspace = true }
 
-oxidezap-audio = { workspace = true }
-oxidezap-chat-store = { workspace = true, features = ["search"] }
-oxidezap-core = { workspace = true }
+velo-audio = { workspace = true }
+velo-chat-store = { workspace = true, features = ["search"] }
+velo-core = { workspace = true }
 # Where a task runs and how it waits, for both targets. `exec` is still the
 # module the session asks; what it asks is one crate down, because the plugin
 # host sits beside the session and cannot ask it — which is how the browser
 # timer came to exist three times.
-oxidezap-platform = { workspace = true }
+velo-platform = { workspace = true }
 # Both targets now. The camera and the encoder are a platform each — nokhwa is
 # V4L2, AVFoundation and Media Foundation, and OpenH264 is C — and a browser has
 # both too, through `getUserMedia` and `VideoEncoder`. That split lives inside
 # the crate, which is where the platform actually is, so the session names one
 # dependency and its video plane is written once.
-oxidezap-video = { workspace = true }
+velo-video = { workspace = true }
 # A 64-bit counter, through portable-atomic rather than std (see /clippy.toml).
 portable-atomic = { workspace = true }
 tokio = { workspace = true, features = ["macros", "sync", "time"] }
@@ -68,7 +68,7 @@ tokio = { workspace = true, features = ["macros", "sync", "time"] }
 # traits.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 # Native store paths validate account ids; the browser store has no paths.
-oxidezap-wire = { workspace = true }
+velo-wire = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 # The workspace names no defaults, so the host half lists the full set it
 # used to get implicitly: the six upstream defaults plus `voip`.

@@ -1,4 +1,4 @@
-//! The wire protocol between `oxidezapd` and its front ends.
+//! The wire protocol between `velod` and its front ends.
 //!
 //! Types only: no sockets, no runtime. Both sides depend on this crate so a
 //! protocol change breaks compilation rather than a running client.
@@ -51,7 +51,6 @@ pub use framing::{
     FrameRead, FrameResult, MAX_DAEMON_FRAME_BYTES, MAX_REQUEST_BYTES, read_frame, read_frame_with,
 };
 pub use link::Link;
-pub use oxidezap_wire as wire;
 #[cfg(feature = "legacy-protocol")]
 pub use protocol::{
     AccountIdentity, AccountOverview, AccountStatus, AccountsSnapshot, AvatarDemand, CallAction,
@@ -68,6 +67,7 @@ pub use transport::{
     endpoint_path_for_account, is_account_staged_key, is_global_staged_key, is_staged_key,
     key_local_name, lock_path, media_dir, media_path, staged_key, state_dir, web_token_path,
 };
+pub use velo_wire as wire;
 // The `AccountId`-shaped helpers, gated with the domain crate they name.
 #[cfg(feature = "legacy-protocol")]
 pub use transport::{

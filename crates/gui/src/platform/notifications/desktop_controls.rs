@@ -38,7 +38,7 @@ pub fn play_message_chime(group: bool) {
 #[cfg(windows)]
 mod imp {
     use super::DesktopOptions;
-    use oxidezap_platform::windows_desktop::{self, Chime};
+    use velo_platform::windows_desktop::{self, Chime};
 
     fn chime(group: bool) -> Chime {
         if group { Chime::Group } else { Chime::Message }
@@ -55,7 +55,7 @@ mod imp {
     pub(super) fn set_start_at_sign_in(enabled: bool) -> Result<(), String> {
         let daemon = std::env::current_exe()
             .map_err(|error| error.to_string())?
-            .with_file_name("oxidezapd.exe");
+            .with_file_name("velod.exe");
         windows_desktop::set_start_at_sign_in(enabled, &daemon)
     }
 

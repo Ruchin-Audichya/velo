@@ -12,9 +12,9 @@ use super::paging::{
 };
 use super::{ChatStore, Client, NameBook, SqliteStore, WhatsAppClient};
 use crate::StoreRegistry;
-use oxidezap_chat_store::{ChatEntry, StoreChange};
-use oxidezap_core::{Chat, ChatMessage, MessageStatus, fallback_chat_name};
 use std::sync::Arc;
+use velo_chat_store::{ChatEntry, StoreChange};
+use velo_core::{Chat, ChatMessage, MessageStatus, fallback_chat_name};
 use whatsapp_rust::PresencePolicy;
 use whatsapp_rust::buffa::MessageField;
 use whatsapp_rust::wacore::proto_helpers::MessageBuilderExt;
@@ -182,7 +182,7 @@ async fn a_sent_delete_succeeds_when_the_local_batch_fails() {
         },
         async {
             assert!(recorded.get(), "flush must follow the queued local update");
-            Err(oxidezap_chat_store::ChatStoreError::WriteBatchFailed(
+            Err(velo_chat_store::ChatStoreError::WriteBatchFailed(
                 "synthetic rollback".to_string(),
             ))
         },
@@ -274,7 +274,7 @@ fn book_with(store: &Arc<ChatStore>) -> NameBook {
 
 #[tokio::test]
 async fn persistent_companion_uses_manual_presence() {
-    let store = SqliteStore::open("file:oxidezap-presence-policy?mode=memory&cache=shared")
+    let store = SqliteStore::open("file:velo-presence-policy?mode=memory&cache=shared")
         .await
         .expect("in-memory store");
     let bot = super::persistent_companion(whatsapp_rust::bot::Bot::builder())
@@ -433,10 +433,10 @@ async fn a_server_ack_publishes_a_live_sent_receipt() {
 
     assert_eq!(
         ui_rx.try_recv(),
-        Ok(oxidezap_core::UiEvent::ReceiptReceived {
+        Ok(velo_core::UiEvent::ReceiptReceived {
             chat_jid: TEST_PEER.to_string(),
             message_ids: vec!["ACKED-1".to_string()],
-            receipt_type: oxidezap_core::ReceiptType::Sent,
+            receipt_type: velo_core::ReceiptType::Sent,
         })
     );
 }
@@ -898,7 +898,7 @@ async fn a_live_quote_names_the_mentioned_contact() {
     )
     .await;
     match ui_rx.try_recv() {
-        Ok(oxidezap_core::UiEvent::MessageReceived { message, .. }) => {
+        Ok(velo_core::UiEvent::MessageReceived { message, .. }) => {
             assert_eq!(message.content, "olha isso");
             assert_eq!(
                 message
@@ -952,7 +952,7 @@ async fn a_live_self_mention_uses_the_sender_push_name() {
     )
     .await;
     match ui_rx.try_recv() {
-        Ok(oxidezap_core::UiEvent::MessageReceived {
+        Ok(velo_core::UiEvent::MessageReceived {
             message,
             sender_name,
             ..
@@ -1009,7 +1009,7 @@ async fn live_message_carries_store_notification_decision() {
     .await;
     assert!(matches!(
         ui_rx.try_recv(),
-        Ok(oxidezap_core::UiEvent::MessageReceived {
+        Ok(velo_core::UiEvent::MessageReceived {
             notification_allowed: true,
             notification_title: Some(title),
             ..
@@ -1050,7 +1050,7 @@ async fn live_message_carries_store_notification_decision() {
     .await;
     assert!(matches!(
         ui_rx.try_recv(),
-        Ok(oxidezap_core::UiEvent::MessageReceived {
+        Ok(velo_core::UiEvent::MessageReceived {
             notification_allowed: false,
             ..
         })
@@ -1091,7 +1091,7 @@ async fn live_message_carries_store_notification_decision() {
     .await;
     assert!(matches!(
         ui_rx.try_recv(),
-        Ok(oxidezap_core::UiEvent::MessageReceived {
+        Ok(velo_core::UiEvent::MessageReceived {
             notification_allowed: false,
             ..
         })
@@ -1195,7 +1195,7 @@ async fn direct_group_mention_respects_mute_and_archive() {
     .await;
     assert!(matches!(
         ui_rx.try_recv(),
-        Ok(oxidezap_core::UiEvent::MessageReceived {
+        Ok(velo_core::UiEvent::MessageReceived {
             notification_allowed: false,
             notification_title: None,
             notification_archived: Some(true),
@@ -1224,7 +1224,7 @@ async fn direct_group_mention_respects_mute_and_archive() {
         .await;
         assert!(matches!(
         ui_rx.try_recv(),
-            Ok(oxidezap_core::UiEvent::MessageReceived {
+            Ok(velo_core::UiEvent::MessageReceived {
                 notification_allowed: false,
                 chat_name: Some(name),
                 notification_archived: Some(true),
@@ -1591,7 +1591,7 @@ async fn a_quote_of_your_own_message_is_left_for_the_chat_to_name() {
     );
 
     let mut message = ChatMessage::new_outgoing("MSG-REPLY".into(), "e o áudio?".into());
-    message.quoted = Some(oxidezap_core::QuotedMessage {
+    message.quoted = Some(velo_core::QuotedMessage {
         message_id: "MSG-ORIGINAL".to_string(),
         sender_name: String::new(),
         sender: TEST_PEER.to_string(),
@@ -1706,7 +1706,7 @@ async fn persisted_proto(store: &SqliteStore, id: &str) -> wa::Message {
                 .bind::<diesel::sql_types::Integer, _>(device)
                 .bind::<diesel::sql_types::Text, _>(id)
                 .get_result(conn)
-                .map_err(oxidezap_chat_store::db_err)
+                .map_err(velo_chat_store::db_err)
         })
         .await
         .expect("read stored proto");
@@ -1733,7 +1733,7 @@ fn has_quoted_snapshot(message: &wa::Message) -> bool {
 #[tokio::test]
 async fn starred_and_pending_media_reads_project_rehydrated_quotes() {
     let store =
-        SqliteStore::open("file:oxidezap-session-quote-secondary-reads?mode=memory&cache=shared")
+        SqliteStore::open("file:velo-session-quote-secondary-reads?mode=memory&cache=shared")
             .await
             .expect("in-memory store");
     store
@@ -1832,7 +1832,7 @@ async fn starred_and_pending_media_reads_project_rehydrated_quotes() {
     );
     let quote = projected.quoted.expect("projected quote");
     assert_eq!(quote.preview, "original photo");
-    assert_eq!(quote.kind, Some(oxidezap_core::QuotedKind::Image));
+    assert_eq!(quote.kind, Some(velo_core::QuotedKind::Image));
 
     let pending = chat_store
         .pending_media_messages(Some(&TEST_PEER.parse().expect("test JID")), 10)
@@ -1846,7 +1846,7 @@ async fn starred_and_pending_media_reads_project_rehydrated_quotes() {
     );
     let quote = projected.quoted.expect("projected media quote");
     assert_eq!(quote.preview, "original photo");
-    assert_eq!(quote.kind, Some(oxidezap_core::QuotedKind::Image));
+    assert_eq!(quote.kind, Some(velo_core::QuotedKind::Image));
 }
 
 async fn test_session(name: &str) -> (Arc<ChatStore>, Arc<Client>) {
@@ -1857,7 +1857,7 @@ async fn test_session(name: &str) -> (Arc<ChatStore>, Arc<Client>) {
 /// Construct a bot and its synthetic store for reloader integration tests.
 async fn test_bot(name: &str) -> (Arc<ChatStore>, whatsapp_rust::bot::Bot) {
     let store = SqliteStore::open(&format!(
-        "file:oxidezap-session-{name}?mode=memory&cache=shared"
+        "file:velo-session-{name}?mode=memory&cache=shared"
     ))
     .await
     .expect("in-memory store");
@@ -2099,7 +2099,7 @@ fn watched_updates_come_back_watched() {
         poll: None,
         business: None,
     };
-    let mut broadcast = Chat::new(oxidezap_core::STATUS_BROADCAST_JID.to_string());
+    let mut broadcast = Chat::new(velo_core::STATUS_BROADCAST_JID.to_string());
     broadcast.messages = vec![
         update("SEEN", false),
         update("NEW", false),
@@ -2396,9 +2396,9 @@ async fn a_scoped_load_skips_an_archived_chat() {
 #[tokio::test]
 async fn history_hydration_carries_persisted_group_hierarchy_to_core_chat() {
     let (chat_store, client) = test_session("group-hierarchy-hydration").await;
-    let hierarchy = oxidezap_core::GroupHierarchy::Subgroup {
+    let hierarchy = velo_core::GroupHierarchy::Subgroup {
         parent_jid: "120363000000000009@g.us".into(),
-        kind: oxidezap_core::SubgroupKind::General,
+        kind: velo_core::SubgroupKind::General,
     };
     let entry = ChatEntry {
         jid: "120363000000000001@g.us".parse().expect("group JID"),
@@ -2643,17 +2643,17 @@ async fn a_contact_update_repairs_an_already_seen_lid_chat() {
 /// makes that safe is that the two agree.
 #[test]
 fn a_message_cursor_survives_the_round_trip() {
-    let mut row = oxidezap_chat_store::StoredMessage {
+    let mut row = velo_chat_store::StoredMessage {
         group_membership: None,
         chat_jid: "5599000000001@s.whatsapp.net".parse().unwrap(),
         id: "3EB0".to_string(),
         sender_jid: "5599000000001@s.whatsapp.net".parse().unwrap(),
         from_me: false,
         timestamp: whatsapp_rust::wacore::time::from_millis(1_700_000_000_123).unwrap(),
-        kind: oxidezap_chat_store::MessageKind::Text,
+        kind: velo_chat_store::MessageKind::Text,
         text: Some("olá".to_string()),
         message: None,
-        status: oxidezap_chat_store::MessageStatus::Delivered,
+        status: velo_chat_store::MessageStatus::Delivered,
         revoked: false,
         local_revoke_placeholder: false,
         received_as_shared_history: false,
@@ -2689,17 +2689,17 @@ fn stored_edit_state_reaches_own_and_peer_bubbles_in_direct_and_group_chats() {
     let timestamp = whatsapp_rust::wacore::time::from_millis(1_700_000_000_000).unwrap();
     for chat_jid in [PEER, GROUP] {
         for from_me in [false, true] {
-            let stored = oxidezap_chat_store::StoredMessage {
+            let stored = velo_chat_store::StoredMessage {
                 group_membership: None,
                 chat_jid: chat_jid.parse().unwrap(),
                 id: format!("EDITED-{from_me}"),
                 sender_jid: PEER.parse().unwrap(),
                 from_me,
                 timestamp,
-                kind: oxidezap_chat_store::MessageKind::Text,
+                kind: velo_chat_store::MessageKind::Text,
                 text: Some("corrected".into()),
                 message: None,
-                status: oxidezap_chat_store::MessageStatus::Delivered,
+                status: velo_chat_store::MessageStatus::Delivered,
                 starred: false,
                 edited_at: Some(timestamp),
                 revoked: false,
@@ -2753,7 +2753,7 @@ async fn a_truncated_load_says_where_the_list_continues() {
     let after = parse_chat_cursor(&token).expect("this crate reads its own token");
     let page = chat_store
         .chats_page(
-            oxidezap_chat_store::ChatArchiveFilter::Unarchived,
+            velo_chat_store::ChatArchiveFilter::Unarchived,
             Some(after),
             5,
         )
@@ -2834,7 +2834,7 @@ async fn a_send_before_the_session_is_up_still_fails_its_bubble() {
         .expect("the send task runs");
 
     match events.try_recv() {
-        Ok(oxidezap_core::UiEvent::SendFailed { message_id, .. }) => {
+        Ok(velo_core::UiEvent::SendFailed { message_id, .. }) => {
             assert_eq!(message_id, "local-1");
         }
         other => panic!("the bubble was left pending: {other:?}"),
@@ -2878,10 +2878,10 @@ async fn a_session_is_never_observed_half_open() {
     );
     let session: super::SessionSlot = Arc::new(super::Mutex::new(None));
 
-    let stores = StoreRegistry::new("file:oxidezap-session-half-open?mode=memory&cache=shared");
+    let stores = StoreRegistry::new("file:velo-session-half-open?mode=memory&cache=shared");
     let opening = WhatsAppClient::open_session(
         &stores,
-        oxidezap_core::AccountId::LEGACY,
+        velo_core::AccountId::LEGACY,
         &ui_tx,
         &session,
         super::chat_names::ChatNameResolveSignal::new(),
@@ -2926,10 +2926,10 @@ async fn closing_takes_the_client_away_with_the_store() {
         Arc::new(super::ui_queue::HistoryBudget::new()),
     );
     let session: super::SessionSlot = Arc::new(super::Mutex::new(None));
-    let stores = StoreRegistry::new("file:oxidezap-session-close?mode=memory&cache=shared");
+    let stores = StoreRegistry::new("file:velo-session-close?mode=memory&cache=shared");
     WhatsAppClient::open_session(
         &stores,
-        oxidezap_core::AccountId::LEGACY,
+        velo_core::AccountId::LEGACY,
         &ui_tx,
         &session,
         super::chat_names::ChatNameResolveSignal::new(),
@@ -3012,7 +3012,7 @@ async fn a_new_connection_advances_the_generation_without_eager_full_pass() {
     );
 
     // When demand arrives, it executes under the new generation:
-    signal.ensure([oxidezap_core::AvatarDemand {
+    signal.ensure([velo_core::AvatarDemand {
         jid: "a@s.whatsapp.net".to_string(),
         known_picture_id: None,
         cache_key: None,
@@ -3030,14 +3030,14 @@ async fn a_new_connection_advances_the_generation_without_eager_full_pass() {
 async fn ensure_coalesces_demands_and_upgrades_need_bytes() {
     let signal = super::AvatarResolveSignal::new();
     signal.ensure([
-        oxidezap_core::AvatarDemand {
+        velo_core::AvatarDemand {
             jid: "a@s.whatsapp.net".to_string(),
             known_picture_id: Some("pic-1".to_string()),
             cache_key: Some("a-1".to_string()),
             need_bytes: false,
             cache_miss: false,
         },
-        oxidezap_core::AvatarDemand {
+        velo_core::AvatarDemand {
             jid: "b@s.whatsapp.net".to_string(),
             known_picture_id: None,
             cache_key: None,
@@ -3047,7 +3047,7 @@ async fn ensure_coalesces_demands_and_upgrades_need_bytes() {
     ]);
 
     // Second demand upgrades a@s.whatsapp.net to need_bytes = true
-    signal.ensure([oxidezap_core::AvatarDemand {
+    signal.ensure([velo_core::AvatarDemand {
         jid: "a@s.whatsapp.net".to_string(),
         known_picture_id: None,
         cache_key: None,
@@ -3125,7 +3125,7 @@ async fn phone_read_live_replay_does_not_notify_but_new_message_does() {
             true,
         )
         .await;
-        let Ok(oxidezap_core::UiEvent::MessageReceived {
+        let Ok(velo_core::UiEvent::MessageReceived {
             message,
             notification_allowed,
             ..
@@ -3204,7 +3204,7 @@ async fn offline_replays_keep_phone_read_flags_without_alerting() {
     )
     .await;
     for expected_read in [true, false] {
-        let Ok(oxidezap_core::UiEvent::MessageReceived {
+        let Ok(velo_core::UiEvent::MessageReceived {
             message,
             notification_allowed,
             ..
@@ -3263,8 +3263,7 @@ async fn live_and_reloaded_shared_contacts_show_the_same_details() {
         false,
     )
     .await;
-    let oxidezap_core::UiEvent::MessageReceived { message, .. } = ui_rx.recv().await.unwrap()
-    else {
+    let velo_core::UiEvent::MessageReceived { message, .. } = ui_rx.recv().await.unwrap() else {
         panic!("contact message event");
     };
     assert_eq!(message.content, "Example Alpha\n+55 99 0000-0001");
@@ -3416,8 +3415,7 @@ async fn business_mentions_resolve_live_and_historical_cards() {
             1_700_000_100,
         );
         WhatsAppClient::handle_inbound_message(&proto, &info, &client, &ui_tx, &names, false).await;
-        let oxidezap_core::UiEvent::MessageReceived { message: live, .. } =
-            ui_rx.try_recv().unwrap()
+        let velo_core::UiEvent::MessageReceived { message: live, .. } = ui_rx.try_recv().unwrap()
         else {
             panic!("business message must be published")
         };
@@ -3442,7 +3440,7 @@ async fn business_mentions_resolve_live_and_historical_cards() {
 
 #[tokio::test]
 async fn membership_labels_refresh_from_contacts_after_persistence_and_history_reload() {
-    use oxidezap_core::SystemNotice;
+    use velo_core::SystemNotice;
     use whatsapp_rust::wacore::stanza::groups::{GroupNotificationAction, GroupParticipantInfo};
     use whatsapp_rust::wacore::types::events::{ContactUpdate, GroupUpdate};
     let (store, client) = test_session("membership-labels").await;
@@ -3555,7 +3553,7 @@ async fn membership_labels_refresh_from_contacts_after_persistence_and_history_r
 
 #[tokio::test]
 async fn membership_uses_a_late_local_mapping_without_replacing_wire_identity() {
-    use oxidezap_core::{GroupMembership, MembershipAction, NoticeParticipant};
+    use velo_core::{GroupMembership, MembershipAction, NoticeParticipant};
     let (store, client) = test_session("membership-late-mapping").await;
     let names = book();
     let lid = "111000011112333@lid";
@@ -3595,7 +3593,7 @@ async fn membership_uses_a_late_local_mapping_without_replacing_wire_identity() 
 
 #[tokio::test]
 async fn membership_wire_phone_outranks_a_masked_lid_contact_label() {
-    use oxidezap_core::{GroupMembership, MembershipAction, NoticeParticipant};
+    use velo_core::{GroupMembership, MembershipAction, NoticeParticipant};
     let (store, client) = test_session("membership-masked-lid-contact").await;
     let lid = "111000011112555@lid";
     feed(
@@ -3749,7 +3747,7 @@ async fn a_saturated_control_lane_triggers_recovery_without_waiting_for_its_hand
     );
     assert!(matches!(
         rx.try_recv(),
-        Ok(oxidezap_core::UiEvent::SessionResyncRequired(_))
+        Ok(velo_core::UiEvent::SessionResyncRequired(_))
     ));
 }
 
@@ -3762,7 +3760,7 @@ async fn history_reloader_backs_off_when_control_queue_is_full() {
     let budget = Arc::new(super::ui_queue::HistoryBudget::new());
     let (tx, mut rx) = super::ui_queue::channel(reload.clone(), budget.clone());
     for _ in 0..256 {
-        tx.send(oxidezap_core::UiEvent::Error("synthetic control".into()))
+        tx.send(velo_core::UiEvent::Error("synthetic control".into()))
             .unwrap();
     }
     let (stop, stopping) = tokio::sync::watch::channel(());
@@ -3796,14 +3794,11 @@ async fn history_reloader_backs_off_when_control_queue_is_full() {
         "rejection must wait before reloading again"
     );
     for _ in 0..256 {
-        assert!(matches!(
-            rx.try_recv(),
-            Ok(oxidezap_core::UiEvent::Error(_))
-        ));
+        assert!(matches!(rx.try_recv(), Ok(velo_core::UiEvent::Error(_))));
     }
     assert!(matches!(
         crate::exec::with_timeout(rx.recv(), std::time::Duration::from_secs(3)).await,
-        Some(Some(oxidezap_core::UiEvent::HistoryLoaded { .. }))
+        Some(Some(velo_core::UiEvent::HistoryLoaded { .. }))
     ));
     let _ = stop.send(());
 }
@@ -3860,7 +3855,7 @@ async fn history_reloader_survives_oversized_pages_and_later_store_changes() {
     .await;
     reload.notify_one();
     let event = crate::exec::with_timeout(rx.recv(), std::time::Duration::from_secs(5)).await;
-    let Some(Some(oxidezap_core::UiEvent::HistoryLoaded { chats, .. })) = event else {
+    let Some(Some(velo_core::UiEvent::HistoryLoaded { chats, .. })) = event else {
         panic!("history reloader stopped after admission rejection");
     };
     assert!(
@@ -3937,7 +3932,7 @@ async fn history_backfill_wait_uses_coverage_even_when_notice_predates_anchor() 
 #[test]
 fn history_backfill_wait_detects_older_rows_without_count_growth() {
     use super::ops::history_sync_progressed;
-    use oxidezap_chat_store::MessageCoverage;
+    use velo_chat_store::MessageCoverage;
     let before = MessageCoverage {
         stored_count: 2,
         oldest_ms: Some(20),

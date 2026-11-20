@@ -20,7 +20,7 @@ use crate::components::parts;
 use crate::theme::ActiveProductTheme as _;
 use crate::utils::{mime_to_image_format, scale_media_dimensions};
 use crate::video::VideoPlayerState;
-use oxidezap_core::{DownloadableMedia, MediaType};
+use velo_core::{DownloadableMedia, MediaType};
 
 /// What a media bubble needs from the app, read out before the row is built.
 ///
@@ -44,7 +44,7 @@ pub(super) struct MediaProps {
 
 pub(super) fn render_media_content(
     el: gpui::Div,
-    media_content: oxidezap_core::MediaContent,
+    media_content: velo_core::MediaContent,
     message_id: String,
     is_playing: bool,
     entity: Entity<WhatsAppApp>,
@@ -509,7 +509,7 @@ fn render_video_frame(frame: Arc<RenderImage>, width: f32, height: f32) -> gpui:
 /// model's answer and belongs to every front end — a video's `data` stops
 /// being a picture the moment its own file replaces the poster — while the
 /// mapping to a GPUI format is this one's alone.
-fn still_image_format(media: &oxidezap_core::MediaContent) -> Option<gpui::ImageFormat> {
+fn still_image_format(media: &velo_core::MediaContent) -> Option<gpui::ImageFormat> {
     media
         .has_still_image()
         .then(|| mime_to_image_format(&media.mime_type))
@@ -552,7 +552,7 @@ enum StickerRenderKind {
     Animated,
 }
 
-fn sticker_render_kind(media: &oxidezap_core::MediaContent) -> Option<StickerRenderKind> {
+fn sticker_render_kind(media: &velo_core::MediaContent) -> Option<StickerRenderKind> {
     if media.data.is_empty()
         || mime_to_image_format(&media.mime_type) != Some(gpui::ImageFormat::Webp)
     {
@@ -566,7 +566,7 @@ fn sticker_render_kind(media: &oxidezap_core::MediaContent) -> Option<StickerRen
     })
 }
 
-pub(crate) fn sticker_payload_is_valid(media: &oxidezap_core::MediaContent) -> bool {
+pub(crate) fn sticker_payload_is_valid(media: &velo_core::MediaContent) -> bool {
     !media.data.is_empty()
         && mime_to_image_format(&media.mime_type) == Some(gpui::ImageFormat::Webp)
         && valid_webp_payload(media.data.as_slice())
@@ -583,7 +583,7 @@ fn valid_webp_payload(bytes: &[u8]) -> bool {
     else {
         return false;
     };
-    if decoded_bytes > oxidezap_core::DECODED_IMAGE_BUDGET_BYTES {
+    if decoded_bytes > velo_core::DECODED_IMAGE_BUDGET_BYTES {
         return false;
     }
     if decoder.has_animation() {
@@ -649,7 +649,7 @@ fn render_image_from_bytes(
 /// chosen from a list by its extension and its size as much as its name, so
 /// all three are on the card.
 fn render_document_placeholder(
-    media_content: oxidezap_core::MediaContent,
+    media_content: velo_core::MediaContent,
     message_id: String,
     entity: Entity<WhatsAppApp>,
     is_downloading: bool,
@@ -831,7 +831,7 @@ struct VideoProps {
 }
 
 fn render_video_player(
-    media_content: oxidezap_core::MediaContent,
+    media_content: velo_core::MediaContent,
     message_id: String,
     entity: Entity<WhatsAppApp>,
     video: VideoProps,
@@ -1053,7 +1053,7 @@ mod tests {
     use std::sync::Arc;
 
     use gpui::{InteractiveElement as _, Styled as _};
-    use oxidezap_core::MediaContent;
+    use velo_core::MediaContent;
 
     use super::{StickerRenderKind, extension_of, format_bytes, sticker_render_kind};
 
@@ -1169,7 +1169,7 @@ mod tests {
         });
         let view = cx.read(|cx| handle.entity(cx).unwrap());
         let mut window = gpui::VisualTestContext::from_window(handle.into(), cx);
-        let downloadable = oxidezap_core::DownloadableMedia {
+        let downloadable = velo_core::DownloadableMedia {
             direct_path: "/synthetic-sticker".into(),
             media_key: vec![],
             file_enc_sha256: vec![],
@@ -1396,7 +1396,7 @@ mod tests {
     #[test]
     fn image_attachments_are_not_sticker_payloads() {
         let image = MediaContent::image(Arc::new(vec![1, 2, 3]), "image/webp".into(), false);
-        assert_eq!(image.media_type, oxidezap_core::MediaType::Image);
+        assert_eq!(image.media_type, velo_core::MediaType::Image);
         assert_eq!(sticker_render_kind(&image), Some(StickerRenderKind::Static));
     }
 
@@ -1450,7 +1450,7 @@ mod poster_cost_tests {
     /// byte of it to name the image. The app's decoded-image cache did not
     /// cover `MediaType::Video`, so both happened on every frame.
     ///
-    /// `cargo test -p oxidezap-gui --release -- --ignored poster_cost --nocapture`
+    /// `cargo test -p velo-gui --release -- --ignored poster_cost --nocapture`
     #[test]
     #[ignore = "a stopwatch, not a test"]
     fn poster_cost() {

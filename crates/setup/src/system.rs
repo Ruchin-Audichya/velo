@@ -17,11 +17,11 @@ const PUBLISHER: &str = "Ruchin Audichya";
 const UNINSTALL_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\Velo";
 const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 /// The Run value Velo's own "Start at sign-in" switch reads and writes.
-const RUN_NAME: &str = "OxideZap";
+const RUN_NAME: &str = "Velo";
 /// Velo's taskbar and notification identity; the window sets the same one.
-const APP_ID: &str = "org.oxidezap.client.local";
-const WINDOW_EXE: &str = "oxidezap.exe";
-const DAEMON_EXE: &str = "oxidezapd.exe";
+const APP_ID: &str = "io.github.RuchinAudichya.Velo";
+const WINDOW_EXE: &str = "velo.exe";
+const DAEMON_EXE: &str = "velod.exe";
 const UNINSTALLER: &str = "uninstall.exe";
 /// No console window flashing up for the helpers this runs.
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -63,10 +63,7 @@ pub fn installed_version() -> Option<String> {
 /// Whether this PC already holds a Velo sign-in, kept from an earlier
 /// install — the finish screen then says so instead of asking for a QR scan.
 pub fn has_existing_sign_in() -> bool {
-    local_app_data()
-        .join("oxidezap")
-        .join("whatsapp.db")
-        .is_file()
+    local_app_data().join("velo").join("whatsapp.db").is_file()
 }
 
 /// Whether this process is the copy that lives beside the program — the one
@@ -169,11 +166,11 @@ pub fn uninstall(remove_data: bool, progress: &dyn Fn(Step)) -> Result<(), Strin
         // The store, the media, the sign-in: one directory, deleted whole
         // so nothing is left orphaned behind a new device. Then Velo's own
         // preferences and its notification registration.
-        let _ = std::fs::remove_dir_all(local_app_data().join("oxidezap"));
+        let _ = std::fs::remove_dir_all(local_app_data().join("velo"));
         if let Some(roaming) = std::env::var_os("APPDATA") {
-            let _ = std::fs::remove_dir_all(PathBuf::from(roaming).join("oxidezap"));
+            let _ = std::fs::remove_dir_all(PathBuf::from(roaming).join("velo"));
         }
-        let _ = CURRENT_USER.remove_tree(r"Software\OxideZap");
+        let _ = CURRENT_USER.remove_tree(r"Software\Velo");
         let _ = CURRENT_USER.remove_tree(format!(r"Software\Classes\AppUserModelId\{APP_ID}"));
     }
     refresh_shell();
@@ -204,10 +201,10 @@ pub fn launch() {
 /// window. Only if it does not answer is it ended outright: the store is
 /// SQLite in WAL mode, which survives that, but a clean stop is kinder.
 fn stop_velo() {
-    use oxidezap_wire::request::ClientRequest;
-    if let Ok(mut client) = oxidezap_ipc::IpcClient::connect() {
+    use velo_wire::request::ClientRequest;
+    if let Ok(mut client) = velo_ipc::IpcClient::connect() {
         let hello = ClientRequest::Hello {
-            protocol: oxidezap_wire::envelope::CURRENT_PROTOCOL_VERSION,
+            protocol: velo_wire::envelope::CURRENT_PROTOCOL_VERSION,
             client_name: "velo-setup".into(),
             local_account: None,
             account_selection: false,
@@ -219,7 +216,7 @@ fn stop_velo() {
         }
         drop(client);
         for _ in 0..48 {
-            if oxidezap_ipc::IpcClient::connect().is_err() {
+            if velo_ipc::IpcClient::connect().is_err() {
                 break;
             }
             std::thread::sleep(Duration::from_millis(250));

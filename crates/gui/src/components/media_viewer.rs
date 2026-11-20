@@ -29,7 +29,7 @@ use crate::utils::format_list_time;
 /// keeps the picture from being pushed off its own screen. Roughly six lines
 /// at the usual line height, which is most captions whole.
 pub(crate) const CAPTION_LINES: f32 = 9.0;
-use oxidezap_core::{ChatMessage, MediaType};
+use velo_core::{ChatMessage, MediaType};
 
 /// What the viewer needs that only the app can resolve.
 pub struct ViewerProps {

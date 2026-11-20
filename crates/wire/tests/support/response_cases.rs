@@ -1,6 +1,6 @@
 #![allow(dead_code)]
-use oxidezap_wire::{ApiError, DaemonResponse, ResponseEnvelope, ResponseResult};
 use serde::{Deserialize, Serialize};
+use velo_wire::{ApiError, DaemonResponse, ResponseEnvelope, ResponseResult};
 
 /// The previous derived decoder, kept as an independent compatibility reference.
 #[derive(Debug, Serialize, Deserialize)]
@@ -117,7 +117,7 @@ pub fn fixtures() -> Vec<ResponseEnvelope> {
 
 pub fn chats(count: usize, escaped: bool) -> Vec<u8> {
     let chats = (0..count)
-        .map(|i| oxidezap_wire::ChatDto {
+        .map(|i| velo_wire::ChatDto {
             jid: format!("synthetic-{i}@example.invalid"),
             name: format!("Synthetic conversation {i}"),
             last_message_preview: Some(if escaped {

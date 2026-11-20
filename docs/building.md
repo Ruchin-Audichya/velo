@@ -43,9 +43,9 @@ cargo test --manifest-path xtask/Cargo.toml
 cargo xtask help    # what there is to run; from the repository root
 
 # Running it: the window and the daemon, and the window looks for the daemon
-# beside itself. `--bin oxidezap-cli` is the scriptable front end onto the same
+# beside itself. `--bin velo-cli` is the scriptable front end onto the same
 # daemon; see docs/cli.md.
-cargo build --release --bin oxidezap --bin oxidezapd && ./target/release/oxidezap
+cargo build --release --bin Velo --bin velod && ./target/release/velo
 
 # A plugin. Its own workspace, its own target, and the file's name is its id.
 # `examples/template` is the same command; `cargo test` in either directory
@@ -60,10 +60,10 @@ cargo build --release --bin oxidezap --bin oxidezapd && ./target/release/oxideza
 # should be, since `CARGO_TARGET_DIR` moves it.
 rustup target add wasm32-unknown-unknown
 module="$(cargo xtask plugin build examples/autoreply)"
-cp "$module" ~/.local/share/oxidezap/plugins/
+cp "$module" ~/.local/share/velo/plugins/
 # And the one test that exercises the real SDK against the real host: it loads
 # the module the line above built. CI runs both, in the Linux `Check` job.
-cargo test -p oxidezap-plugin-host --all-features -- --ignored
+cargo test -p velo-plugin-host --all-features -- --ignored
 ```
 
 The same window as a page:
@@ -90,7 +90,7 @@ TRUNK_ACTION=serve cargo xtask web build
 # token file is, not the token — that is a bearer credential and a log is
 # what people paste into issues. The token goes after a `#`, never a `?`: a
 # query reaches whoever served the page, a fragment never leaves the browser.
-cargo run --bin oxidezapd -- --web
+cargo run --bin velod -- --web
 
 # The same bundle with its symbols, for when a profile or a panic trace has
 # to name something. `[profile.web-debug]` inherits `[profile.web]` and turns
@@ -151,7 +151,7 @@ test -x "$CHROMEDRIVER" || CHROMEDRIVER=$(command -v chromedriver)
 CHROMEDRIVER="$CHROMEDRIVER" \
 RUSTFLAGS='--cfg web_sys_unstable_apis' \
 CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-bindgen-test-runner \
-  cargo test -p oxidezap-daemon -p oxidezap-session --lib --target wasm32-unknown-unknown
+  cargo test -p velo-daemon -p velo-session --lib --target wasm32-unknown-unknown
 ```
 
 CI also runs the standalone WebCodecs readback, recovery and transform targets
@@ -163,7 +163,7 @@ commands, Chrome properties and runtime memory assertion.
 Type-checking the web build without the whole bundle:
 
 ```bash
-cargo +nightly-2026-10-29 check -p oxidezap-gui --target wasm32-unknown-unknown -Z build-std=std,panic_abort
+cargo +nightly-2026-10-29 check -p velo-gui --target wasm32-unknown-unknown -Z build-std=std,panic_abort
 ```
 
 The session builds for that target too, and is checked separately because
@@ -171,7 +171,7 @@ nothing in the page depends on it yet — a break there would otherwise go
 unnoticed until something does:
 
 ```bash
-cargo +nightly-2026-10-29 check -p oxidezap-session --target wasm32-unknown-unknown -Z build-std=std,panic_abort
+cargo +nightly-2026-10-29 check -p velo-session --target wasm32-unknown-unknown -Z build-std=std,panic_abort
 ```
 
 Stable Rust. Debug builds keep gpui at opt-level 3, because without it the UI is

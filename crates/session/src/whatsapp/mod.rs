@@ -84,9 +84,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use log::{debug, error, info, warn};
-use oxidezap_chat_store::ChatStore;
 use portable_atomic::{AtomicU64, Ordering};
 use tokio::sync::{Mutex, mpsc};
+use velo_chat_store::ChatStore;
 use whatsapp_rust::PresencePolicy;
 use whatsapp_rust::bot::Bot;
 use whatsapp_rust::client::Client;
@@ -107,7 +107,7 @@ use whatsapp_rust::waproto::whatsapp as wa;
 use whatsapp_rust_sqlite_storage::SqliteStore;
 
 use crate::exec::{Executor, Task};
-use oxidezap_core::{
+use velo_core::{
     AccountId, Availability, CallVideoFrame, ChatMessage, ComposingKind, DownloadableMedia,
     IncomingCall, MessageStatus, SystemNotice, UiEvent, VideoStream, fallback_chat_name,
 };
@@ -542,7 +542,7 @@ struct PendingResolve {
     /// Forget what earlier passes resolved before the next pass.
     reset: bool,
     /// Demands requested by the viewport, header, or overscan.
-    demands: HashMap<String, oxidezap_core::AvatarDemand>,
+    demands: HashMap<String, velo_core::AvatarDemand>,
     /// JIDs whose avatar bytes landed in the local cache.
     ready: Vec<String>,
     /// JIDs whose avatar download failed.
@@ -596,7 +596,7 @@ impl AvatarResolveSignal {
 
     /// Ask about these chats specifically.
     pub(super) fn request_named(&self, jids: impl IntoIterator<Item = String>) {
-        self.ensure(jids.into_iter().map(|jid| oxidezap_core::AvatarDemand {
+        self.ensure(jids.into_iter().map(|jid| velo_core::AvatarDemand {
             jid,
             known_picture_id: None,
             cache_key: None,
@@ -606,7 +606,7 @@ impl AvatarResolveSignal {
     }
 
     /// Queue avatar demands from viewport or header.
-    pub(super) fn ensure(&self, items: impl IntoIterator<Item = oxidezap_core::AvatarDemand>) {
+    pub(super) fn ensure(&self, items: impl IntoIterator<Item = velo_core::AvatarDemand>) {
         self.set(|pending| {
             for item in items {
                 pending
@@ -694,7 +694,7 @@ pub(super) struct ResolveRequest {
     /// Forget what earlier passes resolved first.
     pub(super) reset: bool,
     /// Demands requested by viewport or explicit requests.
-    pub(super) demands: Vec<oxidezap_core::AvatarDemand>,
+    pub(super) demands: Vec<velo_core::AvatarDemand>,
     /// JIDs whose avatars have landed in cache.
     pub(super) ready: Vec<String>,
     /// JIDs whose avatar download failed.
@@ -780,9 +780,8 @@ fn live_content_fallback(message: &wa::Message, has_media: bool) -> String {
         return String::new();
     }
 
-    oxidezap_chat_store::sticker_pack_text(message).unwrap_or_else(|| {
-        oxidezap_chat_store::message_fallback(&oxidezap_chat_store::MessageKind::of(message))
-            .to_owned()
+    velo_chat_store::sticker_pack_text(message).unwrap_or_else(|| {
+        velo_chat_store::message_fallback(&velo_chat_store::MessageKind::of(message)).to_owned()
     })
 }
 
@@ -1029,7 +1028,7 @@ impl WhatsAppClient {
         let account_id = self.account_id;
         let stores = Arc::clone(&self.stores);
 
-        let started = self.exec.start("oxidezap-session", async move {
+        let started = self.exec.start("velo-session", async move {
             Self::run_client(
                 account_id,
                 ui_tx,
@@ -2151,7 +2150,7 @@ impl WhatsAppClient {
             // would notice become a row; the rest is bookkeeping, and a line
             // for each would bury the conversation.
             Event::GroupUpdate(update) => {
-                if let Some(mut event) = oxidezap_core::GroupMembership::from_update(update) {
+                if let Some(mut event) = velo_core::GroupMembership::from_update(update) {
                     // Identified notices come from the committed store, including
                     // their first live projection. Anonymous notices have no safe
                     // deduplication key and remain transient.
@@ -2177,7 +2176,7 @@ impl WhatsAppClient {
                 // stanza alone gave one person two names on one conversation:
                 // the push name here, the address-book name everywhere else.
                 let mut named = crate::group_notice::ResolvedNames::new();
-                if let Some(mut actor) = oxidezap_core::NoticeParticipant::actor_of(update) {
+                if let Some(mut actor) = velo_core::NoticeParticipant::actor_of(update) {
                     if let Some(store) = names.chat_store() {
                         membership::resolve_person(
                             &client,
@@ -2274,7 +2273,7 @@ impl WhatsAppClient {
     ) {
         // Use the shared store normalization for both ordinary envelopes and
         // the nested wrappers it peels, so live and hydrated paths agree.
-        let base_msg = oxidezap_chat_store::normalized_message(msg);
+        let base_msg = velo_chat_store::normalized_message(msg);
 
         // Check if this is a reaction message
         if let Some(reaction) = base_msg.reaction_message.as_option() {
@@ -2340,7 +2339,7 @@ impl WhatsAppClient {
         // is a `[Media]` bubble with an unread badge, and the store writes no
         // row for it, so it vanishes at the next hydration having already
         // raised a count nothing sent a receipt for.
-        if oxidezap_chat_store::is_control_only(msg) || base_msg.message_history_notice.is_set() {
+        if velo_chat_store::is_control_only(msg) || base_msg.message_history_notice.is_set() {
             return;
         }
 
@@ -2352,16 +2351,16 @@ impl WhatsAppClient {
         // `[Media]` bubble until the next reload rehydrates it from the
         // store. Same extraction the stored path uses, so the two agree.
         let poll = poll_of(base_msg);
-        let mut business = oxidezap_chat_store::business_content(base_msg);
+        let mut business = velo_chat_store::business_content(base_msg);
 
         // Extract text content
         let content = business
             .as_ref()
             .map(|b| b.body.clone())
-            .or_else(|| oxidezap_chat_store::sticker_pack_text(base_msg))
+            .or_else(|| velo_chat_store::sticker_pack_text(base_msg))
             .or_else(|| base_msg.text_content().map(str::to_owned))
             .or_else(|| base_msg.get_caption().map(|s| s.to_string()))
-            .or_else(|| oxidezap_chat_store::shared_contacts_text(base_msg))
+            .or_else(|| velo_chat_store::shared_contacts_text(base_msg))
             .or_else(|| poll.as_ref().map(|poll| poll.question.clone()))
             .unwrap_or_else(|| live_content_fallback(base_msg, media_result.is_some()));
 
@@ -2397,7 +2396,7 @@ impl WhatsAppClient {
             sender: info.source.sender.to_string(),
             sender_name: None, // Will be set in handle_message_received for groups
             content,
-            is_text: oxidezap_chat_store::message_kind(base_msg) == "text",
+            is_text: velo_chat_store::message_kind(base_msg) == "text",
             timestamp: info.timestamp,
             is_from_me: info.source.is_from_me,
             is_read: false,
@@ -2647,7 +2646,7 @@ impl WhatsAppClient {
         jid_str: &str,
         content: &str,
         local_id: String,
-        quoted: Option<oxidezap_core::QuotedMessage>,
+        quoted: Option<velo_core::QuotedMessage>,
     ) -> Task<()> {
         let session = self.session.clone();
         let ui_sender = self.ui_sender.clone();
@@ -2804,7 +2803,7 @@ impl WhatsAppClient {
         duration_secs: u32,
         waveform: Vec<u8>,
         local_id: String,
-        quoted: Option<oxidezap_core::QuotedMessage>,
+        quoted: Option<velo_core::QuotedMessage>,
     ) -> Task<()> {
         let session = self.session.clone();
         let ui_sender = self.ui_sender.clone();
@@ -2940,7 +2939,7 @@ impl WhatsAppClient {
         jid_str: &str,
         file: OutgoingFile,
         local_id: String,
-        quoted: Option<oxidezap_core::QuotedMessage>,
+        quoted: Option<velo_core::QuotedMessage>,
     ) -> Task<()> {
         let session = self.session.clone();
         let ui_sender = self.ui_sender.clone();
@@ -3227,7 +3226,7 @@ impl WhatsAppClient {
     }
 
     /// Ensure profile pictures for avatar demands.
-    pub fn ensure_avatars(&self, items: Vec<oxidezap_core::AvatarDemand>) {
+    pub fn ensure_avatars(&self, items: Vec<velo_core::AvatarDemand>) {
         self.resolve_avatars.ensure(items);
     }
 
@@ -3268,7 +3267,7 @@ impl WhatsAppClient {
                 return false;
             };
             let store = &live.chat_store;
-            let Ok(broadcast) = oxidezap_core::STATUS_BROADCAST_JID.parse::<Jid>() else {
+            let Ok(broadcast) = velo_core::STATUS_BROADCAST_JID.parse::<Jid>() else {
                 warn!("the status broadcast address does not parse");
                 return false;
             };
@@ -3386,7 +3385,7 @@ fn record_outgoing(
             // the admission reason so the caller can distinguish a full queue
             // from a stopped writer.
             let reason = match error {
-                oxidezap_chat_store::ChatStoreError::Store(source) => source.to_string(),
+                velo_chat_store::ChatStoreError::Store(source) => source.to_string(),
                 error => error.to_string(),
             };
             format!("message was not sent: {reason}")

@@ -22,7 +22,7 @@
 //! afterwards, and an ABI whose very first requirement needs a post-processing
 //! step is one nobody implements correctly.
 //!
-//! Everything else flows through imports from the `oxidezap` module, listed
+//! Everything else flows through imports from the `velo` module, listed
 //! in [`imports`]. There is no `oxi_alloc`: the host never allocates inside a
 //! plugin. Data is *pulled* — the plugin hands over a buffer it already owns
 //! and the host writes into it — which is what keeps the ABI free of any
@@ -63,7 +63,7 @@ pub mod ui;
 pub const VERSION: i32 = 1;
 
 /// The import module every host function lives in.
-pub const MODULE: &str = "oxidezap";
+pub const MODULE: &str = "velo";
 
 /// The names of the three things a plugin exports.
 pub mod exports {

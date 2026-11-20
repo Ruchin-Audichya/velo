@@ -6,7 +6,7 @@
 //! what someone who opened one is usually doing.
 
 use gpui::{Context, FocusHandle};
-use oxidezap_core::{ChatMessage, MediaType};
+use velo_core::{ChatMessage, MediaType};
 
 /// The picture on screen full size, and the keyboard it takes while it is.
 ///
@@ -278,7 +278,7 @@ pub(super) fn needs_full_fetch(message: &ChatMessage) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oxidezap_core::MediaContent;
+    use velo_core::MediaContent;
 
     fn message(id: &str, media: Option<MediaContent>) -> ChatMessage {
         let mut message = ChatMessage::new_incoming(
@@ -375,7 +375,7 @@ mod tests {
     #[test]
     fn a_thumbnail_that_can_fetch_its_picture_opens_for_preview() {
         let mut fetchable = image(true, true);
-        fetchable.downloadable = Some(oxidezap_core::DownloadableMedia {
+        fetchable.downloadable = Some(velo_core::DownloadableMedia {
             direct_path: "/synthetic-photo".into(),
             media_key: vec![],
             file_enc_sha256: vec![],

@@ -1,21 +1,21 @@
-# oxidezap-cli
+# velo-cli
 
 Scriptable WhatsApp CLI. One session per user lives in the daemon; the CLI
 holds none — every command is a line-protocol request over the daemon
 socket. When no daemon is listening the CLI starts one beside itself, the
-same way the window does, so a first `oxidezap-cli status` on a fresh
+same way the window does, so a first `velo-cli status` on a fresh
 machine works without a separate launch.
 
 The binary ships in the same archive as the window and the daemon, in the
-`oxidezap-cli` file beside `oxidezap` and `oxidezapd`, so a release download
+`velo-cli` file beside `velo` and `velod`, so a release download
 is enough to use it. To build it from source:
 
 ```bash
-cargo build --release -p oxidezap-cli
-./target/release/oxidezap-cli status
+cargo build --release -p velo-cli
+./target/release/velo-cli status
 ```
 
-`oxidezap-cli --help` is the command authority; what follows is how to
+`velo-cli --help` is the command authority; what follows is how to
 think about it, not a second copy of it.
 
 ## Output
@@ -64,10 +64,10 @@ without a conditional picture ID, independently of the GUI's avatar-byte cache.
 
 ## Safety
 
-`--read-only` (or `OXIDEZAP_READONLY=1`) refuses every mutating action
+`--read-only` (or `VELO_READONLY=1`) refuses every mutating action
 client-side *and* daemon-side: the daemon answers mutations with
 `permission_denied` before touching the session. What counts as a mutation
-is declared per request in `oxidezap-wire`'s `ClientRequest::access`, which
+is declared per request in `velo-wire`'s `ClientRequest::access`, which
 is an exhaustive `match` — a new request does not compile until it says
 whether it reads or writes, so a variant cannot be born permissive by
 accident. Mutations need a connected account; reads work offline against
@@ -81,12 +81,12 @@ command that deletes a profile's store.
 ## Accounts
 
 A named profile has a separate daemon socket, lock, database and media cache.
-Each daemon can hold several local WhatsApp accounts in that shared database. The daemon takes `--account <id>` (or `OXIDEZAP_ACCOUNT`);
+Each daemon can hold several local WhatsApp accounts in that shared database. The daemon takes `--account <id>` (or `VELO_ACCOUNT`);
 the CLI selects with the same flag or variable, and `--socket` overrides
 both. `--account` wins over the environment.
 
 `--local-account <positive-id>` selects the local account inside that daemon.
-It also accepts `OXIDEZAP_LOCAL_ACCOUNT`. Without it, the daemon chooses the
+It also accepts `VELO_LOCAL_ACCOUNT`. Without it, the daemon chooses the
 only account with a window, otherwise the only connected account, otherwise
 the only available account. Multiple candidates at any step require an
 explicit id. This choice is fixed for the connection, including event streams.
@@ -104,8 +104,8 @@ the same value is echoed by `accounts use` into a shell, so it must not
 carry a quote, a space or a `$` either.
 
 `accounts list` shows the profiles on this machine and whether each daemon
-is up; `eval $(oxidezap-cli accounts use <id>)` selects one for the shell,
-and `accounts use default` prints `unset OXIDEZAP_ACCOUNT`. `accounts add
+is up; `eval $(velo-cli accounts use <id>)` selects one for the shell,
+and `accounts use default` prints `unset VELO_ACCOUNT`. `accounts add
 <id>` validates the id and starts that profile's daemon; `accounts remove
 <id>` wipes the profile's store through its own daemon, deletes its media
 cache and stops the process. Without an id everything is the default
@@ -142,40 +142,40 @@ a transport error is reported with a nonzero exit.
 
 ```bash
 # Read-only agent pass: status, unread chats, recent messages as JSON.
-oxidezap-cli --read-only --json status
-oxidezap-cli --read-only --json chats list --limit 20
-oxidezap-cli --read-only --json messages list --chat 5511999999999@s.whatsapp.net
+velo-cli --read-only --json status
+velo-cli --read-only --json chats list --limit 20
+velo-cli --read-only --json messages list --chat 5511999999999@s.whatsapp.net
 
 # Walk forward from a message you hold.
-oxidezap-cli messages list --chat 5511999999999@s.whatsapp.net --after 3EB0ABCD
+velo-cli messages list --chat 5511999999999@s.whatsapp.net --after 3EB0ABCD
 
 # Send and poll.
-oxidezap-cli send text --to 5511999999999@s.whatsapp.net "oi" --reply-to 3EB0ABCD
-oxidezap-cli send text --to 5511999999999@s.whatsapp.net "oi" --enqueue
-oxidezap-cli poll list --chat 5511999999999@s.whatsapp.net
-oxidezap-cli poll vote --chat 5511999999999@s.whatsapp.net --poll 3EB0ABCD 0
+velo-cli send text --to 5511999999999@s.whatsapp.net "oi" --reply-to 3EB0ABCD
+velo-cli send text --to 5511999999999@s.whatsapp.net "oi" --enqueue
+velo-cli poll list --chat 5511999999999@s.whatsapp.net
+velo-cli poll vote --chat 5511999999999@s.whatsapp.net --poll 3EB0ABCD 0
 
 # Pair by phone number instead of QR.
-oxidezap-cli auth --phone 5511999999999
+velo-cli auth --phone 5511999999999
 
 # Answer a bot menu.
-oxidezap-cli send select --to 5511999999999@s.whatsapp.net --row-id row-1
+velo-cli send select --to 5511999999999@s.whatsapp.net --row-id row-1
 
 # Groups, channels, history.
-oxidezap-cli groups create "almoço" --participant 5511999999999
-oxidezap-cli groups invite --jid 1234567890@g.us
-oxidezap-cli channels join --jid 123@newsletter
-oxidezap-cli history coverage
-oxidezap-cli history backfill 5511999999999@s.whatsapp.net
+velo-cli groups create "almoço" --participant 5511999999999
+velo-cli groups invite --jid 1234567890@g.us
+velo-cli channels join --jid 123@newsletter
+velo-cli history coverage
+velo-cli history backfill 5511999999999@s.whatsapp.net
 
 # Accounts.
-oxidezap-cli accounts add work
-eval $(oxidezap-cli accounts use work)
-oxidezap-cli accounts remove work
+velo-cli accounts add work
+eval $(velo-cli accounts use work)
+velo-cli accounts remove work
 
 # Completions and agent interfaces.
-oxidezap-cli completion --shell bash >> ~/.bashrc
-oxidezap-cli mcp   # usage-spec KDL for MCP hosts
+velo-cli completion --shell bash >> ~/.bashrc
+velo-cli mcp   # usage-spec KDL for MCP hosts
 ```
 
 ## Limits worth knowing
@@ -188,7 +188,7 @@ oxidezap-cli mcp   # usage-spec KDL for MCP hosts
   not fatal; what it warms is what already exists here.
 - `calls list` covers the daemon's lifetime; calls are live state, not rows
   in the store.
-- There is no `oxidezapd-headless` without the VoIP stack yet. Calls,
+- There is no `velod-headless` without the VoIP stack yet. Calls,
   cameras and the codec rest on the library's `voip` feature, which cargo
   selects per target rather than per dependency, so a crate feature cannot
   turn it off for the daemon while the page build keeps `voip-mlow`. The

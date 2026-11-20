@@ -12,12 +12,12 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use log::warn;
-use oxidezap_chat_store::{ChatEntry, ChatStore, StoreChange};
+use velo_chat_store::{ChatEntry, ChatStore, StoreChange};
 use whatsapp_rust::bot::Bot;
 use whatsapp_rust::client::Client;
 use whatsapp_rust::wacore_binary::jid::{Jid, observe_str};
 
-use oxidezap_core::{Chat, ChatMessage, UiEvent};
+use velo_core::{Chat, ChatMessage, UiEvent};
 
 use super::WhatsAppClient;
 use super::convert::stored_with_unread_tail;
@@ -34,7 +34,7 @@ use crate::names::NameBook;
 /// is a hundred rows re-read, re-serialized and re-merged to learn one
 /// string.
 pub(super) struct LoadedHistory {
-    pub(super) chats: Vec<oxidezap_core::Chat>,
+    pub(super) chats: Vec<velo_core::Chat>,
     pub(super) complete: bool,
     pub(super) next: Option<String>,
 }
@@ -142,7 +142,7 @@ impl WhatsAppClient {
     /// dropping the runtime took the task with it; on a page nothing does.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn spawn_history_reloader(
-        mut changes: tokio::sync::broadcast::Receiver<oxidezap_chat_store::StoreChange>,
+        mut changes: tokio::sync::broadcast::Receiver<velo_chat_store::StoreChange>,
         chat_store: Arc<ChatStore>,
         bot: &Bot,
         ui_tx: &UiEventSender,
@@ -263,7 +263,7 @@ impl WhatsAppClient {
         chat_store: &Arc<ChatStore>,
         client: &Arc<Client>,
         names: &NameBook,
-    ) -> Result<LoadedHistory, oxidezap_chat_store::ChatStoreError> {
+    ) -> Result<LoadedHistory, velo_chat_store::ChatStoreError> {
         Self::load_history_scoped(chat_store, client, None, names).await
     }
 
@@ -282,7 +282,7 @@ impl WhatsAppClient {
         client: &Arc<Client>,
         only: Option<&HashSet<String>>,
         names: &NameBook,
-    ) -> Result<LoadedHistory, oxidezap_chat_store::ChatStoreError> {
+    ) -> Result<LoadedHistory, velo_chat_store::ChatStoreError> {
         Self::load_history_scoped_with_limits(
             chat_store,
             client,
@@ -309,7 +309,7 @@ impl WhatsAppClient {
         names: &NameBook,
         chat_limit: usize,
         message_limit: usize,
-    ) -> Result<LoadedHistory, oxidezap_chat_store::ChatStoreError> {
+    ) -> Result<LoadedHistory, velo_chat_store::ChatStoreError> {
         let mut loaded = Self::load_history_scoped_with_limits(
             chat_store,
             client,
@@ -355,7 +355,7 @@ impl WhatsAppClient {
         names: &NameBook,
         chat_limit: usize,
         message_limit: usize,
-    ) -> Result<LoadedHistory, oxidezap_chat_store::ChatStoreError> {
+    ) -> Result<LoadedHistory, velo_chat_store::ChatStoreError> {
         Self::load_history_scoped_with_limits_impl(
             chat_store,
             client,
@@ -373,7 +373,7 @@ impl WhatsAppClient {
         names: &NameBook,
         chat_limit: usize,
         message_limit: usize,
-    ) -> Result<LoadedHistory, oxidezap_chat_store::ChatStoreError> {
+    ) -> Result<LoadedHistory, velo_chat_store::ChatStoreError> {
         Self::load_history_scoped_with_limits_impl(
             chat_store,
             client,
@@ -392,7 +392,7 @@ impl WhatsAppClient {
         names: &NameBook,
         chat_limit: usize,
         message_limit: usize,
-    ) -> Result<LoadedHistory, oxidezap_chat_store::ChatStoreError> {
+    ) -> Result<LoadedHistory, velo_chat_store::ChatStoreError> {
         // A whole-list load is the pass that re-reads the address book, so it
         // is the one that drops what the book remembers: a contact renamed on
         // the phone appears under its new name without a restart, and the
@@ -492,7 +492,7 @@ impl WhatsAppClient {
     /// because this load is not an answer about pictures.
     pub(super) async fn attach_avatar_descriptors(
         chat_store: &Arc<ChatStore>,
-        chats: &mut [oxidezap_core::Chat],
+        chats: &mut [velo_core::Chat],
     ) {
         if chats.is_empty() {
             return;
@@ -503,7 +503,7 @@ impl WhatsAppClient {
             // pictures a later refresh will supply.
             return;
         };
-        let by_jid: std::collections::HashMap<String, oxidezap_chat_store::AvatarDescriptor> =
+        let by_jid: std::collections::HashMap<String, velo_chat_store::AvatarDescriptor> =
             descriptors
                 .into_iter()
                 .map(|descriptor| (descriptor.jid.to_string(), descriptor))
@@ -535,7 +535,7 @@ impl WhatsAppClient {
         names: &NameBook,
         entries: Vec<ChatEntry>,
         page_for: impl Fn(&ChatEntry) -> i64,
-    ) -> Result<Vec<oxidezap_core::Chat>, oxidezap_chat_store::ChatStoreError> {
+    ) -> Result<Vec<velo_core::Chat>, velo_chat_store::ChatStoreError> {
         // Every chat's page in one read, before the loop that needs them: the
         // per-chat call is a permit, a blocking task and a transaction each,
         // and an attaching front end asks for a hundred of them at once.
@@ -548,7 +548,7 @@ impl WhatsAppClient {
                     .collect(),
             )
             .await?;
-        let mut chats: Vec<oxidezap_core::Chat> = Vec::with_capacity(entries.len());
+        let mut chats: Vec<velo_core::Chat> = Vec::with_capacity(entries.len());
         // Updates whose stored ack says they were watched here. Gathered from
         // the rows as they are read and applied once at the end; see the call
         // to `apply_status_views` below for why it cannot be done in place.
@@ -624,7 +624,7 @@ impl WhatsAppClient {
             }
             // Store-originated: the HistoryLoaded prune may drop it when a
             // later complete load no longer returns it.
-            let mut chat = oxidezap_core::Chat::from_store(jid_str.clone(), name, name_priority);
+            let mut chat = velo_core::Chat::from_store(jid_str.clone(), name, name_priority);
             chat.pinned_at = entry.pinned_at;
             chat.muted_until = entry.muted_until;
             chat.archived = entry.archived;
@@ -908,7 +908,7 @@ impl WhatsAppClient {
         is_status: bool,
     ) {
         for msg in msgs.iter_mut() {
-            if let Some(oxidezap_core::SystemNotice::GroupMembership(event)) = &mut msg.system {
+            if let Some(velo_core::SystemNotice::GroupMembership(event)) = &mut msg.system {
                 super::membership::resolve(client, names, chat_store, event).await;
                 msg.content = event.summary();
                 continue;
@@ -957,7 +957,7 @@ pub(super) fn own_jids(client: &Arc<Client>) -> Vec<String> {
 
 /// The one chat nobody opens as a conversation.
 fn is_status_broadcast(entry: &ChatEntry) -> bool {
-    entry.jid.to_non_ad_string() == oxidezap_core::STATUS_BROADCAST_JID
+    entry.jid.to_non_ad_string() == velo_core::STATUS_BROADCAST_JID
 }
 
 pub(super) fn merge_alias_history_messages(
@@ -1007,14 +1007,13 @@ pub(super) fn merge_alias_history_messages(
 /// is written once at insert as `Delivered`, peer receipts only advance our
 /// own messages, and a redelivery refreshes content without touching it. The
 /// same field WhatsApp Web moves to `ACK.READ` when a status is viewed.
-fn watched_ids(page: &[oxidezap_chat_store::StoredMessage]) -> impl Iterator<Item = String> + '_ {
+fn watched_ids(page: &[velo_chat_store::StoredMessage]) -> impl Iterator<Item = String> + '_ {
     page.iter()
         .filter(|stored| {
             !stored.from_me
                 && matches!(
                     stored.status,
-                    oxidezap_chat_store::MessageStatus::Read
-                        | oxidezap_chat_store::MessageStatus::Played
+                    velo_chat_store::MessageStatus::Read | velo_chat_store::MessageStatus::Played
                 )
         })
         .map(|stored| stored.id.clone())
@@ -1025,7 +1024,7 @@ fn watched_ids(page: &[oxidezap_chat_store::StoredMessage]) -> impl Iterator<Ite
 /// Our own updates are left alone: they are never unseen to begin with, and a
 /// row from us carries the peer-read ticks in `is_read`, which a local view has
 /// no business setting.
-pub(super) fn apply_status_views(chats: &mut [oxidezap_core::Chat], watched: &HashSet<String>) {
+pub(super) fn apply_status_views(chats: &mut [velo_core::Chat], watched: &HashSet<String>) {
     if watched.is_empty() {
         return;
     }

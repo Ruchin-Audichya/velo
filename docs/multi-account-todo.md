@@ -7,7 +7,7 @@ A implementação usa **um `whatsapp.db` compartilhado**; `AccountId` é o `devi
 positivo desse banco. Não reintroduzir `accounts.json`, UUIDs, um DB por conta ou
 migração de arquivo.
 
-**PR aberto (draft):** `https://github.com/oxidezap/client/pull/172` (branch
+**PR aberto (draft):** `https://github.com/Ruchin-Audichya/velo/pull/172` (branch
 `feat/multi-account`). CI estava vermelho por um conflito de ordenação de
 migrations com o PR #171 (mergeado em `main` depois que esta branch foi
 criada); corrigido e re-empurrado — ver a entrada "CI do PR #172 corrigido"
@@ -176,14 +176,14 @@ abaixo para o diagnóstico completo.
 - `cargo clippy --workspace --all-targets --all-features -- -D warnings` —
   sem warnings.
 - `cargo check --workspace --all-targets` — passou.
-- `cargo check -p oxidezap-daemon -p oxidezap-session --lib --target
+- `cargo check -p velo-daemon -p velo-session --lib --target
   wasm32-unknown-unknown` — passou (mesmo alvo que o job `Test (web)` do CI
   compila antes de rodar no browser).
-- `RUSTFLAGS="--cfg web_sys_unstable_apis" cargo clippy -p oxidezap-audio -p
-  oxidezap-session --target wasm32-unknown-unknown -- -A clippy::all -A
+- `RUSTFLAGS="--cfg web_sys_unstable_apis" cargo clippy -p velo-audio -p
+  velo-session --target wasm32-unknown-unknown -- -A clippy::all -A
   warnings -D clippy::disallowed_methods -D clippy::disallowed_types` —
   reproduz o "shared-view ban" do CI; passou.
-- `cargo test -p oxidezap-session --lib -- --test-threads=1` — passou
+- `cargo test -p velo-session --lib -- --test-threads=1` — passou
   (169/169 antes das mudanças de plugin-state, que não tocam essa crate).
 - Testes novos do `StoreRegistry`: `create_account_allocates_and_is_listed`,
   `ids_are_distinct_and_never_reused_after_removal`,
@@ -195,28 +195,28 @@ abaixo para o diagnóstico completo.
 ### Validação desta sessão (fix de CI + `AccountSupervisor`)
 
 - Após o merge de `origin/main` (traz o PR #171, `message_stable_id`) e a
-  correção de ordenação de migrations: `cargo test -p oxidezap-chat-store
+  correção de ordenação de migrations: `cargo test -p velo-chat-store
   --all-features` — passou por completo (44+ testes na suíte inline, todos os
   arquivos de teste de integração).
 - `cargo test --workspace --all-features --no-fail-fast` — passou, com **uma
   única exceção pré-existente e não relacionada**:
   `whatsapp::tests::a_session_is_never_observed_half_open` (em
-  `oxidezap-session`) é flaky sob execução paralela completa — confirmado
+  `velo-session`) é flaky sob execução paralela completa — confirmado
   isolado (`--exact`, passa sempre) e confirmado **também flaky em
   `origin/main` sem nenhuma mudança desta branch** (testado num worktree
   descartável). Não é uma regressão; não foi tocado.
 - `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets
   --all-features -- -D warnings`, `cargo test --workspace --all-features
   --doc`, `cargo check --workspace --all-targets` — todos passaram limpos.
-- `cargo test -p oxidezap-daemon -p oxidezap-session --lib --target
+- `cargo test -p velo-daemon -p velo-session --lib --target
   wasm32-unknown-unknown --no-run` — falha no link ("--shared-memory is
   disallowed... not compiled with 'atomics'"), confirmado como limitação
   pré-existente deste sandbox local (reproduz igual num checkout limpo de
   `origin/main`); nenhum erro de compilação novo, só esse estágio de link.
   CI real (GitHub Actions) não roda esse comando exato da mesma forma —
   confiar no resultado do `Test (web)` do CI para essa parte.
-- `RUSTFLAGS="--cfg web_sys_unstable_apis" cargo clippy -p oxidezap-audio -p
-  oxidezap-session --target wasm32-unknown-unknown -- -A clippy::all -A
+- `RUSTFLAGS="--cfg web_sys_unstable_apis" cargo clippy -p velo-audio -p
+  velo-session --target wasm32-unknown-unknown -- -A clippy::all -A
   warnings -D clippy::disallowed_methods -D clippy::disallowed_types` —
   passou.
 - Diagnóstico completo do porquê o CI estava vermelho está no histórico de
@@ -227,14 +227,14 @@ abaixo para o diagnóstico completo.
 
 - Depois de ligar `AccountSupervisor` em `main.rs` (startup/shutdown) e nas
   três requests de lifecycle em `serve_control_client`: `cargo test -p
-  oxidezap-daemon --all-features` — passou por completo (224+ testes na
+  velo-daemon --all-features` — passou por completo (224+ testes na
   suíte inline, mais os arquivos de teste de integração), incluindo os dois
   testes novos (`supervisor_attaches_itself_to_its_registry_and_lets_it_go_when_dropped`
   em `account/mod.rs`; `create_account_is_refused_without_a_supervisor_attached`
   e `a_control_connection_resets_and_removes_a_named_account` em
   `server/tests.rs`) — rodados 3x seguidas para descartar flakiness, todas
   estáveis.
-- `cargo check -p oxidezap-daemon --lib --target wasm32-unknown-unknown` —
+- `cargo check -p velo-daemon --lib --target wasm32-unknown-unknown` —
   passou: `serve_control_client` e seus dois novos helpers
   (`create_account`/`change_account`) compilam para wasm, onde
   `AccountSupervisor` não existe — o split de `cfg` fica dentro de

@@ -29,18 +29,18 @@
 //! `BroadcastChannel` has no close event, so the follower holds a lock for as
 //! long as it wants serving and this side waits on it — the browser releases
 //! it when that tab goes, whatever took it away. See
-//! [`oxidezap_ipc::tabs::liveness_lock_for`].
+//! [`velo_ipc::tabs::liveness_lock_for`].
 
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use oxidezap_ipc::tabs::fields::{
+use tokio::io::{AsyncBufReadExt as _, AsyncWriteExt as _, BufReader};
+use velo_ipc::tabs::fields::{
     bytes as bytes_field, flag as bool_field, number as number_field, set, string as string_field,
 };
-use oxidezap_ipc::tabs::{self, Rendezvous};
-use tokio::io::{AsyncBufReadExt as _, AsyncWriteExt as _, BufReader};
+use velo_ipc::tabs::{self, Rendezvous};
 use wasm_bindgen::JsCast as _;
 use wasm_bindgen::prelude::Closure;
 use web_sys::{BroadcastChannel, MessageEvent};
@@ -201,7 +201,7 @@ fn accept(
 
     let (client, server) = tokio::io::duplex(PIPE);
     let serving_registry = Arc::clone(&registry);
-    oxidezap_session::spawn(async move {
+    velo_session::spawn(async move {
         if let Err(e) =
             crate::server::serve_client_with_registry(Box::new(server), serving_registry).await
         {
@@ -214,7 +214,7 @@ fn accept(
     // front end's own pipe does it: writing to a duplex is an await, and the
     // browser hands this side its messages in a callback that cannot wait.
     let (requests, mut to_write) = tokio::sync::mpsc::unbounded_channel::<String>();
-    oxidezap_session::spawn(async move {
+    velo_session::spawn(async move {
         while let Some(line) = to_write.recv().await {
             if to_server.write_all(line.as_bytes()).await.is_err() {
                 break;
@@ -273,7 +273,7 @@ fn accept(
     let live = tabs::liveness_lock_for(ask);
     let live_name = ask.to_string();
     wasm_bindgen_futures::spawn_local(async move {
-        if let Err(e) = oxidezap_ipc::web_locks::wait_for(&live).await {
+        if let Err(e) = velo_ipc::web_locks::wait_for(&live).await {
             // Nothing to fall back on, and better said than silently leaked:
             // without this the connection is held until the session goes.
             log::warn!("this tab cannot tell when a front end leaves: {e}");
@@ -409,8 +409,7 @@ fn handler(
                 ) else {
                     return;
                 };
-                let account =
-                    oxidezap_ipc::account_id_of(&key).unwrap_or(oxidezap_core::AccountId::LEGACY);
+                let account = velo_ipc::account_id_of(&key).unwrap_or(velo_core::AccountId::LEGACY);
                 if registry
                     .get(account)
                     .is_none_or(|runtime| runtime.is_stopping())
@@ -531,21 +530,21 @@ fn post_failure(
 /// CHROMEDRIVER=$(which chromedriver) \
 /// RUSTFLAGS='--cfg web_sys_unstable_apis' \
 /// CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-bindgen-test-runner \
-///   cargo test -p oxidezap-daemon --lib --target wasm32-unknown-unknown
+///   cargo test -p velo-daemon --lib --target wasm32-unknown-unknown
 /// ```
 ///
 /// One agent runs both ends here, which is exactly what a `BroadcastChannel`
 /// allows: it does not deliver to the object that posted, and every other
 /// object of that name hears it — including one in this same page. So the
 /// leader and the follower are the real `serve` and the real
-/// `oxidezap_ipc::tab::connect`, talking over the real transport, with
+/// `velo_ipc::tab::connect`, talking over the real transport, with
 /// nothing standing in for either side.
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
 
-    use oxidezap_ipc::tab::FromTab;
-    use oxidezap_ipc::{ClientRequest, ClientScope, DaemonMessage, PROTOCOL_VERSION, Request};
+    use velo_ipc::tab::FromTab;
+    use velo_ipc::{ClientRequest, ClientScope, DaemonMessage, PROTOCOL_VERSION, Request};
     use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
 
     use super::serve;
@@ -555,7 +554,7 @@ mod tests {
     wasm_bindgen_test_configure!(run_in_browser);
 
     /// A daemon with nothing in it beyond one account bound to
-    /// [`oxidezap_core::AccountId::LEGACY`], and something to answer its
+    /// [`velo_core::AccountId::LEGACY`], and something to answer its
     /// commands.
     ///
     /// The stand-in bridge is not decoration. A front end that says it has a
@@ -581,9 +580,7 @@ mod tests {
             }
         });
         let hub = StateHub::new();
-        let plugins = Arc::new(oxidezap_plugin_host::Plugins::nothing_loaded(Arc::new(
-            |_| {},
-        )));
+        let plugins = Arc::new(velo_plugin_host::Plugins::nothing_loaded(Arc::new(|_| {})));
         let registry = AccountRegistry::new();
         let runtime = Arc::new(AccountRuntime::new(
             hub.account_id(),
@@ -621,14 +618,14 @@ mod tests {
         let registry = a_daemon();
         let _serving = serve(&registry).expect("the rendezvous opens");
 
-        let mut tab = oxidezap_ipc::tab::connect()
+        let mut tab = velo_ipc::tab::connect()
             .await
             .expect("the tab holding the account answers");
 
         let hello = serde_json::to_vec(&Request::bare(ClientRequest::Hello {
             protocol: PROTOCOL_VERSION,
             scope: ClientScope::Account {
-                account: oxidezap_core::AccountId::LEGACY,
+                account: velo_core::AccountId::LEGACY,
             },
             session_events: true,
             owns_window: true,
@@ -637,7 +634,7 @@ mod tests {
         .expect("a hello serializes");
         tab.link.send_line(&hello).expect("and goes out");
 
-        let answer = oxidezap_session::with_timeout(tab.incoming.recv(), PATIENCE)
+        let answer = velo_session::with_timeout(tab.incoming.recv(), PATIENCE)
             .await
             .expect("the leader answers a hello it heard, well inside the handshake window");
         match answer {

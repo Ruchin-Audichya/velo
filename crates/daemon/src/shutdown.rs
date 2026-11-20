@@ -12,7 +12,7 @@
 //! notification serves both, and the signal handler now feeds the same one
 //! rather than being a second route to the same place.
 //!
-//! [`ClientRequest::Shutdown`]: oxidezap_ipc::ClientRequest::Shutdown
+//! [`ClientRequest::Shutdown`]: velo_ipc::ClientRequest::Shutdown
 
 use std::sync::LazyLock;
 use std::sync::atomic::{AtomicBool, Ordering};

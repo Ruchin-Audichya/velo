@@ -102,10 +102,10 @@ were authorized for this investigation. No production dependency was added.
 ```sh
 cc -O2 -Wall -Wextra -Werror scripts/phone-profile-usage.c -o /tmp/phone-profile-usage
 git show e6e302043a216419058c87ec5e2ca7985eba51ca:crates/core/src/group_membership.rs > crates/core/src/group_membership.rs
-cargo build --release -p oxidezap-core --example phone_profile --locked
+cargo build --release -p velo-core --example phone_profile --locked
 cp target/release/examples/phone_profile /tmp/phone-profile-base
 git restore -- crates/core/src/group_membership.rs
-cargo build --release -p oxidezap-core --example phone_profile --locked
+cargo build --release -p velo-core --example phone_profile --locked
 cp target/release/examples/phone_profile /tmp/phone-profile-head
 python3 scripts/measure-phone-profile.py /tmp/phone-profile-usage /tmp/phone-profile-base /tmp/phone-profile-head --output /tmp/phone-profile.csv
 ```

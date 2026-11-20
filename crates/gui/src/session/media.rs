@@ -166,14 +166,14 @@ pub(crate) fn decode_avatar(bytes: &[u8]) -> Option<(Arc<RenderImage>, u64)> {
         .with_guessed_format()
         .ok()?;
     let mut limits = image::Limits::default();
-    limits.max_image_width = Some(oxidezap_core::MAX_AVATAR_DIMENSION);
-    limits.max_image_height = Some(oxidezap_core::MAX_AVATAR_DIMENSION);
-    limits.max_alloc = Some(oxidezap_core::MAX_AVATAR_PIXELS * 4);
+    limits.max_image_width = Some(velo_core::MAX_AVATAR_DIMENSION);
+    limits.max_image_height = Some(velo_core::MAX_AVATAR_DIMENSION);
+    limits.max_alloc = Some(velo_core::MAX_AVATAR_PIXELS * 4);
     reader.limits(limits);
     let image = reader.decode().ok()?;
     let (width, height) = (image.width(), image.height());
     let pixels = u64::from(width).checked_mul(u64::from(height))?;
-    if pixels > oxidezap_core::MAX_AVATAR_PIXELS {
+    if pixels > velo_core::MAX_AVATAR_PIXELS {
         return None;
     }
     // These are profile-picture previews. Keep all cache slots affordable:
@@ -282,7 +282,7 @@ impl SourceCache {
                 touched: self.clock,
             },
         );
-        while self.bytes > oxidezap_core::DECODED_IMAGE_BUDGET_BYTES
+        while self.bytes > velo_core::DECODED_IMAGE_BUDGET_BYTES
             || self.entries.len() > MAX_SOURCE_ENTRIES
         {
             let Some(key) = self
@@ -314,13 +314,13 @@ impl MediaCache for Directory {
     }
 
     fn read_deferred(&self, key: &str, most: usize) -> Result<Arc<Vec<u8>>, String> {
-        let path = oxidezap_ipc::media_path(key)
+        let path = velo_ipc::media_path(key)
             .ok_or_else(|| format!("the daemon named an unusable cache key: {key}"))?;
         read_bounded(&path, most).map(Arc::new)
     }
 
     fn read(&self, key: &str) -> Result<Arc<Vec<u8>>, String> {
-        oxidezap_ipc::media_path(key)
+        velo_ipc::media_path(key)
             .ok_or_else(|| format!("the daemon named an unusable cache key: {key}"))
             .and_then(|path| std::fs::read(path).map_err(|e| e.to_string()))
             .map(Arc::new)
@@ -330,7 +330,7 @@ impl MediaCache for Directory {
         if let Some(source) = get_avatar_image(key) {
             return Some(source);
         }
-        let path = oxidezap_ipc::media_path(key)?;
+        let path = velo_ipc::media_path(key)?;
         let bytes = std::fs::read(path).ok()?;
         let (image, decoded_size) = decode_avatar(&bytes)?;
         put_avatar_image(key.to_string(), image.clone(), decoded_size);
@@ -342,7 +342,7 @@ impl MediaCache for Directory {
     }
 
     fn stage(&self, key: &str, bytes: &[u8]) -> Result<(), String> {
-        let path = oxidezap_ipc::media_path(key)
+        let path = velo_ipc::media_path(key)
             .ok_or_else(|| "no media cache to stage the recording".to_string())?;
         if let Some(dir) = path.parent() {
             make_private(dir).map_err(|e| e.to_string())?;
@@ -355,14 +355,14 @@ impl MediaCache for Directory {
     /// The default runs [`stage`](Self::stage) inline, and the thread that
     /// asks for one here is the window's own: a send is started from the frame
     /// the person pressed. A staged payload is up to
-    /// [`oxidezap_ipc::MAX_STAGED_BYTES`], so that default is sixty four
+    /// [`velo_ipc::MAX_STAGED_BYTES`], so that default is sixty four
     /// megabytes of `write` — plus a `create_dir_all` and whatever the disk is
     /// doing — inside a frame, and the window draws nothing at all while it
     /// runs. A page never had this problem: staging there is a `fetch` that
     /// could not be awaited inline anyway, which is why only this half needed
     /// saying.
     ///
-    /// Not through `oxidezap_platform::spawn`, which is where the tree's rule
+    /// Not through `velo_platform::spawn`, which is where the tree's rule
     /// points and is the wrong tool exactly here: its desktop half is
     /// `tokio::spawn`, and the window deliberately owns no Tokio runtime to
     /// spawn onto — see the note beside `smol` in this crate's manifest. What
@@ -401,7 +401,7 @@ impl MediaCache for Directory {
     fn discard(&self, key: &str) {
         let key = key.to_string();
         writes::off_thread(Box::new(move || {
-            if let Some(path) = oxidezap_ipc::media_path(&key) {
+            if let Some(path) = velo_ipc::media_path(&key) {
                 let _ = std::fs::remove_file(path);
             }
         }));
@@ -472,7 +472,7 @@ mod writes {
     fn start() -> Option<Sender<Errand>> {
         let (tx, rx) = channel::<Errand>();
         std::thread::Builder::new()
-            .name("oxidezap-media".to_string())
+            .name("velo-media".to_string())
             .spawn(move || {
                 for errand in rx {
                     errand();
@@ -497,7 +497,7 @@ mod writes {
 ///
 /// What this deliberately does *not* do is repair a directory that is already
 /// there. Deciding an existing one is ours — owner, mode, and then sweeping
-/// what somebody else left inside — is `oxidezap-daemon`'s `private_dir`, and
+/// what somebody else left inside — is `velo-daemon`'s `private_dir`, and
 /// the front end cannot call it: `gui` never depends on the daemon on a
 /// platform where there is a daemon process to depend on, which is the rule
 /// its manifest states. It is also the daemon's answer to give: the daemon
@@ -704,7 +704,7 @@ impl AvatarCache {
 
     #[allow(dead_code)]
     fn evict(&mut self) {
-        while self.bytes > oxidezap_core::WEB_MEDIA_BUDGET_BYTES as u64 {
+        while self.bytes > velo_core::WEB_MEDIA_BUDGET_BYTES as u64 {
             let Some(key) = self
                 .entries
                 .iter()
@@ -775,14 +775,14 @@ impl MediaCache for Fetched {
     /// this side allocates whole.
     fn stage_then(&self, key: &str, bytes: Vec<u8>, then: StageThen) {
         let key = key.to_string();
-        let base = oxidezap_ipc::web::media_base_url();
+        let base = velo_ipc::web::media_base_url();
         self.uploading
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .insert(key.clone(), false);
         let uploading = Arc::clone(&self.uploading);
         wasm_bindgen_futures::spawn_local(async move {
-            let staged = oxidezap_ipc::web::upload_media(&base, &key, &bytes).await;
+            let staged = velo_ipc::web::upload_media(&base, &key, &bytes).await;
             let abandoned = uploading
                 .lock()
                 .unwrap_or_else(|e| e.into_inner())
@@ -800,7 +800,7 @@ impl MediaCache for Fetched {
                 // discard could not safely make at the time.
                 if staged.is_ok() {
                     wasm_bindgen_futures::spawn_local(async move {
-                        oxidezap_ipc::web::discard_media(&base, &key).await;
+                        velo_ipc::web::discard_media(&base, &key).await;
                     });
                 }
                 return;
@@ -817,7 +817,7 @@ impl MediaCache for Fetched {
     /// upload landed would leave that file until the account is wiped.
     fn discard(&self, key: &str) {
         self.held.forget(key);
-        if !oxidezap_ipc::is_staged_key(key) {
+        if !velo_ipc::is_staged_key(key) {
             return;
         }
         {
@@ -830,9 +830,9 @@ impl MediaCache for Fetched {
             }
         }
         let key = key.to_string();
-        let base = oxidezap_ipc::web::media_base_url();
+        let base = velo_ipc::web::media_base_url();
         wasm_bindgen_futures::spawn_local(async move {
-            oxidezap_ipc::web::discard_media(&base, &key).await;
+            velo_ipc::web::discard_media(&base, &key).await;
         });
     }
 }
@@ -891,7 +891,7 @@ mod tests {
     #[cfg(unix)]
     fn scratch(name: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!(
-            "oxidezap-gui-stage-{}-{:?}-{name}",
+            "velo-gui-stage-{}-{:?}-{name}",
             std::process::id(),
             std::thread::current().id()
         ));
@@ -920,7 +920,7 @@ mod tests {
     #[test]
     fn deferred_file_reads_enforce_the_byte_limit_and_preserve_exact_bytes() {
         let path = std::env::temp_dir().join(format!(
-            "oxidezap-bounded-{}-{:?}",
+            "velo-bounded-{}-{:?}",
             std::process::id(),
             std::thread::current().id()
         ));
@@ -947,7 +947,7 @@ mod tests {
         cache.put(
             "old".to_string(),
             dummy(),
-            oxidezap_core::DECODED_IMAGE_BUDGET_BYTES,
+            velo_core::DECODED_IMAGE_BUDGET_BYTES,
         );
         cache.put("new".to_string(), dummy(), 1);
 
@@ -983,8 +983,7 @@ mod tests {
             assert_eq!(decoded_size, expected_cost);
             assert_eq!(image.as_bytes(0).unwrap().len() as u64, decoded_size);
             assert!(
-                decoded_size * MAX_SOURCE_ENTRIES as u64
-                    <= oxidezap_core::DECODED_IMAGE_BUDGET_BYTES
+                decoded_size * MAX_SOURCE_ENTRIES as u64 <= velo_core::DECODED_IMAGE_BUDGET_BYTES
             );
         }
     }

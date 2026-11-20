@@ -140,13 +140,13 @@ jobs:
           cache-targets: "false"
 
       # Three binaries, because they are one product now: the front end owns
-      # no WhatsApp session and starts `oxidezapd` beside itself when none is
-      # running, and `oxidezap-cli` is the scriptable front end onto that same
+      # no WhatsApp session and starts `velod` beside itself when none is
+      # running, and `velo-cli` is the scriptable front end onto that same
       # daemon. Shipping the UI alone would ship something that cannot connect
       # to anything, and shipping without the CLI would leave the feature
       # undiscoverable from the releases page.
       - name: Build
-        run: cargo build --release --target ${{ matrix.target }} --bin oxidezap --bin oxidezapd --bin oxidezap-cli
+        run: cargo build --release --target ${{ matrix.target }} --bin velo --bin velod --bin velo-cli
 
       # Before packaging, so the archive carries signed files. Skipped, not
       # failed, when no certificate is configured; when one is, a file that
@@ -179,9 +179,9 @@ jobs:
           TARGET: ${{ matrix.target }}
         run: |
           ./packaging/windows/sign.ps1 -Files @(
-            "target/$env:TARGET/release/oxidezap.exe",
-            "target/$env:TARGET/release/oxidezapd.exe",
-            "target/$env:TARGET/release/oxidezap-cli.exe"
+            "target/$env:TARGET/release/velo.exe",
+            "target/$env:TARGET/release/velod.exe",
+            "target/$env:TARGET/release/velo-cli.exe"
           )
 
       - name: Package the binaries for their platform
@@ -209,23 +209,23 @@ jobs:
           # platform with `merge-multiple`, so three sets of identically named
           # binaries would land on top of each other and only one platform
           # would survive into the release.
-          out="oxidezap-$VERSION-$PLATFORM"
+          out="velo-$VERSION-$PLATFORM"
           mkdir -p "$out"
           if [ "${{ runner.os }}" = "Windows" ]; then
-            mv "target/$TARGET/release/oxidezap.exe" "$out/"
-            mv "target/$TARGET/release/oxidezapd.exe" "$out/"
-            mv "target/$TARGET/release/oxidezap-cli.exe" "$out/"
+            mv "target/$TARGET/release/velo.exe" "$out/"
+            mv "target/$TARGET/release/velod.exe" "$out/"
+            mv "target/$TARGET/release/velo-cli.exe" "$out/"
             7z a -tzip "$out.zip" "$out" > /dev/null
             echo "ASSET=$out.zip" >> "$GITHUB_ENV"
           else
-            mv "target/$TARGET/release/oxidezap" "$out/"
-            mv "target/$TARGET/release/oxidezapd" "$out/"
-            mv "target/$TARGET/release/oxidezap-cli" "$out/"
+            mv "target/$TARGET/release/velo" "$out/"
+            mv "target/$TARGET/release/velod" "$out/"
+            mv "target/$TARGET/release/velo-cli" "$out/"
             # Preserving the execute bit, which the bare binaries never had:
             # an archive can carry it where a raw asset download cannot.
-            chmod +x "$out/oxidezap" "$out/oxidezapd" "$out/oxidezap-cli"
+            chmod +x "$out/velo" "$out/velod" "$out/velo-cli"
             if [ "${{ runner.os }}" = "Linux" ]; then
-              cp packaging/linux/install-desktop.sh packaging/linux/org.oxidezap.client.local.png "$out/"
+              cp packaging/linux/install-desktop.sh packaging/linux/io.github.RuchinAudichya.Velo.png "$out/"
               chmod +x "$out/install-desktop.sh"
             fi
             tar -czf "$out.tar.gz" "$out"
@@ -246,12 +246,12 @@ jobs:
           PLATFORM: ${{ matrix.name }}
           RUNNER_OS: ${{ runner.os }}
         run: |
-          cli="./oxidezap-$VERSION-$PLATFORM/oxidezap-cli"
+          cli="./velo-$VERSION-$PLATFORM/velo-cli"
           if [ "$RUNNER_OS" = "Windows" ]; then cli="$cli.exe"; fi
           "$cli" --help
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: oxidezap-${{ matrix.name }}
+          name: velo-${{ matrix.name }}
           path: ${{ env.ASSET }}
           if-no-files-found: error

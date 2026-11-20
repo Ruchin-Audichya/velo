@@ -97,7 +97,7 @@ jobs:
       # `pages.yml` makes.
       #
       # And *relocatable*, which is `--relocatable` and is the half only this
-      # build may ask: an asset named `/oxidezap-abc123.js` is one this bundle
+      # build may ask: an asset named `/velo-abc123.js` is one this bundle
       # would fetch from the origin root wherever it was unpacked, which is
       # the single way a relative build can silently come out non-relative.
       # Asserted rather than assumed, because it is a property of trunk's
@@ -114,7 +114,7 @@ jobs:
         run: |
           set -eu
           cat > web/dist/README.md <<'DOC'
-          # oxidezap — the web front end
+          # velo — the web front end
 
           Static files. Serve this directory with any web server; there is
           nothing to install, configure or run beside it, and no back end.
@@ -151,7 +151,7 @@ jobs:
           and the window — in the visitor's browser, under their account and
           nobody else's. Nothing reaches the server that hosts these files.
 
-          It can attach to an `oxidezapd` the visitor runs on their own
+          It can attach to an `velod` the visitor runs on their own
           machine instead, which is worth preferring: a desktop daemon holds
           calls, keeps plugins, survives the tab, and keeps the keys out of a
           browser's storage. Point the page at one with
@@ -184,7 +184,7 @@ jobs:
           # A directory inside the archive, matching the platform archives:
           # unpacking one in a downloads folder should leave one thing behind
           # rather than twenty hashed files.
-          out="oxidezap-$VERSION-web"
+          out="velo-$VERSION-web"
           mv web/dist "$out"
           zip -qr "$out.zip" "$out"
           echo "ASSET=$out.zip" >> "$GITHUB_ENV"
@@ -192,6 +192,6 @@ jobs:
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: oxidezap-web
+          name: velo-web
           path: ${{ env.ASSET }}
           if-no-files-found: error

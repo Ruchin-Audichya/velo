@@ -1,8 +1,8 @@
 //! Deterministic replay for profiling the bridge and publication path.
 //! No network, media files, plugins or account database are used.
 
-use oxidezap_ipc::DaemonMessage;
 use tokio::sync::broadcast::error::TryRecvError;
+use velo_ipc::DaemonMessage;
 
 use super::tests::{bridge, message, received, stored_chat};
 
@@ -60,7 +60,7 @@ async fn replay(messages: usize, attached: bool, read: bool, groups: bool) {
             stored_chat(&jid, 0, messages)
         })
         .collect();
-    bridge.observe(oxidezap_core::UiEvent::HistoryLoaded {
+    bridge.observe(velo_core::UiEvent::HistoryLoaded {
         chats,
         complete: false,
         next: None,
@@ -116,7 +116,7 @@ async fn replay(messages: usize, attached: bool, read: bool, groups: bool) {
             match frames.try_recv() {
                 Ok(frame) => {
                     if let DaemonMessage::Session { event } = serde_json::from_str(&frame).unwrap()
-                        && let oxidezap_core::UiEvent::MessageReceived { message, .. } = *event
+                        && let velo_core::UiEvent::MessageReceived { message, .. } = *event
                     {
                         newest = Some(message.id);
                     }

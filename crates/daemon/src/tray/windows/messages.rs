@@ -7,7 +7,7 @@ use windows::Win32::System::WinRT::{RO_INIT_SINGLETHREADED, RoInitialize, RoUnin
 use windows::core::IInspectable;
 
 use crate::state::StateHub;
-use oxidezap_platform::windows_desktop;
+use velo_platform::windows_desktop;
 
 struct Notice {
     hub: Weak<StateHub>,

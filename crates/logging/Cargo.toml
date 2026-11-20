@@ -1,5 +1,5 @@
 [package]
-name = "oxidezap-logging"
+name = "velo-logging"
 description = "The log level: where it is kept, and how it is changed while the process runs"
 version.workspace = true
 edition.workspace = true
@@ -12,7 +12,7 @@ repository.workspace = true
 log = { workspace = true }
 # `LogLevel` itself, which is also what crosses the daemon socket: a level a
 # front end picks and a level this crate writes down are one type.
-oxidezap-core = { workspace = true }
+velo-core = { workspace = true }
 
 # stderr, and an environment to read `RUST_LOG` out of.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]

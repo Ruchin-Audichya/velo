@@ -38,13 +38,13 @@ test("notification click opens the scoped focused page with the opaque tag", asy
         postMessage: (message) => delivered.push(message),
     };
     const listeners = workerWith([other, page]);
-    listeners.get("message")({ data: { oxidezapClientId: "tab-191" }, source: { id: "page-191" } });
+    listeners.get("message")({ data: { veloClientId: "tab-191" }, source: { id: "page-191" } });
     const click = listeners.get("notificationclick");
     let closed = false;
     let completion;
     click({
         notification: {
-            data: { oxidezapTag: "oxidezap-chat-123", oxidezapClientId: "tab-191", oxidezapAccountEpoch: "0" },
+            data: { veloTag: "velo-chat-123", veloClientId: "tab-191", veloAccountEpoch: "0" },
             close: () => { closed = true; },
         },
         waitUntil: (promise) => { completion = promise; },
@@ -52,8 +52,8 @@ test("notification click opens the scoped focused page with the opaque tag", asy
     await completion;
     assert.equal(closed, true);
     assert.equal(delivered.length, 1);
-    assert.equal(delivered[0].oxidezapNotificationTag, "oxidezap-chat-123");
-    assert.equal(delivered[0].oxidezapAccountEpoch, "0");
+    assert.equal(delivered[0].veloNotificationTag, "velo-chat-123");
+    assert.equal(delivered[0].veloAccountEpoch, "0");
 });
 
 test("a click cannot open a matching chat in a different account tab", async () => {
@@ -63,10 +63,10 @@ test("a click cannot open a matching chat in a different account tab", async () 
         focus: async () => {}, postMessage: (value) => received.push(value),
     };
     const listeners = workerWith([other]);
-    listeners.get("message")({ data: { oxidezapClientId: "departed-tab" }, source: { id: "old-tab" } });
+    listeners.get("message")({ data: { veloClientId: "departed-tab" }, source: { id: "old-tab" } });
     let completion;
     listeners.get("notificationclick")({
-        notification: { data: { oxidezapTag: "oxidezap-chat-123", oxidezapClientId: "departed-tab" }, close: () => {} },
+        notification: { data: { veloTag: "velo-chat-123", veloClientId: "departed-tab" }, close: () => {} },
         waitUntil: (promise) => { completion = promise; },
     });
     await completion;
@@ -76,6 +76,6 @@ test("a click cannot open a matching chat in a different account tab", async () 
 test("unrelated notification clicks are ignored", () => {
     const click = workerWith([]).get("notificationclick");
     let closed = false;
-    click({ notification: { data: { oxidezapTag: "other" }, close: () => { closed = true; } } });
+    click({ notification: { data: { veloTag: "other" }, close: () => { closed = true; } } });
     assert.equal(closed, false);
 });

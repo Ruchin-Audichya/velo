@@ -521,7 +521,7 @@ mod tests {
         }
         let handle = cx.open_window(gpui::size(gpui::px(40.), gpui::px(40.)), |_, _| View(None));
         let mut window = gpui::VisualTestContext::from_window(handle.into(), cx);
-        let arms = match std::env::var("OXIDEZAP_IMAGE_PROFILE_MODE").as_deref() {
+        let arms = match std::env::var("VELO_IMAGE_PROFILE_MODE").as_deref() {
             Ok("legacy") => vec![true],
             Ok("owned") => vec![false],
             _ => vec![true, false],

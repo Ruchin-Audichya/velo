@@ -14,8 +14,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use oxidezap_ipc::{ProtocolError, endpoint_path, lock_path, media_dir, state_dir};
 use tokio::io::{AsyncRead, AsyncWrite};
+use velo_ipc::{ProtocolError, endpoint_path, lock_path, media_dir, state_dir};
 
 use super::{ClientSlots, MAX_CLIENTS, error_frame, serve_client_with_registry, write_line};
 use crate::account::AccountRegistry;
@@ -83,7 +83,7 @@ pub async fn run(claim: &Claim, registry: Arc<AccountRegistry>, slots: ClientSlo
                 // Without this, an EMFILE that persists spins the loop at
                 // full speed; the descriptors it is waiting on are freed by
                 // other tasks, which need to be scheduled.
-                oxidezap_session::sleep(std::time::Duration::from_millis(50)).await;
+                velo_session::sleep(std::time::Duration::from_millis(50)).await;
                 continue;
             }
             Err(e) => return Err(e).context("accepting a client"),

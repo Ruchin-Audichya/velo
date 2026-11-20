@@ -6,7 +6,7 @@ mod storage;
 #[path = "../../../gui/src/session/avatar/web_lock.rs"]
 mod web_lock;
 
-use oxidezap_core::AccountId;
+use velo_core::AccountId;
 use wasm_bindgen::JsCast as _;
 use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen_test::wasm_bindgen_test;
@@ -112,7 +112,7 @@ async fn browser_avatar_cache_recovers_metadata_and_rejects_pre_clear_writes() {
     let local = web_sys::window().unwrap().local_storage().unwrap().unwrap();
     local
         .set_item(
-            &format!("oxidezap_avatar_meta_v2_a{}", a.get()),
+            &format!("velo_avatar_meta_v2_a{}", a.get()),
             "broken metadata",
         )
         .unwrap();
@@ -142,7 +142,7 @@ async fn browser_avatar_cache_recovers_metadata_and_rejects_pre_clear_writes() {
         .await
         .unwrap();
     local
-        .set_item(&format!("oxidezap_avatar_meta_v2_a{}_dirty", a.get()), "1")
+        .set_item(&format!("velo_avatar_meta_v2_a{}_dirty", a.get()), "1")
         .unwrap();
     storage::write_persistent(&second, b"newer", Some(a), stamp)
         .await
@@ -154,12 +154,12 @@ async fn browser_avatar_cache_recovers_metadata_and_rejects_pre_clear_writes() {
     let (done, finished) = futures_channel::oneshot::channel();
     let acquired = std::rc::Rc::new(std::cell::Cell::new(false));
     let acquired_next = std::rc::Rc::clone(&acquired);
-    oxidezap_platform::spawn(async move {
+    velo_platform::spawn(async move {
         let _next = web_lock::lock().await.unwrap();
         acquired_next.set(true);
         let _ = done.send(());
     });
-    oxidezap_session::sleep(std::time::Duration::from_millis(10)).await;
+    velo_session::sleep(std::time::Duration::from_millis(10)).await;
     assert!(
         !acquired.get(),
         "the second caller cannot acquire an owned origin lock"
@@ -170,14 +170,14 @@ async fn browser_avatar_cache_recovers_metadata_and_rejects_pre_clear_writes() {
     // Clear is already queued when an older completion requests the lock.
     let held = web_lock::lock().await.unwrap();
     let (cleared, clear_done) = futures_channel::oneshot::channel();
-    oxidezap_platform::spawn(async move {
+    velo_platform::spawn(async move {
         storage::delete_account_storage(Some(a)).await.unwrap();
         let _ = cleared.send(());
     });
-    oxidezap_session::sleep(std::time::Duration::from_millis(10)).await;
+    velo_session::sleep(std::time::Duration::from_millis(10)).await;
     let late_key = first.clone();
     let (written, write_done) = futures_channel::oneshot::channel();
-    oxidezap_platform::spawn(async move {
+    velo_platform::spawn(async move {
         let result =
             storage::write_persistent(&late_key, b"queued old bytes", Some(a), stamp).await;
         let _ = written.send(result);
@@ -229,7 +229,7 @@ async fn browser_avatar_cache_recovers_metadata_and_rejects_pre_clear_writes() {
         }
     }
     local
-        .set_item(&format!("oxidezap_avatar_meta_v2_a{}_dirty", b.get()), "1")
+        .set_item(&format!("velo_avatar_meta_v2_a{}_dirty", b.get()), "1")
         .unwrap();
     let arriving = format!("a{b}-a-arriving");
     storage::write_persistent(

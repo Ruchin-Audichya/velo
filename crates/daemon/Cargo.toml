@@ -1,5 +1,5 @@
 [package]
-name = "oxidezap-daemon"
+name = "velo-daemon"
 description = "Background WhatsApp session with a tray presence and an IPC surface"
 version.workspace = true
 edition.workspace = true
@@ -9,11 +9,11 @@ authors.workspace = true
 repository.workspace = true
 
 [[bin]]
-name = "oxidezapd"
+name = "velod"
 path = "src/main.rs"
 
 [features]
-test-support = ["oxidezap-session/test-support"]
+test-support = ["velo-session/test-support"]
 # Instrument only native test binaries; production allocators are unchanged.
 memory-profiling = []
 
@@ -22,22 +22,22 @@ embed-resource = "3.0.12"
 
 [dependencies]
 chrono = { workspace = true, features = ["std"] }
-oxidezap-platform = { workspace = true }
+velo-platform = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
 log = { workspace = true }
 
-oxidezap-audio = { workspace = true }
-oxidezap-video = { workspace = true }
-oxidezap-core = { workspace = true }
-oxidezap-ipc = { workspace = true, features = ["legacy-protocol"] }
+velo-audio = { workspace = true }
+velo-video = { workspace = true }
+velo-core = { workspace = true }
+velo-ipc = { workspace = true, features = ["legacy-protocol"] }
 # The log level, which a front end can change while this process runs: the
 # same crate the window uses, so both read the one stored answer.
-oxidezap-logging = { workspace = true }
-oxidezap-plugin-host = { workspace = true }
-oxidezap-session = { workspace = true }
-oxidezap-wire = { workspace = true }
+velo-logging = { workspace = true }
+velo-plugin-host = { workspace = true }
+velo-session = { workspace = true }
+velo-wire = { workspace = true }
 portable-atomic = { workspace = true }
 serde_json = { workspace = true, features = ["std"] }
 # What both targets have. The rest is per target below: `net` is `mio`, which
@@ -129,14 +129,14 @@ web-sys = { version = "0.3.106", features = [
 # the review rounds all green. See `plugins/web/tests.rs`.
 [target.'cfg(target_family = "wasm")'.dev-dependencies]
 wasm-bindgen-test = "0.3.79"
-oxidezap-platform = { workspace = true }
+velo-platform = { workspace = true }
 serde = { workspace = true }
 
 [dev-dependencies]
-oxidezap-chat-store = { workspace = true }
+velo-chat-store = { workspace = true }
 chrono = { workspace = true, features = ["std", "clock"] }
 # The same synthetic chats and messages every crate above core tests against.
-oxidezap-core = { workspace = true, features = ["fixtures"] }
+velo-core = { workspace = true, features = ["fixtures"] }
 # `start_paused`: the handshake deadline is ten seconds of wall clock, and a
 # test that actually waited it out would be ten seconds of CI.
 tokio = { workspace = true, features = ["test-util"] }

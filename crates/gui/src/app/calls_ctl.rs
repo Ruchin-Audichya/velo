@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use gpui::{Pixels, Point, RenderImage};
-use oxidezap_core::{IncomingCall, VideoStream};
+use velo_core::{IncomingCall, VideoStream};
 
 use super::*;
 use crate::video::CallFrame;
@@ -592,13 +592,13 @@ impl Calls {
         true
     }
 
-    fn dismiss_alert(&mut self, account: oxidezap_core::AccountId, call_id: &str) {
+    fn dismiss_alert(&mut self, account: velo_core::AccountId, call_id: &str) {
         self.alerts.dismiss(account, call_id);
     }
 
     fn sync_alert(
         &mut self,
-        account: Option<oxidezap_core::AccountId>,
+        account: Option<velo_core::AccountId>,
         app: WeakEntity<WhatsAppApp>,
         cx: &mut Context<Self>,
     ) {
@@ -668,7 +668,7 @@ impl Calls {
                 let preferences = match client {
                     Some(client) => {
                         alerts::current_ringtone_preferences(|| {
-                            client.call_devices(oxidezap_ipc::CallDeviceAction::Preferences)
+                            client.call_devices(velo_ipc::CallDeviceAction::Preferences)
                         })
                         .await
                     }
@@ -1233,7 +1233,7 @@ impl WhatsAppApp {
     }
 
     pub(super) fn open_call_notification(&mut self, tag: &str, cx: &mut Context<Self>) -> bool {
-        if !tag.starts_with("oxidezap-call-") {
+        if !tag.starts_with("velo-call-") {
             return false;
         }
         let current = self
@@ -1656,7 +1656,7 @@ mod call_alert_review_regressions {
         cx.update(|cx| cx.set_app_identity("test-call-alerts", "Call alert fixture"));
         let calls = cx.new(|_| Calls::new());
         let key = AlertKey {
-            account: oxidezap_core::AccountId::new(1).unwrap(),
+            account: velo_core::AccountId::new(1).unwrap(),
             call_id: "pending-output".into(),
         };
         let cancelled = Arc::new(AtomicBool::new(false));
@@ -1693,7 +1693,7 @@ mod call_alert_review_regressions {
     fn call_alert_reconnect_snapshot_can_ring_again(cx: &mut gpui::TestAppContext) {
         let calls = cx.new(|_| Calls::new());
         calls.update(cx, |calls, cx| {
-            let account = oxidezap_core::AccountId::new(1).unwrap();
+            let account = velo_core::AccountId::new(1).unwrap();
             calls.state.set_incoming(IncomingCall {
                 call_id: "still-ringing".into(),
                 caller_name: "Example".into(),
@@ -1714,7 +1714,7 @@ mod call_alert_review_regressions {
     #[gpui::test]
     fn call_alert_nonowner_cannot_dismiss_another_frontends_toast(cx: &mut gpui::TestAppContext) {
         let key = AlertKey {
-            account: oxidezap_core::AccountId::new(1).unwrap(),
+            account: velo_core::AccountId::new(1).unwrap(),
             call_id: "shared".into(),
         };
         cx.update(|cx| {
@@ -1759,7 +1759,7 @@ mod call_control_tests {
         let app = cx.new(WhatsAppApp::new);
         app.update(cx, |app, cx| {
             let key = AlertKey {
-                account: oxidezap_core::AccountId::new(1).unwrap(),
+                account: velo_core::AccountId::new(1).unwrap(),
                 call_id: "ring".into(),
             };
             let cancelled = Arc::new(AtomicBool::new(false));
@@ -1955,7 +1955,7 @@ mod call_control_tests {
 #[cfg(test)]
 mod call_tests {
     use super::*;
-    use oxidezap_core::VideoStream;
+    use velo_core::VideoStream;
 
     /// A [`Calls`] with a live call on the stage and no window behind it.
     ///

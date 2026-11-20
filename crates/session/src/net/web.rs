@@ -53,7 +53,7 @@ impl Runtime for BrowserRuntime {
     /// that killed the task.
     fn spawn(&self, future: Pin<Box<dyn Future<Output = ()> + 'static>>) -> AbortHandle {
         let (cancel, cancelled) = futures_channel::oneshot::channel::<()>();
-        oxidezap_platform::spawn(async move {
+        velo_platform::spawn(async move {
             // Which of the two ended it, said out loud. An abort here drops
             // the future *where it was*, and for a future that has not been
             // polled yet that means it never runs at all — no log, no error,
@@ -116,14 +116,14 @@ impl Runtime for BrowserRuntime {
 
 /// `setTimeout`, as a future.
 ///
-/// [`oxidezap_platform::try_sleep`] rather than its `sleep`, and the
+/// [`velo_platform::try_sleep`] rather than its `sleep`, and the
 /// difference is the `false`: this is the library's own clock, so a wait that
 /// cannot be armed — a worker torn down mid-task — must resolve rather than
 /// park, because a future that never completes holds whatever is awaiting it
 /// for the life of the page. Every other caller in this tree is a loop that
 /// would spin instead, and takes the parking one.
 async fn sleep(duration: Duration) {
-    let _ = oxidezap_platform::try_sleep(duration).await;
+    let _ = velo_platform::try_sleep(duration).await;
 }
 
 /// `fetch`, as the library's [`HttpClient`].
@@ -345,7 +345,7 @@ impl TransportFactory for BrowserTransportFactory {
         // The socket never leaves this task, and the closures never leave
         // the socket. Everything a caller can hold is the sender below.
         let (outbound, orders) = async_channel::unbounded();
-        oxidezap_platform::spawn(async move {
+        velo_platform::spawn(async move {
             // Moved in, not borrowed: this is where they die, which is what
             // keeps a reconnect from leaving four closures on the JS heap.
             let _handlers = (opened, message, closed, failed);
@@ -404,7 +404,7 @@ impl TransportFactory for BrowserTransportFactory {
                         if let Err(e) = socket.send_with_array_buffer(&bytes.buffer()) {
                             // WhatsApp's socket, not the daemon's. This file is
                             // the library's transport; the daemon link is
-                            // `oxidezap-ipc`, and a reader who trusts this
+                            // `velo-ipc`, and a reader who trusts this
                             // sentence goes and reads the wrong one.
                             log::error!("could not write to the socket to WhatsApp: {e:?}");
                             break;

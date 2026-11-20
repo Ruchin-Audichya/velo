@@ -11,7 +11,7 @@
 //! whose fields are all public, so a test that wants something else says so:
 //!
 //! ```
-//! # use oxidezap_core::fixtures;
+//! # use velo_core::fixtures;
 //! let mut incoming = fixtures::message("MSG-1", fixtures::PEER, "olá");
 //! incoming.is_read = true;
 //! ```

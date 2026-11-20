@@ -6,12 +6,12 @@
 
 use std::sync::Arc;
 
-use oxidezap_core::CallOutcome;
-use oxidezap_ipc::{
+use tokio::sync::OwnedSemaphorePermit;
+use velo_core::CallOutcome;
+use velo_ipc::{
     CallAction, ChatSummary, DaemonEvent, DaemonMessage, PageCursor, ProtocolError, RequestId,
 };
-use oxidezap_session::{ReadBoundary, WhatsAppClient};
-use tokio::sync::OwnedSemaphorePermit;
+use velo_session::{ReadBoundary, WhatsAppClient};
 use wacore_binary::jid::observe_str;
 
 use super::externalize::externalize_messages;
@@ -20,15 +20,15 @@ use super::translate::chat_updated;
 use super::wire_events::{chat_message_to_dto, chat_to_dto};
 use super::{Action, Bridge, CommandOutcome, Outbox, SessionCommand};
 use crate::state::Change;
-use oxidezap_wire::dto::{
+use velo_wire::dto::{
     ChannelDto, ChatDto, ContactDto, GroupDto, GroupJoinRequestDto,
     GroupParticipantAction as WireParticipantAction, GroupParticipantDto, MessageDto, PollDto,
     PollOptionDto, PresenceState,
 };
-use oxidezap_wire::envelope::ResponseEnvelope;
-use oxidezap_wire::error::ApiError;
-use oxidezap_wire::request::ClientRequest as WireRequest;
-use oxidezap_wire::response::DaemonResponse;
+use velo_wire::envelope::ResponseEnvelope;
+use velo_wire::error::ApiError;
+use velo_wire::request::ClientRequest as WireRequest;
+use velo_wire::response::DaemonResponse;
 
 /// How many commands may still be working inside the session at once.
 ///
@@ -135,7 +135,7 @@ impl Bridge {
                 let local = self.calls.desktop_history(500, &self.hub);
                 let hub = self.hub.clone();
                 let generation = hub.account_generation();
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let result = task
                         .await
                         .map_err(|error| error.to_string())
@@ -166,7 +166,7 @@ impl Bridge {
                     return None;
                 };
                 let task = client.list_contacts(query, i64::from(limit));
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let result = task
                         .await
                         .map_err(|error| error.to_string())
@@ -174,7 +174,7 @@ impl Bridge {
                         .map(|contacts| {
                             contacts
                                 .into_iter()
-                                .map(|(jid, name)| oxidezap_ipc::ContactSummary { jid, name })
+                                .map(|(jid, name)| velo_ipc::ContactSummary { jid, name })
                                 .collect()
                         });
                     answer_now(
@@ -197,7 +197,7 @@ impl Bridge {
                     return None;
                 };
                 let task = client.save_contact(jid, full_name);
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let result = task
                         .await
                         .map_err(|error| error.to_string())
@@ -222,14 +222,14 @@ impl Bridge {
                     return None;
                 };
                 let task = client.search_files(query, i64::from(limit));
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let result = task
                         .await
                         .map_err(|error| error.to_string())
                         .and_then(|result| result)
                         .map(|hits| {
                             hits.into_iter()
-                                .map(|hit| oxidezap_ipc::FileMatch {
+                                .map(|hit| velo_ipc::FileMatch {
                                     chat_jid: hit.chat_jid,
                                     msg_id: hit.msg_id,
                                     file_name: hit.file_name,
@@ -261,7 +261,7 @@ impl Bridge {
                     return None;
                 };
                 let task = client.forward_message(source_jid, message_id, target_jid);
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let result = task
                         .await
                         .map_err(|error| error.to_string())
@@ -285,7 +285,7 @@ impl Bridge {
                     let _ = reply.send(too_busy());
                     return None;
                 };
-                use oxidezap_ipc::ChatAction as Do;
+                use velo_ipc::ChatAction as Do;
                 let task = match action {
                     Do::Pin(pin) => client.pin_chat(jid, pin),
                     Do::Mute(seconds) => client.mute_chat(jid, seconds),
@@ -294,7 +294,7 @@ impl Bridge {
                     Do::Clear => client.clear_chat(jid),
                     Do::Delete => client.delete_chat(jid),
                 };
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let result = task
                         .await
                         .map_err(|error| error.to_string())
@@ -319,7 +319,7 @@ impl Bridge {
                     return None;
                 };
                 let task = client.search_everywhere(query, i64::from(limit));
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let result = task
                         .await
                         .map_err(|error| error.to_string())
@@ -345,7 +345,7 @@ impl Bridge {
                         && !hub.is_logged_out()
                         && !lifecycle.is_stopping()
                 });
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let outcome = match task.await {
                         Ok(Ok(())) => CommandOutcome::Accepted,
                         Ok(Err(error)) => CommandOutcome::Refused(error),
@@ -380,7 +380,7 @@ impl Bridge {
                     return None;
                 };
                 let task = client.edit_message(request.jid, request.message_id, request.new_text);
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let result = mutation_answer(id, task.await);
                     answer_now(&answer_to, answered(id, result));
                     let _ = reply.send(CommandOutcome::Accepted);
@@ -413,7 +413,7 @@ impl Bridge {
                 };
                 let task =
                     client.revoke_message(request.jid, request.message_id, request.for_everyone);
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let result = mutation_answer(id, task.await);
                     answer_now(&answer_to, answered(id, result));
                     let _ = reply.send(CommandOutcome::Accepted);
@@ -421,13 +421,13 @@ impl Bridge {
                 });
                 None
             }
-            Action::MarkStatusWatched(oxidezap_ipc::MarkStatusWatched { message_ids }) => {
+            Action::MarkStatusWatched(velo_ipc::MarkStatusWatched { message_ids }) => {
                 // The other actions are finished when the session has taken
                 // them and what the network makes of them arrives later; this
                 // one *is* the write, there is no retry, and the answer is the
                 // only thing that can tell a window its ring is coming back.
                 let written = client.mark_status_watched(message_ids);
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let outcome = match written.await {
                         Ok(true) => CommandOutcome::Accepted,
                         Ok(false) => CommandOutcome::Refused(
@@ -443,7 +443,7 @@ impl Bridge {
             }
             Action::LoadMessages {
                 id,
-                request: oxidezap_ipc::LoadMessages { jid, before, limit },
+                request: velo_ipc::LoadMessages { jid, before, limit },
                 answer_to,
             } => {
                 // Before the call, not after it: `load_messages` spawns the
@@ -472,7 +472,7 @@ impl Bridge {
                 // previous one's boundaries. See [`StateHub::forget_account`].
                 let asked_as = self.hub.account_generation();
                 let hub = Arc::clone(&self.hub);
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let answer = match page.await {
                         Ok(Ok(mut page)) => {
                             // The bytes travel the way they do everywhere
@@ -530,7 +530,7 @@ impl Bridge {
             Action::LoadChats {
                 id,
                 request:
-                    oxidezap_ipc::LoadChats {
+                    velo_ipc::LoadChats {
                         after,
                         limit,
                         archived,
@@ -557,7 +557,7 @@ impl Bridge {
                 // As above: a page of the departed account's chats must not
                 // be put back into a hub that has just been emptied of it.
                 let asked_as = hub.account_generation();
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let answer = match page.await {
                         Ok(Ok(mut page)) => {
                             // The same rule. A chat past the attach window is
@@ -633,7 +633,7 @@ impl Bridge {
             }
             Action::GroupMembers {
                 id,
-                request: oxidezap_ipc::GroupMembers { jid },
+                request: velo_ipc::GroupMembers { jid },
                 answer_to,
             } => {
                 // A permit before the call, as above: `group_roster` spawns
@@ -648,7 +648,7 @@ impl Bridge {
                 } else {
                     client.cached_group_roster(jid)
                 };
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let answer = match roster.await {
                         Ok(Ok(roster)) => Ok(DaemonMessage::GroupMembers { id, roster }),
                         // Not the client's frame: the address it named is a
@@ -690,7 +690,7 @@ impl Bridge {
         &mut self,
         client: &WhatsAppClient,
         id: u64,
-        request: oxidezap_wire::request::ClientRequest,
+        request: velo_wire::request::ClientRequest,
         answer_to: Outbox,
         reply: tokio::sync::oneshot::Sender<CommandOutcome>,
         permit: tokio::sync::OwnedSemaphorePermit,
@@ -714,7 +714,7 @@ impl Bridge {
                     None => client.load_messages(chat_jid.clone(), before, limit as i64),
                 };
                 let answer_to = answer_to.clone();
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let result = match page.await {
                         Ok(Ok(page)) => {
                             let messages: Vec<MessageDto> = page
@@ -722,8 +722,7 @@ impl Bridge {
                                 .into_iter()
                                 .map(|m| chat_message_to_dto(&chat_jid, m))
                                 .collect();
-                            let next_cursor =
-                                page.next.map(oxidezap_wire::envelope::PageCursor::new);
+                            let next_cursor = page.next.map(velo_wire::envelope::PageCursor::new);
                             Ok(DaemonResponse::Messages {
                                 messages,
                                 next_cursor,
@@ -743,7 +742,7 @@ impl Bridge {
             } => {
                 let task = client.get_message(chat_jid.clone(), message_id);
                 let answer_to = answer_to.clone();
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let result = match task.await {
                         Ok(Ok(Some(msg))) => {
                             Ok(DaemonResponse::Message(chat_message_to_dto(&chat_jid, msg)))
@@ -764,7 +763,7 @@ impl Bridge {
             } => {
                 let task = client.get_message_context(chat_jid.clone(), message_id, limit);
                 let answer_to = answer_to.clone();
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let result = match task.await {
                         Ok(Ok(msgs)) => {
                             let messages: Vec<MessageDto> = msgs
@@ -792,7 +791,7 @@ impl Bridge {
             } => {
                 let task = client.search_messages(query, chat_jid.clone(), has_media, limit as i64);
                 let answer_to = answer_to.clone();
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let result = match task.await {
                         Ok(Ok(msgs)) => {
                             let messages: Vec<MessageDto> = msgs
@@ -819,7 +818,7 @@ impl Bridge {
             WireRequest::ListContacts { query, limit } => {
                 let task = client.list_contact_views(query, limit as i64);
                 let answer_to = answer_to.clone();
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let result = match task.await {
                         Ok(Ok(contacts)) => {
                             let contacts: Vec<ContactDto> =
@@ -842,7 +841,7 @@ impl Bridge {
             } => {
                 let task = client.load_chats(offset, limit as i64, archived);
                 let answer_to = answer_to.clone();
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let result = match task.await {
                         Ok(Ok(page)) => {
                             let chats: Vec<ChatDto> = page
@@ -857,8 +856,7 @@ impl Bridge {
                                 })
                                 .map(chat_to_dto)
                                 .collect();
-                            let next_cursor =
-                                page.next.map(oxidezap_wire::envelope::PageCursor::new);
+                            let next_cursor = page.next.map(velo_wire::envelope::PageCursor::new);
                             Ok(DaemonResponse::Chats { chats, next_cursor })
                         }
                         Ok(Err(e)) => Err(ApiError::internal(e)),
@@ -872,7 +870,7 @@ impl Bridge {
             WireRequest::GetChat { jid } => {
                 let task = client.get_chat(jid);
                 let answer_to = answer_to.clone();
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let result = match task.await {
                         Ok(Ok(Some(chat))) => Ok(DaemonResponse::Chat(chat_to_dto(chat))),
                         Ok(Ok(None)) => Err(ApiError::not_found("no such chat")),
@@ -904,8 +902,8 @@ impl Bridge {
                     let pending =
                         client.send_text_wire(to, message, reply_to, mentions, Some(announce));
                     let answer_to = answer_to.clone();
-                    oxidezap_session::spawn(async move {
-                        let announced = oxidezap_session::with_timeout(
+                    velo_session::spawn(async move {
+                        let announced = velo_session::with_timeout(
                             announced,
                             std::time::Duration::from_secs(10),
                         )
@@ -931,7 +929,7 @@ impl Bridge {
                                 // that expired did not, and folding the two
                                 // together told a client its request was
                                 // wrong when the session was gone.
-                                let settled = oxidezap_session::with_timeout(
+                                let settled = velo_session::with_timeout(
                                     pending,
                                     std::time::Duration::from_secs(5),
                                 )
@@ -1111,7 +1109,7 @@ impl Bridge {
             WireRequest::ListCalls { limit } => {
                 let calls = self.calls.list(limit);
                 let answer_to = answer_to.clone();
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     send_wire_result(&answer_to, id, Ok(DaemonResponse::Calls { calls }));
                     let _ = reply.send(CommandOutcome::Accepted);
                     drop(permit);
@@ -1326,10 +1324,10 @@ impl Bridge {
                 action,
             } => {
                 let action = match action {
-                    WireParticipantAction::Add => oxidezap_session::ParticipantChange::Add,
-                    WireParticipantAction::Remove => oxidezap_session::ParticipantChange::Remove,
-                    WireParticipantAction::Promote => oxidezap_session::ParticipantChange::Promote,
-                    WireParticipantAction::Demote => oxidezap_session::ParticipantChange::Demote,
+                    WireParticipantAction::Add => velo_session::ParticipantChange::Add,
+                    WireParticipantAction::Remove => velo_session::ParticipantChange::Remove,
+                    WireParticipantAction::Promote => velo_session::ParticipantChange::Promote,
+                    WireParticipantAction::Demote => velo_session::ParticipantChange::Demote,
                 };
                 let task = client.manage_group_participant(group_jid, participant_jid, action);
                 run_wire(answer_to.clone(), id, reply, permit, task, |_| {
@@ -1526,35 +1524,34 @@ impl Bridge {
             } => {
                 let task = client.download_media_by_id(chat_jid, message_id.clone());
                 let answer_to = answer_to.clone();
-                oxidezap_session::spawn(async move {
-                    let result = match task.await {
-                        Ok(Ok(bytes)) => {
-                            let path =
-                                destination
-                                    .map(std::path::PathBuf::from)
-                                    .unwrap_or_else(|| {
-                                        std::env::temp_dir().join(format!("oxidezap-{message_id}"))
-                                    });
-                            let size = bytes.len() as u64;
-                            match oxidezap_session::unblock(move || {
-                                std::fs::write(&path, &bytes).map(|()| path)
-                            })
-                            .await
-                            {
-                                Ok(Ok(path)) => Ok(DaemonResponse::MediaDownloaded {
-                                    message_id,
-                                    local_path: path.to_string_lossy().into_owned(),
-                                    size_bytes: size,
-                                }),
-                                Ok(Err(e)) => {
-                                    Err(ApiError::internal(format!("could not write file: {e}")))
+                velo_session::spawn(async move {
+                    let result =
+                        match task.await {
+                            Ok(Ok(bytes)) => {
+                                let path =
+                                    destination.map(std::path::PathBuf::from).unwrap_or_else(
+                                        || std::env::temp_dir().join(format!("velo-{message_id}")),
+                                    );
+                                let size = bytes.len() as u64;
+                                match velo_session::unblock(move || {
+                                    std::fs::write(&path, &bytes).map(|()| path)
+                                })
+                                .await
+                                {
+                                    Ok(Ok(path)) => Ok(DaemonResponse::MediaDownloaded {
+                                        message_id,
+                                        local_path: path.to_string_lossy().into_owned(),
+                                        size_bytes: size,
+                                    }),
+                                    Ok(Err(e)) => Err(ApiError::internal(format!(
+                                        "could not write file: {e}"
+                                    ))),
+                                    Err(e) => Err(ApiError::internal(e.to_string())),
                                 }
-                                Err(e) => Err(ApiError::internal(e.to_string())),
                             }
-                        }
-                        Ok(Err(e)) => Err(ApiError::internal(e)),
-                        Err(e) => Err(ApiError::not_connected(e.to_string())),
-                    };
+                            Ok(Err(e)) => Err(ApiError::internal(e)),
+                            Err(e) => Err(ApiError::not_connected(e.to_string())),
+                        };
                     send_wire_result(&answer_to, id, result);
                     let _ = reply.send(CommandOutcome::Accepted);
                     drop(permit);
@@ -1599,7 +1596,7 @@ impl Bridge {
                 // the code rather than having to subscribe for it.
                 let task = client.request_pair_code(phone);
                 let answer_to = answer_to.clone();
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let result = match task.await {
                         Ok(Ok(pair)) => Ok(DaemonResponse::PairCode {
                             code: pair.code,
@@ -1620,7 +1617,7 @@ impl Bridge {
                 // write would let this account's backfilled bytes be served as
                 // another's and would survive this account's wipe.
                 let account_media = crate::media::AccountMedia::new(self.hub.account_id());
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     let result = match task.await {
                         Ok(Ok(report)) => {
                             let mut downloaded = 0u64;
@@ -1667,7 +1664,7 @@ impl Bridge {
             }
             _ => {
                 let answer_to = answer_to.clone();
-                oxidezap_session::spawn(async move {
+                velo_session::spawn(async move {
                     send_wire_result(
                         &answer_to,
                         id,
@@ -1704,7 +1701,7 @@ impl Bridge {
             Action::Wire { .. } | Action::EditMessage { .. } | Action::RevokeMessage { .. } => {
                 unreachable!("addressed actions are handled in begin_slow")
             }
-            Action::SendText(oxidezap_ipc::SendText {
+            Action::SendText(velo_ipc::SendText {
                 jid,
                 text,
                 local_id,
@@ -1729,7 +1726,7 @@ impl Bridge {
                 );
                 CommandOutcome::Accepted
             }
-            Action::SendReaction(oxidezap_ipc::SendReaction {
+            Action::SendReaction(velo_ipc::SendReaction {
                 chat_jid,
                 message_id,
                 emoji,
@@ -1744,13 +1741,13 @@ impl Bridge {
                 let task = client.send_reaction(chat_jid, message_id, emoji);
                 hold(
                     permit,
-                    [oxidezap_session::spawn(async move {
+                    [velo_session::spawn(async move {
                         let _ = task.await;
                     })],
                 );
                 CommandOutcome::Accepted
             }
-            Action::SendAudio(oxidezap_ipc::SendAudio {
+            Action::SendAudio(velo_ipc::SendAudio {
                 jid,
                 upload,
                 duration_secs,
@@ -1791,7 +1788,7 @@ impl Bridge {
                 );
                 CommandOutcome::Accepted
             }
-            Action::SendMedia(oxidezap_ipc::SendMedia {
+            Action::SendMedia(velo_ipc::SendMedia {
                 jid,
                 upload,
                 kind,
@@ -1823,7 +1820,7 @@ impl Bridge {
                 let account_media = crate::media::AccountMedia::new(self.hub.account_id());
                 let taken = {
                     let upload = upload.clone();
-                    oxidezap_session::unblock(move || account_media.take_staged(&upload)).await
+                    velo_session::unblock(move || account_media.take_staged(&upload)).await
                 };
                 // Two answers, not one. A read that never ran — the worker
                 // panicked, or the runtime is going down — is not a payload
@@ -1846,7 +1843,7 @@ impl Bridge {
                     permit,
                     [client.send_media_message(
                         &jid,
-                        oxidezap_session::OutgoingFile {
+                        velo_session::OutgoingFile {
                             data,
                             kind,
                             mime_type,
@@ -1859,7 +1856,7 @@ impl Bridge {
                 );
                 CommandOutcome::Accepted
             }
-            Action::MarkRead(oxidezap_ipc::MarkRead {
+            Action::MarkRead(velo_ipc::MarkRead {
                 jid,
                 through_message_id,
             }) => self.mark_read(client, &jid, through_message_id.as_deref()),
@@ -1878,7 +1875,7 @@ impl Bridge {
             | Action::GroupMembers { .. } => {
                 CommandOutcome::Refused("a store read reached the wrong path".to_string())
             }
-            Action::Typing(oxidezap_ipc::Typing { jid, composing }) => {
+            Action::Typing(velo_ipc::Typing { jid, composing }) => {
                 if composing {
                     client.send_composing(&jid);
                 } else {
@@ -1886,7 +1883,7 @@ impl Bridge {
                 }
                 CommandOutcome::Accepted
             }
-            Action::VotePoll(oxidezap_ipc::VotePoll {
+            Action::VotePoll(velo_ipc::VotePoll {
                 chat_jid,
                 poll_id,
                 selected_option_indices,
@@ -1903,7 +1900,7 @@ impl Bridge {
                     client.vote_poll(chat_jid.clone(), poll_id.clone(), selected_option_indices);
                 hold(
                     permit,
-                    [oxidezap_session::spawn(async move {
+                    [velo_session::spawn(async move {
                         if let Err(detail) = task.await {
                             log::warn!("poll vote for {poll_id} failed: {detail}");
                         }
@@ -1973,7 +1970,7 @@ impl Bridge {
                             .chat(&jid)
                             .map_or_else(|| jid.clone(), |chat| chat.name);
                         self.hub.calls(|calls| {
-                            calls.set_outgoing(oxidezap_core::OutgoingCall::new(
+                            calls.set_outgoing(velo_core::OutgoingCall::new(
                                 placeholder_id.clone(),
                                 jid.clone(),
                                 name,
@@ -2065,7 +2062,7 @@ impl Bridge {
             }
             Action::Download {
                 id,
-                request: oxidezap_ipc::Download { media },
+                request: velo_ipc::Download { media },
                 answer_to,
             } => self.download(client, id, *media, answer_to),
             Action::ReloadHistory => {
@@ -2075,7 +2072,7 @@ impl Bridge {
             Action::ReconnectSession => {
                 if matches!(
                     self.hub.connection(),
-                    oxidezap_ipc::ConnectionState::LoggedOut { .. }
+                    velo_ipc::ConnectionState::LoggedOut { .. }
                 ) {
                     return CommandOutcome::Refused(
                         "this account must be paired again".to_string(),
@@ -2141,7 +2138,7 @@ impl Bridge {
         &self,
         client: &WhatsAppClient,
         id: RequestId,
-        media: oxidezap_core::DownloadableMedia,
+        media: velo_core::DownloadableMedia,
         answer_to: Outbox,
     ) -> CommandOutcome {
         // No content to address by. Refused rather than filed under a key
@@ -2192,14 +2189,14 @@ impl Bridge {
         };
         if let Some(owner) = owner {
             let bytes = client.download_downloadable_media(media);
-            oxidezap_session::spawn(async move {
+            velo_session::spawn(async move {
                 let result = finish_download(bytes.await, |bytes| {
                     account_media.put_owned_since(epoch, &local_key, bytes)
                 });
                 owner.finish(result);
             });
         }
-        oxidezap_session::spawn(async move {
+        velo_session::spawn(async move {
             let result = received
                 .await
                 .unwrap_or_else(|_| {
@@ -2333,8 +2330,8 @@ impl Bridge {
 /// where it was taken; a task that outlives this one holds it until every
 /// handle has resolved. `JoinHandle` errors are the session's runtime going
 /// away, which is a shutdown, not something to report.
-fn hold<const N: usize>(permit: OwnedSemaphorePermit, work: [oxidezap_session::Task<()>; N]) {
-    oxidezap_session::spawn(async move {
+fn hold<const N: usize>(permit: OwnedSemaphorePermit, work: [velo_session::Task<()>; N]) {
+    velo_session::spawn(async move {
         for handle in work {
             let _ = handle.await;
         }
@@ -2380,7 +2377,7 @@ fn answer_now(answer_to: &Outbox, frame: String) {
     use tokio::sync::mpsc::error::TrySendError;
     if let Err(TrySendError::Full(frame)) = answer_to.try_send(frame) {
         let outbox = answer_to.clone();
-        oxidezap_session::spawn(async move {
+        velo_session::spawn(async move {
             let _ = outbox.send(frame).await;
         });
     }
@@ -2495,7 +2492,7 @@ fn run_wire<T>(
     + 'static,
     ok: impl FnOnce(T) -> DaemonResponse + Send + 'static,
 ) {
-    oxidezap_session::spawn(async move {
+    velo_session::spawn(async move {
         let result = match task.await {
             Ok(Ok(value)) => Ok(ok(value)),
             Ok(Err(e)) => Err(ApiError::internal(e)),
@@ -2521,7 +2518,7 @@ fn run_wire_opt<T>(
     ok: impl FnOnce(T) -> DaemonResponse + Send + 'static,
     missing: &'static str,
 ) {
-    oxidezap_session::spawn(async move {
+    velo_session::spawn(async move {
         let result = match task.await {
             Ok(Ok(Some(value))) => Ok(ok(value)),
             Ok(Ok(None)) => Err(ApiError::not_found(missing)),
@@ -2535,7 +2532,7 @@ fn run_wire_opt<T>(
 }
 
 /// A session contact view as the protocol's contact.
-fn contact_to_dto(contact: oxidezap_session::ContactView) -> ContactDto {
+fn contact_to_dto(contact: velo_session::ContactView) -> ContactDto {
     ContactDto {
         jid: contact.jid,
         name: contact.name,
@@ -2548,7 +2545,7 @@ fn contact_to_dto(contact: oxidezap_session::ContactView) -> ContactDto {
 }
 
 /// A group-list row as the protocol's group.
-fn group_entry_to_dto(group: oxidezap_session::GroupListEntry) -> GroupDto {
+fn group_entry_to_dto(group: velo_session::GroupListEntry) -> GroupDto {
     GroupDto {
         jid: group.jid,
         subject: group.subject,
@@ -2562,7 +2559,7 @@ fn group_entry_to_dto(group: oxidezap_session::GroupListEntry) -> GroupDto {
 }
 
 /// Full group metadata as the protocol's group.
-fn group_details_to_dto(group: oxidezap_session::GroupDetails) -> GroupDto {
+fn group_details_to_dto(group: velo_session::GroupDetails) -> GroupDto {
     GroupDto {
         jid: group.jid,
         subject: group.subject,
@@ -2585,7 +2582,7 @@ fn group_details_to_dto(group: oxidezap_session::GroupDetails) -> GroupDto {
 
 /// A stored poll as the protocol's poll. Tallies are not decrypted here —
 /// see the session's note — so every option starts at zero.
-fn poll_view_to_dto(poll: oxidezap_session::PollView) -> PollDto {
+fn poll_view_to_dto(poll: velo_session::PollView) -> PollDto {
     PollDto {
         id: poll.id,
         chat_jid: poll.chat_jid,
@@ -2606,7 +2603,7 @@ fn poll_view_to_dto(poll: oxidezap_session::PollView) -> PollDto {
 }
 
 /// A subscribed channel as the protocol's channel.
-fn channel_view_to_dto(channel: oxidezap_session::ChannelView) -> ChannelDto {
+fn channel_view_to_dto(channel: velo_session::ChannelView) -> ChannelDto {
     ChannelDto {
         is_muted: channel.muted,
         jid: channel.jid,
@@ -2618,8 +2615,8 @@ fn channel_view_to_dto(channel: oxidezap_session::ChannelView) -> ChannelDto {
 }
 
 /// A profile as the protocol's profile.
-fn profile_view_to_dto(profile: oxidezap_session::ProfileView) -> oxidezap_wire::dto::ProfileDto {
-    oxidezap_wire::dto::ProfileDto {
+fn profile_view_to_dto(profile: velo_session::ProfileView) -> velo_wire::dto::ProfileDto {
+    velo_wire::dto::ProfileDto {
         jid: profile.jid,
         name: profile.name,
         about: profile.about,
@@ -2662,16 +2659,16 @@ fn mutation_answer<T, E: std::fmt::Display>(
 mod tests {
     use std::time::Duration;
 
-    use oxidezap_core::{OutgoingMedia, UiEvent, fixtures};
-    use oxidezap_ipc::{DaemonMessage, ProtocolError};
-    use oxidezap_session::WhatsAppClient;
+    use velo_core::{OutgoingMedia, UiEvent, fixtures};
+    use velo_ipc::{DaemonMessage, ProtocolError};
+    use velo_session::WhatsAppClient;
 
     use super::super::tests::{bridge, loaded, message, received, saturate, stored_chat};
     use super::*;
 
     #[test]
     fn profile_mapping_preserves_identity_provenance_and_picture_outcome() {
-        let dto = profile_view_to_dto(oxidezap_session::ProfileView {
+        let dto = profile_view_to_dto(velo_session::ProfileView {
             jid: "100000001@lid".into(),
             pn_jid: Some("15550001111@s.whatsapp.net".into()),
             lid: Some("100000001@lid".into()),
@@ -2697,7 +2694,7 @@ mod tests {
         let cache = crate::media::AccountMedia::new(bridge.hub.account_id());
         let mut hash = vec![0x71; 32];
         hash[..4].copy_from_slice(&std::process::id().to_be_bytes());
-        let mut media = oxidezap_core::DownloadableMedia {
+        let mut media = velo_core::DownloadableMedia {
             direct_path: "/synthetic-never-fetch".into(),
             media_key: vec![0; 32],
             file_enc_sha256: hash,
@@ -2712,7 +2709,7 @@ mod tests {
         let local = crate::media::download_key(media.content_hash()).unwrap();
         let key = cache.put_owned(&local, vec![1, 2, 3]).unwrap();
         assert!(
-            !crate::media::AccountMedia::new(oxidezap_core::AccountId::new(2).unwrap()).claim(&key)
+            !crate::media::AccountMedia::new(velo_core::AccountId::new(2).unwrap()).claim(&key)
         );
         let (outbox, mut answers) = tokio::sync::mpsc::channel(4);
         assert_eq!(
@@ -2773,8 +2770,8 @@ mod tests {
         static SEQ: AtomicU64 = AtomicU64::new(0);
         // Under the account the test bridge serves (`StateHub::new` is the
         // legacy one): a send consumes only a payload its own account staged.
-        oxidezap_ipc::account_staged_key(
-            oxidezap_core::AccountId::LEGACY,
+        velo_ipc::account_staged_key(
+            velo_core::AccountId::LEGACY,
             &format!(
                 "act-test-{what}-{}-{}",
                 std::process::id(),
@@ -2784,7 +2781,7 @@ mod tests {
     }
 
     fn send_media(upload: &str) -> Action {
-        Action::SendMedia(oxidezap_ipc::SendMedia {
+        Action::SendMedia(velo_ipc::SendMedia {
             jid: fixtures::PEER.to_string(),
             upload: upload.to_string(),
             kind: OutgoingMedia::Image,
@@ -2797,7 +2794,7 @@ mod tests {
     }
 
     fn send_audio(upload: &str) -> Action {
-        Action::SendAudio(oxidezap_ipc::SendAudio {
+        Action::SendAudio(velo_ipc::SendAudio {
             jid: fixtures::PEER.to_string(),
             upload: upload.to_string(),
             duration_secs: 3,
@@ -2808,7 +2805,7 @@ mod tests {
     }
 
     fn send_text() -> Action {
-        Action::SendText(oxidezap_ipc::SendText {
+        Action::SendText(velo_ipc::SendText {
             jid: fixtures::PEER.to_string(),
             text: "oi".to_string(),
             local_id: None,
@@ -2817,7 +2814,7 @@ mod tests {
     }
 
     fn send_reaction() -> Action {
-        Action::SendReaction(oxidezap_ipc::SendReaction {
+        Action::SendReaction(velo_ipc::SendReaction {
             chat_jid: fixtures::PEER.to_string(),
             message_id: "3EB0A".to_string(),
             emoji: "👍".to_string(),
@@ -2948,7 +2945,7 @@ mod tests {
         let outcome = bridge
             .act(
                 &client,
-                Action::VotePoll(oxidezap_ipc::VotePoll {
+                Action::VotePoll(velo_ipc::VotePoll {
                     chat_jid: fixtures::PEER.to_string(),
                     poll_id: "3EB0C".to_string(),
                     selected_option_indices: vec![0],
@@ -3010,7 +3007,7 @@ mod tests {
         for action in [
             Action::EditMessage {
                 id: 42,
-                request: oxidezap_ipc::EditMessage {
+                request: velo_ipc::EditMessage {
                     jid: fixtures::PEER.to_string(),
                     message_id: "EDIT".into(),
                     new_text: "replacement".into(),
@@ -3019,7 +3016,7 @@ mod tests {
             },
             Action::RevokeMessage {
                 id: 42,
-                request: oxidezap_ipc::RevokeMessage {
+                request: velo_ipc::RevokeMessage {
                     jid: fixtures::PEER.to_string(),
                     message_id: "DELETE".into(),
                     for_everyone: true,
@@ -3053,7 +3050,7 @@ mod tests {
         let outcome = bridge
             .act(
                 &client,
-                Action::MarkStatusWatched(oxidezap_ipc::MarkStatusWatched {
+                Action::MarkStatusWatched(velo_ipc::MarkStatusWatched {
                     message_ids: vec!["3EB0".to_string()],
                 }),
             )
@@ -3125,8 +3122,7 @@ mod tests {
     #[test]
     fn a_download_that_could_not_be_cached_is_not_worth_asking_again() {
         let answer = finish_download(Ok(Ok(vec![1, 2, 3])), |_| {
-            Err(anyhow::anyhow!("No space left on device")
-                .context("writing /run/oxidezap/media/w-1.0"))
+            Err(anyhow::anyhow!("No space left on device").context("writing /run/velo/media/w-1.0"))
         });
         match answer {
             Err(ProtocolError::Failed { detail, retryable }) => {
@@ -3226,7 +3222,7 @@ mod tests {
     #[test]
     fn channel_wire_preserves_known_mute_and_unknown_settings() {
         for muted in [Some(true), Some(false), None] {
-            let dto = super::channel_view_to_dto(oxidezap_session::ChannelView {
+            let dto = super::channel_view_to_dto(velo_session::ChannelView {
                 jid: "120363000000000002@newsletter".into(),
                 name: "Example".into(),
                 muted,
@@ -3242,7 +3238,7 @@ mod tests {
                 assert!(value.get("is_muted").is_none());
             }
         }
-        let older: oxidezap_wire::dto::ChannelDto = serde_json::from_str(
+        let older: velo_wire::dto::ChannelDto = serde_json::from_str(
             r#"{"jid":"120363000000000002@newsletter","name":"Example","description":null,"subscriber_count":1,"picture_url":null}"#,
         ).unwrap();
         assert_eq!(older.is_muted, None);

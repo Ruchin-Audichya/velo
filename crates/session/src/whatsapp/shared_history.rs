@@ -1,6 +1,6 @@
 //! Download persisted attachments serially. Failures stay pending across restarts.
-use oxidezap_chat_store::{ChatStore, ChatStoreError};
 use std::{sync::Arc, time::Duration};
+use velo_chat_store::{ChatStore, ChatStoreError};
 use whatsapp_rust::{
     client::Client,
     download::{ClientDownloadError, DownloadLimits, DownloadPolicyError},
@@ -47,7 +47,7 @@ async fn pass(client: &Arc<Client>, store: &ChatStore) {
             }
             continue;
         };
-        let Some(bundle) = oxidezap_chat_store::normalized_message(&message)
+        let Some(bundle) = velo_chat_store::normalized_message(&message)
             .message_history_bundle
             .as_option()
         else {

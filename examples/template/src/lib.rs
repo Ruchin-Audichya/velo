@@ -17,8 +17,8 @@
 #[cfg(test)]
 extern crate std;
 
-use oxidezap_plugin::ui::{self, slot};
-use oxidezap_plugin::{Caps, Declared, Event, Kinds, Setup, Which, kv, log, plugin};
+use velo_plugin::ui::{self, slot};
+use velo_plugin::{Caps, Declared, Event, Kinds, Setup, Which, kv, log, plugin};
 
 // Generates the three exports the host looks for, and the panic handler a
 // `no_std` wasm module needs. `panic = own` opts out of the handler.
@@ -67,7 +67,7 @@ fn handle(ev: &Event) {
             }
             let count = count() + 1;
             log!(
-                oxidezap_plugin::level::DEBUG,
+                velo_plugin::level::DEBUG,
                 "message {count} in {}",
                 m.chat().as_str()
             );
@@ -102,15 +102,15 @@ fn count() -> i64 {
 }
 
 fn set_count(count: i64) {
-    let mut line = oxidezap_plugin::Line::<24>::new();
+    let mut line = velo_plugin::Line::<24>::new();
     let _ = core::fmt::Write::write_fmt(&mut line, format_args!("{count}"));
-    oxidezap_plugin::set(SEEN, line.as_str());
+    velo_plugin::set(SEEN, line.as_str());
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oxidezap_plugin::testing::{Event as In, Host};
+    use velo_plugin::testing::{Event as In, Host};
 
     #[test]
     fn it_counts_the_messages_it_is_given() {
@@ -140,7 +140,7 @@ mod tests {
 
         assert_eq!(host.name().as_deref(), Some("Template"));
         assert_eq!(
-            host.capabilities() & oxidezap_plugin::abi::caps::NEEDS_APPROVAL,
+            host.capabilities() & velo_plugin::abi::caps::NEEDS_APPROVAL,
             0
         );
     }

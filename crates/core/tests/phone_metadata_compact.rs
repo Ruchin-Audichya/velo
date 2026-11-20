@@ -63,7 +63,7 @@ fn formatting_is_consistent_across_threads() {
     ];
     let expected: Vec<_> = inputs
         .iter()
-        .map(|digits| oxidezap_core::format_phone_jid(&format!("{digits}@s.whatsapp.net")))
+        .map(|digits| velo_core::format_phone_jid(&format!("{digits}@s.whatsapp.net")))
         .collect();
     std::thread::scope(|scope| {
         for _ in 0..4 {
@@ -71,7 +71,7 @@ fn formatting_is_consistent_across_threads() {
                 for _ in 0..10 {
                     for (digits, expected) in inputs.iter().zip(&expected) {
                         assert_eq!(
-                            &oxidezap_core::format_phone_jid(&format!("{digits}@s.whatsapp.net")),
+                            &velo_core::format_phone_jid(&format!("{digits}@s.whatsapp.net")),
                             expected
                         );
                     }

@@ -54,7 +54,7 @@ impl MessageSelection {
                 MessageTextSegment::Footer => 2,
             })
     }
-    pub fn source_text<'a>(&self, message: &'a oxidezap_core::ChatMessage) -> Option<&'a str> {
+    pub fn source_text<'a>(&self, message: &'a velo_core::ChatMessage) -> Option<&'a str> {
         if message.revoked || message.system.is_some() || message.poll.is_some() {
             return None;
         }

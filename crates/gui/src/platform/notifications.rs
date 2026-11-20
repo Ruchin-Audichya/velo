@@ -356,7 +356,7 @@ mod imp {
         bytes.hash(&mut hasher);
 
         let mut directory = std::env::temp_dir();
-        directory.push("oxidezap-notification-avatars");
+        directory.push("velo-notification-avatars");
         directory.push(format!("{:016x}.{extension}", hasher.finish()));
         directory
     }

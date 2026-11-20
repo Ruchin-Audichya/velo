@@ -1,7 +1,7 @@
-//! `oxidezapd`: holds the WhatsApp session, shows a tray presence, and serves
+//! `velod`: holds the WhatsApp session, shows a tray presence, and serves
 //! front ends over a local socket.
 //!
-//! The process around [`oxidezap_daemon`], which is where everything it
+//! The process around [`velo_daemon`], which is where everything it
 //! actually does lives — see that crate's own note for why the two are apart.
 
 // A background service, not a console program: on Windows release builds no
@@ -11,7 +11,7 @@
 // this binary's own stderr is the only stream there is at that point.
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
-use oxidezap_daemon::{
+use velo_daemon::{
     account::{AccountRegistry, AccountSupervisor},
     listener, media, server, shutdown, tray,
 };
@@ -20,7 +20,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 
-use oxidezap_session::StoreRegistry;
+use velo_session::StoreRegistry;
 
 #[cfg(target_os = "macos")]
 mod macos_main;
@@ -28,7 +28,7 @@ mod macos_main;
 fn main() -> Result<()> {
     if std::env::args().any(|a| a == "--help" || a == "-h") {
         println!(
-            "Usage: oxidezapd [OPTIONS]\n\nOptions:\n      --headless       Run headless without system tray integration\n      --account <id>   Run as a named account profile (own socket, lock,\n                       database and media cache; also OXIDEZAP_ACCOUNT)\n  -h, --help           Print help"
+            "Usage: velod [OPTIONS]\n\nOptions:\n      --headless       Run headless without system tray integration\n      --account <id>   Run as a named account profile (own socket, lock,\n                       database and media cache; also VELO_ACCOUNT)\n  -h, --help           Print help"
         );
         return Ok(());
     }
@@ -51,7 +51,7 @@ fn main() -> Result<()> {
     // precedence itself is unchanged: the flag only sets the variable when
     // the environment does not already hold one.
     if let Some(id) = &account_from_flag
-        && oxidezap_wire::validate_account_id(id).is_none()
+        && velo_wire::validate_account_id(id).is_none()
     {
         eprintln!(
             "error [invalid_account_id]: --account must match [A-Za-z0-9][A-Za-z0-9_-]*, got {id:?}"
@@ -59,19 +59,19 @@ fn main() -> Result<()> {
         std::process::exit(2);
     }
     if let Some(id) = account_from_flag
-        && std::env::var_os("OXIDEZAP_ACCOUNT").is_none()
+        && std::env::var_os("VELO_ACCOUNT").is_none()
     {
         // Single-threaded startup, before the runtime exists: no thread can
         // observe the environment changing under it.
         unsafe {
-            std::env::set_var("OXIDEZAP_ACCOUNT", id);
+            std::env::set_var("VELO_ACCOUNT", id);
         }
     }
-    if let Some(raw) = std::env::var_os("OXIDEZAP_ACCOUNT")
-        && oxidezap_wire::validate_account_id(&raw.to_string_lossy()).is_none()
+    if let Some(raw) = std::env::var_os("VELO_ACCOUNT")
+        && velo_wire::validate_account_id(&raw.to_string_lossy()).is_none()
     {
         eprintln!(
-            "error [invalid_account_id]: OXIDEZAP_ACCOUNT must match [A-Za-z0-9][A-Za-z0-9_-]*, got {:?}",
+            "error [invalid_account_id]: VELO_ACCOUNT must match [A-Za-z0-9][A-Za-z0-9_-]*, got {:?}",
             raw.to_string_lossy()
         );
         std::process::exit(2);
@@ -85,8 +85,8 @@ fn main() -> Result<()> {
     //
     // zbus narrates every D-Bus frame at info, which buries the daemon's own
     // output the moment a tray is connected.
-    oxidezap_logging::install(&["zbus", "tracing"]);
-    oxidezap_logging::activate();
+    velo_logging::install(&["zbus", "tracing"]);
+    velo_logging::activate();
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -140,8 +140,8 @@ async fn run(hub: Arc<tray::TrayHub>) -> Result<()> {
     // `macos_main`), so there is nothing to spawn here — and nothing to ask:
     // the binding exists only where the non-macOS branch below reads it.
     #[cfg(not(target_os = "macos"))]
-    let headless = std::env::args().any(|a| a == "--headless")
-        || std::env::var_os("OXIDEZAPD_HEADLESS").is_some();
+    let headless =
+        std::env::args().any(|a| a == "--headless") || std::env::var_os("VELOD_HEADLESS").is_some();
     #[cfg(not(target_os = "macos"))]
     let tray = if headless {
         log::info!("running in headless mode: system tray disabled");
@@ -166,7 +166,7 @@ async fn run(hub: Arc<tray::TrayHub>) -> Result<()> {
     // broadcasts to as many waiters as are watching it.
     let registry = hub.registry();
     let tray_updates = tokio::spawn(Arc::clone(&hub).follow());
-    let stores = Arc::new(StoreRegistry::new(oxidezap_session::resolve_database_path()));
+    let stores = Arc::new(StoreRegistry::new(velo_session::resolve_database_path()));
     registry.restore_retirements(&stores).await?;
     let relink_updates = tokio::spawn(Arc::clone(&registry).follow_relinks(Arc::clone(&stores)));
     let supervisor = AccountSupervisor::new(
@@ -513,7 +513,7 @@ impl Options {
             return Self::default();
         }
 
-        let addr = addr.unwrap_or_else(|| format!("127.0.0.1:{}", oxidezap_ipc::DEFAULT_WEB_PORT));
+        let addr = addr.unwrap_or_else(|| format!("127.0.0.1:{}", velo_ipc::DEFAULT_WEB_PORT));
         match addr.parse() {
             Ok(addr) => Self {
                 web: Some(WebOptions {
@@ -554,7 +554,7 @@ mod option_tests {
         let config = parse(&["--web"]).web.expect("a bridge");
         assert_eq!(
             config.addr.to_string(),
-            format!("127.0.0.1:{}", oxidezap_ipc::DEFAULT_WEB_PORT)
+            format!("127.0.0.1:{}", velo_ipc::DEFAULT_WEB_PORT)
         );
         assert!(config.allowed_origins.is_empty());
     }
@@ -574,10 +574,13 @@ mod option_tests {
     /// says which page may attach has said they want one.
     #[test]
     fn naming_an_origin_turns_the_bridge_on() {
-        let config = parse(&["--web-allow", "https://oxidezap.github.io"])
+        let config = parse(&["--web-allow", "https://ruchin-audichya.github.io"])
             .web
             .expect("a bridge");
-        assert_eq!(config.allowed_origins, ["https://oxidezap.github.io"]);
+        assert_eq!(
+            config.allowed_origins,
+            ["https://ruchin-audichya.github.io"]
+        );
     }
 
     #[test]
@@ -609,7 +612,7 @@ mod option_tests {
         );
         assert_eq!(
             config.addr.to_string(),
-            format!("127.0.0.1:{}", oxidezap_ipc::DEFAULT_WEB_PORT),
+            format!("127.0.0.1:{}", velo_ipc::DEFAULT_WEB_PORT),
             "the swallowed flag was lost"
         );
     }
@@ -630,7 +633,7 @@ mod option_tests {
             .expect("a bridge");
         assert_eq!(
             config.addr.to_string(),
-            format!("127.0.0.1:{}", oxidezap_ipc::DEFAULT_WEB_PORT)
+            format!("127.0.0.1:{}", velo_ipc::DEFAULT_WEB_PORT)
         );
         assert_eq!(config.allowed_origins, ["https://a.example"]);
     }

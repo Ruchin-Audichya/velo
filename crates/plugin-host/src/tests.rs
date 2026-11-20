@@ -14,7 +14,7 @@ use std::time::Duration;
 // a test that moves time has to move what these read.
 use wacore::time::Instant;
 
-use oxidezap_core::{MessageStatus, PluginSlot, PluginWidget, fixtures};
+use velo_core::{MessageStatus, PluginSlot, PluginWidget, fixtures};
 
 use super::*;
 
@@ -128,7 +128,7 @@ struct TempDir(PathBuf);
 impl TempDir {
     fn new(tag: &str) -> Self {
         let path = std::env::temp_dir().join(format!(
-            "oxidezap-plugins-{tag}-{}-{:?}",
+            "velo-plugins-{tag}-{}-{:?}",
             std::process::id(),
             std::thread::current().id()
         ));
@@ -235,10 +235,10 @@ fn pong() -> String {
 }
 
 const PONG: &str = r#"(module
-  (import "oxidezap" "oxi_subscribe"     (func $subscribe (param i64)))
-  (import "oxidezap" "oxi_request_caps"  (func $caps (param i64)))
-  (import "oxidezap" "oxi_field_str"     (func $field_str (param i32 i32 i32 i32) (result i32)))
-  (import "oxidezap" "oxi_send_text"     (func $send (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_subscribe"     (func $subscribe (param i64)))
+  (import "velo" "oxi_request_caps"  (func $caps (param i64)))
+  (import "velo" "oxi_field_str"     (func $field_str (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_send_text"     (func $send (param i32 i32 i32 i32) (result i32)))
   (memory (export "memory") 1)
   (data (i32.const 0) "pong")
   (func (export "oxi_abi_version") (result i32) (i32.const $ABI_VERSION))
@@ -265,10 +265,10 @@ fn pong_without_permission() -> String {
 }
 
 const PONG_WITHOUT_PERMISSION: &str = r#"(module
-  (import "oxidezap" "oxi_subscribe" (func $subscribe (param i64)))
-  (import "oxidezap" "oxi_field_str" (func $field_str (param i32 i32 i32 i32) (result i32)))
-  (import "oxidezap" "oxi_send_text" (func $send (param i32 i32 i32 i32) (result i32)))
-  (import "oxidezap" "oxi_ui_set"    (func $ui_set (param i32 i32) (result i32)))
+  (import "velo" "oxi_subscribe" (func $subscribe (param i64)))
+  (import "velo" "oxi_field_str" (func $field_str (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_send_text" (func $send (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_ui_set"    (func $ui_set (param i32 i32) (result i32)))
   (memory (export "memory") 1)
   (data (i32.const 0) "pong")
   (func (export "oxi_abi_version") (result i32) (i32.const $ABI_VERSION))
@@ -294,7 +294,7 @@ fn spins() -> String {
 }
 
 const SPINS: &str = r#"(module
-  (import "oxidezap" "oxi_subscribe" (func $subscribe (param i64)))
+  (import "velo" "oxi_subscribe" (func $subscribe (param i64)))
   (memory (export "memory") 1)
   (func (export "oxi_abi_version") (result i32) (i32.const $ABI_VERSION))
   (func (export "oxi_init") (result i32) (call $subscribe (i64.const 2)) (i32.const 0))
@@ -307,7 +307,7 @@ fn greedy() -> String {
 }
 
 const GREEDY: &str = r#"(module
-  (import "oxidezap" "oxi_subscribe" (func $subscribe (param i64)))
+  (import "velo" "oxi_subscribe" (func $subscribe (param i64)))
   (memory (export "memory") 1)
   (func (export "oxi_abi_version") (result i32) (i32.const $ABI_VERSION))
   (func (export "oxi_init") (result i32) (call $subscribe (i64.const 2)) (i32.const 0))
@@ -324,10 +324,10 @@ const NAME: &str = "Greeter";
 /// Asks for four far-future timers on every message, and reports back the
 /// first refusal it is given.
 const ARMS_TIMERS: &str = r#"(module
-  (import "oxidezap" "oxi_subscribe"    (func $subscribe (param i64)))
-  (import "oxidezap" "oxi_request_caps" (func $caps (param i64)))
-  (import "oxidezap" "oxi_timer_set"    (func $timer (param i64 i64) (result i32)))
-  (import "oxidezap" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_subscribe"    (func $subscribe (param i64)))
+  (import "velo" "oxi_request_caps" (func $caps (param i64)))
+  (import "velo" "oxi_timer_set"    (func $timer (param i64 i64) (result i32)))
+  (import "velo" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
   (memory (export "memory") 1)
   (data (i32.const 0) "a@s.whatsapp.net")
   (data (i32.const 64) "refused")
@@ -392,10 +392,10 @@ fn answers_anything() -> String {
     let n = w.finish().expect("fits");
     versioned(&format!(
         r#"(module
-  (import "oxidezap" "oxi_request_caps" (func $caps (param i64)))
-  (import "oxidezap" "oxi_set_name"     (func $set_name (param i32 i32) (result i32)))
-  (import "oxidezap" "oxi_ui_set"       (func $ui_set (param i32 i32) (result i32)))
-  (import "oxidezap" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_request_caps" (func $caps (param i64)))
+  (import "velo" "oxi_set_name"     (func $set_name (param i32 i32) (result i32)))
+  (import "velo" "oxi_ui_set"       (func $ui_set (param i32 i32) (result i32)))
+  (import "velo" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
   (memory (export "memory") 1)
   (data (i32.const 0) "{tree}")
   (data (i32.const 1024) "{name}")
@@ -433,11 +433,11 @@ fn draws() -> String {
     let n = w.finish().expect("fits");
     versioned(&format!(
         r#"(module
-  (import "oxidezap" "oxi_request_caps" (func $caps (param i64)))
-  (import "oxidezap" "oxi_set_name"     (func $set_name (param i32 i32) (result i32)))
-  (import "oxidezap" "oxi_ui_set"       (func $ui_set (param i32 i32) (result i32)))
-  (import "oxidezap" "oxi_field_str"    (func $field_str (param i32 i32 i32 i32) (result i32)))
-  (import "oxidezap" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_request_caps" (func $caps (param i64)))
+  (import "velo" "oxi_set_name"     (func $set_name (param i32 i32) (result i32)))
+  (import "velo" "oxi_ui_set"       (func $ui_set (param i32 i32) (result i32)))
+  (import "velo" "oxi_field_str"    (func $field_str (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
   (memory (export "memory") 1)
   (data (i32.const 0) "{tree}")
   (data (i32.const 1024) "{name}")
@@ -723,7 +723,7 @@ fn a_module_built_with_the_web_front_ends_flags_is_refused_for_that_reason() {
         "webbuilt",
         &versioned(
             r#"(module
-             (import "oxidezap" "oxi_subscribe" (func $subscribe (param i64)))
+             (import "velo" "oxi_subscribe" (func $subscribe (param i64)))
              (memory (export "memory") 1 1 shared)
              (func (export "oxi_abi_version") (result i32) (i32.const $ABI_VERSION))
              (func (export "oxi_init") (result i32) (call $subscribe (i64.const 2)) (i32.const 0))
@@ -1068,7 +1068,7 @@ fn plugins_load_in_a_stable_order() {
 fn an_absent_directory_is_not_an_error() {
     let published = Published::default();
     let plugins = Plugins::load(
-        Path::new("/nonexistent/oxidezap/plugins"),
+        Path::new("/nonexistent/velo/plugins"),
         None,
         Arc::new(Recorder::new(Outcome::Accepted)),
         published.sink(),
@@ -1140,7 +1140,7 @@ fn shutting_down_joins_every_plugin() {
 ///
 /// ```text
 /// cargo xtask plugin build examples/autoreply
-/// cargo test -p oxidezap-plugin-host -- --ignored
+/// cargo test -p velo-plugin-host -- --ignored
 /// ```
 ///
 /// Through the task and not a bare `cargo build`: the root config's wasm
@@ -1148,7 +1148,7 @@ fn shutting_down_joins_every_plugin() {
 /// checking that the host refuses it.
 ///
 /// The `.wat` fixtures above test the host; this tests the *pair* — that what
-/// `oxidezap-plugin` emits is what this file expects, which is the one thing
+/// `velo-plugin` emits is what this file expects, which is the one thing
 /// no hand-written module can check.
 #[test]
 #[ignore = "needs examples/autoreply built for wasm32-unknown-unknown"]
@@ -1313,10 +1313,10 @@ fn a_short_buffer_is_told_how_much_room_it_needed() {
         "reader",
         &versioned(&format!(
             r#"(module
-  (import "oxidezap" "oxi_subscribe" (func $subscribe (param i64)))
-  (import "oxidezap" "oxi_request_caps" (func $caps (param i64)))
-  (import "oxidezap" "oxi_field_str" (func $field_str (param i32 i32 i32 i32) (result i32)))
-  (import "oxidezap" "oxi_send_text" (func $send (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_subscribe" (func $subscribe (param i64)))
+  (import "velo" "oxi_request_caps" (func $caps (param i64)))
+  (import "velo" "oxi_field_str" (func $field_str (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_send_text" (func $send (param i32 i32 i32 i32) (result i32)))
   (memory (export "memory") 1)
   (data (i32.const 0) "{jid}")
   (func (export "oxi_abi_version") (result i32) (i32.const $ABI_VERSION))
@@ -1477,10 +1477,10 @@ fn a_plugin_cannot_grow_its_timer_list_across_calls() {
 /// Asks for one timer at the far end of the `i64` and says which answer it
 /// got, so the test reads the host's refusal rather than inferring it.
 const ARMS_AN_ETERNAL_TIMER: &str = r#"(module
-  (import "oxidezap" "oxi_subscribe"    (func $subscribe (param i64)))
-  (import "oxidezap" "oxi_request_caps" (func $caps (param i64)))
-  (import "oxidezap" "oxi_timer_set"    (func $timer (param i64 i64) (result i32)))
-  (import "oxidezap" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_subscribe"    (func $subscribe (param i64)))
+  (import "velo" "oxi_request_caps" (func $caps (param i64)))
+  (import "velo" "oxi_timer_set"    (func $timer (param i64 i64) (result i32)))
+  (import "velo" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
   (memory (export "memory") 1)
   (data (i32.const 0) "a@s.whatsapp.net")
   (data (i32.const 64) "refusedarmed")
@@ -1527,9 +1527,9 @@ fn a_timer_past_the_far_end_of_time_is_refused() {
 fn draws_and_listens() -> String {
     draws()
         .replace(
-            r#"(import "oxidezap" "oxi_request_caps" (func $caps (param i64)))"#,
-            r#"(import "oxidezap" "oxi_request_caps" (func $caps (param i64)))
-  (import "oxidezap" "oxi_subscribe"    (func $subscribe (param i64)))"#,
+            r#"(import "velo" "oxi_request_caps" (func $caps (param i64)))"#,
+            r#"(import "velo" "oxi_request_caps" (func $caps (param i64)))
+  (import "velo" "oxi_subscribe"    (func $subscribe (param i64)))"#,
         )
         .replace(
             r#"(func (export "oxi_init") (result i32)"#,
@@ -1552,8 +1552,8 @@ fn draws_only() -> String {
     let n = w.finish().expect("fits");
     versioned(&format!(
         r#"(module
-  (import "oxidezap" "oxi_request_caps" (func $caps (param i64)))
-  (import "oxidezap" "oxi_ui_set"       (func $ui_set (param i32 i32) (result i32)))
+  (import "velo" "oxi_request_caps" (func $caps (param i64)))
+  (import "velo" "oxi_ui_set"       (func $ui_set (param i32 i32) (result i32)))
   (memory (export "memory") 1)
   (data (i32.const 0) "{tree}")
   (func (export "oxi_abi_version") (result i32) (i32.const $ABI_VERSION))
@@ -1571,8 +1571,8 @@ fn draws_only() -> String {
 /// A module that acts on the account from its *start section* — before the
 /// loader has read back its ABI version or checked its exports.
 const ACTS_WHILE_LOADING: &str = r#"(module
-  (import "oxidezap" "oxi_request_caps" (func $caps (param i64)))
-  (import "oxidezap" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_request_caps" (func $caps (param i64)))
+  (import "velo" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
   (memory (export "memory") 1)
   (data (i32.const 0) "a@s.whatsapp.netsneaked")
   (func $start
@@ -1609,8 +1609,8 @@ fn a_module_cannot_act_on_the_account_before_it_is_loaded() {
 /// in between. The all-or-nothing rule is about a sentence, and a plugin that
 /// acts under a narrow one before widening it has already acted.
 const REDECLARES: &str = r#"(module
-  (import "oxidezap" "oxi_request_caps" (func $caps (param i64)))
-  (import "oxidezap" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_request_caps" (func $caps (param i64)))
+  (import "velo" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
   (memory (export "memory") 1)
   (data (i32.const 0) "a@s.whatsapp.netsneaked")
   (func (export "oxi_abi_version") (result i32) (i32.const $ABI_VERSION))
@@ -1710,8 +1710,8 @@ fn withdrawing_stops_a_plugin_part_way_through_its_backlog() {
 /// asking for the same list element over and over and grow the host far past
 /// the memory its sandbox advertises.
 const HOARDS_HANDLES: &str = r#"(module
-  (import "oxidezap" "oxi_subscribe" (func $subscribe (param i64)))
-  (import "oxidezap" "oxi_field_at"  (func $field_at (param i32 i32 i32) (result i32)))
+  (import "velo" "oxi_subscribe" (func $subscribe (param i64)))
+  (import "velo" "oxi_field_at"  (func $field_at (param i32 i32 i32) (result i32)))
   (memory (export "memory") 1)
   (func (export "oxi_abi_version") (result i32) (i32.const $ABI_VERSION))
   (global $last (mut i32) (i32.const 0))
@@ -1825,7 +1825,7 @@ fn every_converted_event_is_one_the_filter_admits() {
         UiEvent::ReceiptReceived {
             chat_jid: "a@s.whatsapp.net".into(),
             message_ids: vec!["MSG1".into()],
-            receipt_type: oxidezap_core::ReceiptType::Read,
+            receipt_type: velo_core::ReceiptType::Read,
         },
         UiEvent::ReactionReceived {
             chat_jid: "a@s.whatsapp.net".into(),
@@ -1861,7 +1861,7 @@ fn a_server_ack_is_not_reported_to_plugins_as_peer_delivery() {
     let sent = UiEvent::ReceiptReceived {
         chat_jid: "a@s.whatsapp.net".into(),
         message_ids: vec!["MSG-SENT".into()],
-        receipt_type: oxidezap_core::ReceiptType::Sent,
+        receipt_type: velo_core::ReceiptType::Sent,
     };
 
     assert_eq!(crate::event::kind_of(&sent), None);
@@ -1915,9 +1915,9 @@ fn two_files_cannot_claim_one_plugin_id() {
 /// Fuel does not price a rename, so a write per key is filesystem I/O a
 /// plugin can ask for without limit.
 const WRITES_A_LOT: &str = r#"(module
-  (import "oxidezap" "oxi_subscribe"   (func $subscribe (param i64)))
-  (import "oxidezap" "oxi_request_caps" (func $caps (param i64)))
-  (import "oxidezap" "oxi_kv_set"      (func $set (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_subscribe"   (func $subscribe (param i64)))
+  (import "velo" "oxi_request_caps" (func $caps (param i64)))
+  (import "velo" "oxi_kv_set"      (func $set (param i32 i32 i32 i32) (result i32)))
   (memory (export "memory") 1)
   (data (i32.const 0) "k01")
   (func (export "oxi_abi_version") (result i32) (i32.const $ABI_VERSION))
@@ -1999,8 +1999,8 @@ fn a_module_the_loader_refuses_leaves_no_settings_behind() {
         "twice",
         &versioned(
             r#"(module
-  (import "oxidezap" "oxi_request_caps" (func $caps (param i64)))
-  (import "oxidezap" "oxi_kv_set"       (func $kv_set (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_request_caps" (func $caps (param i64)))
+  (import "velo" "oxi_kv_set"       (func $kv_set (param i32 i32 i32 i32) (result i32)))
   (memory (export "memory") 2)
   (data (i32.const 200) "k")
   (func (export "oxi_abi_version") (result i32) (i32.const $ABI_VERSION))
@@ -2125,10 +2125,10 @@ fn a_directory_that_cannot_be_made_private_is_refused() {
 
 /// Names itself twice and reports what the host answered the second time.
 const RENAMES_ITSELF: &str = r#"(module
-  (import "oxidezap" "oxi_request_caps" (func $caps (param i64)))
-  (import "oxidezap" "oxi_set_name"     (func $set_name (param i32 i32) (result i32)))
-  (import "oxidezap" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
-  (import "oxidezap" "oxi_subscribe"    (func $subscribe (param i64)))
+  (import "velo" "oxi_request_caps" (func $caps (param i64)))
+  (import "velo" "oxi_set_name"     (func $set_name (param i32 i32) (result i32)))
+  (import "velo" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_subscribe"    (func $subscribe (param i64)))
   (memory (export "memory") 1)
   (data (i32.const 0) "a@s.whatsapp.netTheFirstAnotherrefused")
   (func (export "oxi_abi_version") (result i32) (i32.const $ABI_VERSION))
@@ -2148,10 +2148,10 @@ const RENAMES_ITSELF: &str = r#"(module
 /// Submits an empty name, which is refused, and then a real one — and says
 /// what it was told the second time.
 const NAMES_ITSELF_BADLY: &str = r#"(module
-  (import "oxidezap" "oxi_subscribe"    (func $subscribe (param i64)))
-  (import "oxidezap" "oxi_request_caps" (func $caps (param i64)))
-  (import "oxidezap" "oxi_set_name"     (func $set_name (param i32 i32) (result i32)))
-  (import "oxidezap" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_subscribe"    (func $subscribe (param i64)))
+  (import "velo" "oxi_request_caps" (func $caps (param i64)))
+  (import "velo" "oxi_set_name"     (func $set_name (param i32 i32) (result i32)))
+  (import "velo" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
   (memory (export "memory") 1)
   (data (i32.const 0) "a@s.whatsapp.net   Tarderefused")
   (func (export "oxi_abi_version") (result i32) (i32.const $ABI_VERSION))
@@ -2196,8 +2196,8 @@ fn a_refused_name_still_spends_the_one_attempt() {
 
 /// Subscribes twice, which used to replace the first mask with the second.
 const SUBSCRIBES_TWICE: &str = r#"(module
-  (import "oxidezap" "oxi_subscribe"    (func $subscribe (param i64)))
-  (import "oxidezap" "oxi_request_caps" (func $caps (param i64)))
+  (import "velo" "oxi_subscribe"    (func $subscribe (param i64)))
+  (import "velo" "oxi_request_caps" (func $caps (param i64)))
   (memory (export "memory") 1)
   (func (export "oxi_abi_version") (result i32) (i32.const $ABI_VERSION))
   (func (export "oxi_init") (result i32)
@@ -2367,9 +2367,9 @@ fn a_directory_that_is_not_there_is_simply_empty() {
 
 /// Stores one setting on its first message and never asks for anything else.
 const STORES_ONCE: &str = r#"(module
-  (import "oxidezap" "oxi_subscribe"    (func $subscribe (param i64)))
-  (import "oxidezap" "oxi_request_caps" (func $caps (param i64)))
-  (import "oxidezap" "oxi_kv_set"       (func $set (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_subscribe"    (func $subscribe (param i64)))
+  (import "velo" "oxi_request_caps" (func $caps (param i64)))
+  (import "velo" "oxi_kv_set"       (func $set (param i32 i32 i32 i32) (result i32)))
   (memory (export "memory") 1)
   (data (i32.const 0) "kv")
   (func (export "oxi_abi_version") (result i32) (i32.const $ABI_VERSION))
@@ -2670,7 +2670,7 @@ fn a_plugin_cannot_publish_an_unbounded_number_of_trees_in_one_call() {
         published
             .latest()
             .first()
-            .is_some_and(oxidezap_core::PluginSurface::is_running),
+            .is_some_and(velo_core::PluginSurface::is_running),
         "the module traps unless the cap refused it, so surviving is the proof"
     );
 }
@@ -2690,9 +2690,9 @@ fn publishes_repeatedly() -> String {
     let n = w.finish().expect("fits");
     versioned(&format!(
         r#"(module
-  (import "oxidezap" "oxi_subscribe"    (func $subscribe (param i64)))
-  (import "oxidezap" "oxi_request_caps" (func $caps (param i64)))
-  (import "oxidezap" "oxi_ui_set"       (func $ui_set (param i32 i32) (result i32)))
+  (import "velo" "oxi_subscribe"    (func $subscribe (param i64)))
+  (import "velo" "oxi_request_caps" (func $caps (param i64)))
+  (import "velo" "oxi_ui_set"       (func $ui_set (param i32 i32) (result i32)))
   (memory (export "memory") 1)
   (data (i32.const 0) "{tree}")
   (func (export "oxi_abi_version") (result i32) (i32.const $ABI_VERSION))
@@ -2770,7 +2770,7 @@ fn an_approval_is_refused_once_the_host_is_shutting_down() {
 /// thing that catches it — and masking the bit left the plugin loaded and
 /// looking healthy while it never heard about what it asked for.
 const SUBSCRIBES_TO_THE_FUTURE: &str = r#"(module
-  (import "oxidezap" "oxi_subscribe" (func $subscribe (param i64)))
+  (import "velo" "oxi_subscribe" (func $subscribe (param i64)))
   (memory (export "memory") 1)
   (func (export "oxi_abi_version") (result i32) (i32.const $ABI_VERSION))
   (func (export "oxi_init") (result i32)
@@ -2784,7 +2784,7 @@ const SUBSCRIBES_TO_THE_FUTURE: &str = r#"(module
 /// writing against the raw ABI reaches for first. Accepting it left the
 /// plugin loaded, drawn, and permanently deaf.
 const SUBSCRIBES_TO_NOTHING: &str = r#"(module
-  (import "oxidezap" "oxi_subscribe" (func $subscribe (param i64)))
+  (import "velo" "oxi_subscribe" (func $subscribe (param i64)))
   (memory (export "memory") 1)
   (func (export "oxi_abi_version") (result i32) (i32.const $ABI_VERSION))
   (func (export "oxi_init") (result i32)
@@ -2828,7 +2828,7 @@ fn a_subscription_to_a_kind_this_host_lacks_is_refused() {
 /// capability does not bump `VERSION` — so masking would leave a plugin
 /// loaded with Settings showing a shorter sentence than the one it wrote.
 const ASKS_FOR_THE_FUTURE: &str = r#"(module
-  (import "oxidezap" "oxi_request_caps" (func $caps (param i64)))
+  (import "velo" "oxi_request_caps" (func $caps (param i64)))
   (memory (export "memory") 1)
   (func (export "oxi_abi_version") (result i32) (i32.const $ABI_VERSION))
   (func (export "oxi_init") (result i32)
@@ -2858,9 +2858,9 @@ fn a_capability_this_host_lacks_is_refused() {
 /// callback and never trap — a core, permanently, for something subscribed to
 /// no account event. The duty cycle is the bound on the sum.
 const BURNS_ON_A_TIMER: &str = r#"(module
-  (import "oxidezap" "oxi_request_caps" (func $caps (param i64)))
-  (import "oxidezap" "oxi_timer_set"    (func $timer (param i64 i64) (result i32)))
-  (import "oxidezap" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_request_caps" (func $caps (param i64)))
+  (import "velo" "oxi_timer_set"    (func $timer (param i64 i64) (result i32)))
+  (import "velo" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
   (memory (export "memory") 1)
   (data (i32.const 0) "a@s.whatsapp.nettick")
   (func (export "oxi_abi_version") (result i32) (i32.const $ABI_VERSION))
@@ -3045,7 +3045,7 @@ fn declaring_a_result_on_a_resultless_import_refuses_the_module() {
         "wrong",
         &versioned(
             r#"(module
-  (import "oxidezap" "oxi_subscribe" (func $subscribe (param i64) (result i32)))
+  (import "velo" "oxi_subscribe" (func $subscribe (param i64) (result i32)))
   (memory (export "memory") 1)
   (func (export "oxi_abi_version") (result i32) (i32.const $ABI_VERSION))
   (func (export "oxi_init") (result i32)
@@ -3077,7 +3077,7 @@ fn naming_twice_is_refused_without_refusing_the_plugin() {
         "twice",
         &versioned(
             r#"(module
-  (import "oxidezap" "oxi_set_name" (func $set_name (param i32 i32) (result i32)))
+  (import "velo" "oxi_set_name" (func $set_name (param i32 i32) (result i32)))
   (memory (export "memory") 1)
   (data (i32.const 0) "First")
   (data (i32.const 8) "Second")
@@ -3104,10 +3104,10 @@ fn naming_twice_is_refused_without_refusing_the_plugin() {
 fn reads_a_field_forever() -> String {
     versioned(&format!(
         r#"(module
-  (import "oxidezap" "oxi_subscribe"    (func $subscribe (param i64)))
-  (import "oxidezap" "oxi_request_caps" (func $caps (param i64)))
-  (import "oxidezap" "oxi_field_str"    (func $field_str (param i32 i32 i32 i32) (result i32)))
-  (import "oxidezap" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_subscribe"    (func $subscribe (param i64)))
+  (import "velo" "oxi_request_caps" (func $caps (param i64)))
+  (import "velo" "oxi_field_str"    (func $field_str (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
   (memory (export "memory") 8)
   (data (i32.const 100) "a@s.whatsapp.net")
   (data (i32.const 150) "refused")
@@ -3191,11 +3191,11 @@ fn a_write_does_not_follow_something_already_at_its_path() {
 fn reads_one_value_forever() -> String {
     versioned(
         r#"(module
-  (import "oxidezap" "oxi_subscribe"    (func $subscribe (param i64)))
-  (import "oxidezap" "oxi_request_caps" (func $caps (param i64)))
-  (import "oxidezap" "oxi_kv_set"       (func $kv_set (param i32 i32 i32 i32) (result i32)))
-  (import "oxidezap" "oxi_kv_get"       (func $kv_get (param i32 i32 i32 i32) (result i32)))
-  (import "oxidezap" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_subscribe"    (func $subscribe (param i64)))
+  (import "velo" "oxi_request_caps" (func $caps (param i64)))
+  (import "velo" "oxi_kv_set"       (func $kv_set (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_kv_get"       (func $kv_get (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
   (memory (export "memory") 8)
   (data (i32.const 100) "a@s.whatsapp.net")
   (data (i32.const 150) "refused")
@@ -3250,10 +3250,10 @@ fn reading_one_stored_value_over_and_over_runs_out_of_budget() {
 fn asks_about_long_keys() -> String {
     versioned(
         r#"(module
-  (import "oxidezap" "oxi_subscribe"    (func $subscribe (param i64)))
-  (import "oxidezap" "oxi_request_caps" (func $caps (param i64)))
-  (import "oxidezap" "oxi_kv_get"       (func $kv_get (param i32 i32 i32 i32) (result i32)))
-  (import "oxidezap" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_subscribe"    (func $subscribe (param i64)))
+  (import "velo" "oxi_request_caps" (func $caps (param i64)))
+  (import "velo" "oxi_kv_get"       (func $kv_get (param i32 i32 i32 i32) (result i32)))
+  (import "velo" "oxi_send_text"    (func $send (param i32 i32 i32 i32) (result i32)))
   (memory (export "memory") 8)
   (data (i32.const 100) "a@s.whatsapp.net")
   (data (i32.const 150) "refused")

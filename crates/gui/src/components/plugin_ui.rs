@@ -19,7 +19,7 @@ use gpui_component::button::{Button, ButtonVariants as _};
 use gpui_component::input::{Input, InputState};
 use gpui_component::switch::Switch;
 use gpui_component::{Disableable as _, Sizable as _};
-use oxidezap_core::{PluginNode, PluginSlot, PluginSurface, PluginWidget};
+use velo_core::{PluginNode, PluginSlot, PluginSurface, PluginWidget};
 
 use crate::app::WhatsAppApp;
 use crate::components::parts;

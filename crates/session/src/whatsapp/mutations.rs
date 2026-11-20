@@ -6,7 +6,7 @@
 //! synchronous constructor returning a [`Task`] that resolves once the network
 //! answered, with failures as strings a front end can display.
 
-use oxidezap_chat_store::{MessageKind, MessageStatus};
+use velo_chat_store::{MessageKind, MessageStatus};
 
 use whatsapp_rust::wacore_binary::jid::{Jid, JidExt as _, observe_str};
 use whatsapp_rust::waproto::{buffa::MessageField, whatsapp as wa};
@@ -22,8 +22,8 @@ pub type SendId = String;
 /// after the remote answer, and report its failures through diagnostics.
 pub(super) async fn delete_and_record<T, E: std::fmt::Display>(
     delete: impl std::future::Future<Output = Result<T, E>>,
-    record: impl FnOnce() -> oxidezap_chat_store::Result<()>,
-    flush: impl std::future::Future<Output = oxidezap_chat_store::Result<()>>,
+    record: impl FnOnce() -> velo_chat_store::Result<()>,
+    flush: impl std::future::Future<Output = velo_chat_store::Result<()>>,
 ) -> Result<(), String> {
     delete.await.map_err(|e| e.to_string())?;
     if let Err(e) = record() {
@@ -38,7 +38,7 @@ pub(super) async fn delete_and_record<T, E: std::fmt::Display>(
 
 fn edit_text_content(original: Option<&wa::Message>, text: String) -> wa::Message {
     let context = original
-        .map(oxidezap_chat_store::normalized_message)
+        .map(velo_chat_store::normalized_message)
         .and_then(|message| message.extended_text_message.as_option())
         .and_then(|extended| extended.context_info.as_option());
     if let Some(context) = context {
@@ -62,7 +62,7 @@ fn edit_text_content(original: Option<&wa::Message>, text: String) -> wa::Messag
 }
 
 fn sent_edit_content(sent: &wa::Message) -> Option<(&wa::Message, i64)> {
-    let protocol = oxidezap_chat_store::normalized_message(sent)
+    let protocol = velo_chat_store::normalized_message(sent)
         .protocol_message
         .as_option()?;
     Some((protocol.edited_message.as_option()?, protocol.timestamp_ms?))

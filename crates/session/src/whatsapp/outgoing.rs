@@ -37,7 +37,7 @@
 //! explicitly as an unchanged document.
 
 use log::{debug, info, warn};
-use oxidezap_core::{OutgoingMedia, QuotedMessage};
+use velo_core::{OutgoingMedia, QuotedMessage};
 use whatsapp_rust::buffa::MessageField;
 use whatsapp_rust::upload::UploadResponse;
 use whatsapp_rust::wacore::download::MediaType as DownloadMediaType;
@@ -221,7 +221,7 @@ pub(super) fn prepare_for_send(file: OutgoingFile) -> Result<(Shape, OutgoingFil
             let mut file = file;
             if file.data.starts_with(b"GIF87a") || file.data.starts_with(b"GIF89a") {
                 file.data =
-                    oxidezap_video::gif_to_mp4(&file.data).map_err(|error| error.to_string())?;
+                    velo_video::gif_to_mp4(&file.data).map_err(|error| error.to_string())?;
                 file.mime_type = "video/mp4".into();
                 file.file_name = "animation.mp4".into();
             }

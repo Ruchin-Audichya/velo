@@ -221,9 +221,9 @@ mod imp {
     /// Fetch the emoji face, then start the window whether it arrived or not.
     pub(super) fn with_downloaded_fonts(start: impl FnOnce() + 'static) {
         wasm_bindgen_futures::spawn_local(async move {
-            // `oxidezap_platform` rather than a timer of this module's own:
+            // `velo_platform` rather than a timer of this module's own:
             // a wait is armed in one place, which /clippy.toml enforces.
-            match oxidezap_platform::with_timeout(emoji(), DEADLINE).await {
+            match velo_platform::with_timeout(emoji(), DEADLINE).await {
                 Some(Ok(face)) => {
                     // The only writer, and it runs before the window opens,
                     // so a refusal is impossible rather than tolerated.

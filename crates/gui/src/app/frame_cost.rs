@@ -6,7 +6,7 @@
 //! *on screen* rather than to the size of the conversation behind it.
 //!
 //! Run it with
-//! `cargo test -p oxidezap-gui -- --ignored --nocapture frame_cost`.
+//! `cargo test -p velo-gui -- --ignored --nocapture frame_cost`.
 //!
 //! Why an allocation count and not a duration: the number that matters is on
 //! the web, where the allocator is `dlmalloc` and every one of these costs
@@ -73,7 +73,7 @@ fn allocations(body: impl FnOnce()) -> usize {
 mod tests {
     use std::sync::Arc;
 
-    use oxidezap_core::{Chat, ChatMessage};
+    use velo_core::{Chat, ChatMessage};
 
     use super::allocations;
     use crate::app::messages::MessageListCache;
@@ -114,7 +114,7 @@ mod tests {
             // is its messages, and each of those is four `String`s, a
             // reaction map, a quote and a media handle.
             let by_value = allocations(|| {
-                let copied: oxidezap_core::Chat = (*chat).clone();
+                let copied: velo_core::Chat = (*chat).clone();
                 std::hint::black_box(&copied);
             });
 

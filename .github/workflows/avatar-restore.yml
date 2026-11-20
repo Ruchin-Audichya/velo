@@ -70,15 +70,15 @@ jobs:
               text += '\n#[cfg(test)]\npub(super) static PERSISTENT_READS: portable_atomic::AtomicU64 = portable_atomic::AtomicU64::new(0);\n'
           native.write_text(text)
           PY
-          cargo test -p oxidezap-gui --bin oxidezap --locked native_restore_probe -- --ignored --nocapture
-          OXIDEZAP_AVATAR_PROBE_FORMAT=jpeg cargo test -p oxidezap-gui --bin oxidezap --locked native_restore_probe -- --ignored --nocapture
+          cargo test -p velo-gui --bin velo --locked native_restore_probe -- --ignored --nocapture
+          VELO_AVATAR_PROBE_FORMAT=jpeg cargo test -p velo-gui --bin velo --locked native_restore_probe -- --ignored --nocapture
       - name: Restore candidate implementation
         if: always()
         run: git restore --source=HEAD -- crates/gui/src/session/avatar/mod.rs crates/gui/src/session/avatar/native.rs crates/gui/src/session/avatar/web.rs
       - name: Test candidate lifecycle and responsiveness
         run: |
-          cargo test -p oxidezap-gui --bin oxidezap --locked session::avatar:: -- --test-threads=1
+          cargo test -p velo-gui --bin velo --locked session::avatar:: -- --test-threads=1
       - name: Measure candidate implementation
         run: |
-          cargo test -p oxidezap-gui --bin oxidezap --locked native_restore_probe -- --ignored --nocapture
-          OXIDEZAP_AVATAR_PROBE_FORMAT=jpeg cargo test -p oxidezap-gui --bin oxidezap --locked native_restore_probe -- --ignored --nocapture
+          cargo test -p velo-gui --bin velo --locked native_restore_probe -- --ignored --nocapture
+          VELO_AVATAR_PROBE_FORMAT=jpeg cargo test -p velo-gui --bin velo --locked native_restore_probe -- --ignored --nocapture

@@ -85,7 +85,7 @@ injected `[` must fail both the original checked runtime path and the build
 visitor. A deliberate mutation removing `mobile` from the visitor makes the
 test fail with `mobile: build visitor omitted invalid regex`. The whole bundled
 XML must pass both paths. This runs in normal workspace tests/CI and can be
-repeated with `cargo test -p oxidezap-core --test phone_metadata_build`.
+repeated with `cargo test -p velo-core --test phone_metadata_build`.
 The earlier executable build-script fault injection also failed before emitting
 `database.bin`.
 
@@ -105,9 +105,9 @@ needs the same updated probe source for both functional-comparison modes.
 ```sh
 git worktree add --detach /tmp/phone-base 33108ce
 cp crates/core/examples/phone_profile.rs /tmp/phone-base/crates/core/examples/
-cargo build --release --locked -p oxidezap-core --example phone_profile
+cargo build --release --locked -p velo-core --example phone_profile
 cp target/release/examples/phone_profile /tmp/phone-head
-(cd /tmp/phone-base && cargo build --release --locked -p oxidezap-core --example phone_profile)
+(cd /tmp/phone-base && cargo build --release --locked -p velo-core --example phone_profile)
 cp /tmp/phone-base/target/release/examples/phone_profile /tmp/phone-base-probe
 cc -O2 scripts/phone-profile-usage.c -o /tmp/phone-usage
 python3 scripts/measure-phone-profile.py /tmp/phone-usage /tmp/phone-base-probe /tmp/phone-head \
@@ -118,12 +118,12 @@ cmp /tmp/phone-base-labels /tmp/phone-head-labels
 /tmp/phone-base-probe --representative > /tmp/phone-base-representative
 /tmp/phone-head --representative > /tmp/phone-head-representative
 cmp /tmp/phone-base-representative /tmp/phone-head-representative
-cargo test -p oxidezap-core --test phone_metadata_build
-cargo test -p oxidezap-core --all-features
-cargo clippy -p oxidezap-core --all-targets --all-features -- -D warnings
+cargo test -p velo-core --test phone_metadata_build
+cargo test -p velo-core --all-features
+cargo clippy -p velo-core --all-targets --all-features -- -D warnings
 cargo fmt --all -- --check
 cargo machete
-cargo check --locked -p oxidezap-audio --target wasm32-unknown-unknown
+cargo check --locked -p velo-audio --target wasm32-unknown-unknown
 ```
 
 This investigation used the explicitly authorized local alternative to CodSpeed.

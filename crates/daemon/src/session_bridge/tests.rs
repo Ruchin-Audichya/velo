@@ -6,8 +6,8 @@
 
 use std::sync::Arc;
 
-use oxidezap_core::{Chat, ChatMessage, UiEvent, fixtures};
-use oxidezap_ipc::{ConnectionState, DaemonMessage};
+use velo_core::{Chat, ChatMessage, UiEvent, fixtures};
+use velo_ipc::{ConnectionState, DaemonMessage};
 
 use super::translate::deadline_ms;
 use super::*;
@@ -81,17 +81,15 @@ pub(super) fn bridge() -> Bridge {
     // a host with nothing loaded keeps it that way.
     Bridge::new(
         StateHub::new(),
-        Arc::new(oxidezap_plugin_host::Plugins::nothing_loaded(Arc::new(
-            |_| {},
-        ))),
+        Arc::new(velo_plugin_host::Plugins::nothing_loaded(Arc::new(|_| {}))),
     )
 }
 
 #[cfg(all(feature = "test-support", not(target_family = "wasm")))]
 #[tokio::test]
 async fn outgoing_accept_handler_reaches_daemon_wire() {
-    use oxidezap_ipc::{DaemonEvent, StateVersion};
-    use oxidezap_session::{OutgoingAcceptCase, outgoing_accept_events};
+    use velo_ipc::{DaemonEvent, StateVersion};
+    use velo_session::{OutgoingAcceptCase, outgoing_accept_events};
 
     for case in OutgoingAcceptCase::ALL {
         let events = outgoing_accept_events(case).await;
@@ -109,7 +107,7 @@ async fn outgoing_accept_handler_reaches_daemon_wire() {
         let mut bridge = bridge();
         let mut updates = bridge.hub.subscribe();
         bridge.hub.calls(|calls| {
-            calls.set_outgoing(oxidezap_core::OutgoingCall::new(
+            calls.set_outgoing(velo_core::OutgoingCall::new(
                 "placeholder",
                 recipient.clone(),
                 "Peer".into(),
@@ -117,7 +115,7 @@ async fn outgoing_accept_handler_reaches_daemon_wire() {
             ))
         });
         let mut version = StateVersion::INITIAL;
-        let mut state = oxidezap_core::CallState::default();
+        let mut state = velo_core::CallState::default();
         for event in std::iter::once(None).chain(events.into_iter().map(Some)) {
             if let Some(event) = event {
                 bridge.observe(event);
@@ -484,7 +482,7 @@ fn a_receipt_starts_no_picture_lookup() {
     bridge.observe(UiEvent::ReceiptReceived {
         chat_jid: "1@s.whatsapp.net".into(),
         message_ids: vec!["m1".into()],
-        receipt_type: oxidezap_core::ReceiptType::Read,
+        receipt_type: velo_core::ReceiptType::Read,
     });
 
     assert!(
@@ -500,9 +498,9 @@ fn a_receipt_starts_no_picture_lookup() {
 fn a_resolved_picture_is_the_only_thing_that_starts_a_fetch() {
     let mut bridge = bridge();
     bridge.observe(UiEvent::AvatarsResolved {
-        resolutions: vec![oxidezap_core::AvatarResolution {
+        resolutions: vec![velo_core::AvatarResolution {
             jid: "1@s.whatsapp.net".into(),
-            outcome: oxidezap_core::AvatarOutcome::Found {
+            outcome: velo_core::AvatarOutcome::Found {
                 picture_id: "picture-1".into(),
                 source: None,
             },
@@ -521,9 +519,9 @@ fn a_resolved_picture_is_the_only_thing_that_starts_a_fetch() {
 async fn a_not_found_answer_removes_the_picture() {
     let mut bridge = bridge();
     bridge.observe(UiEvent::AvatarsResolved {
-        resolutions: vec![oxidezap_core::AvatarResolution {
+        resolutions: vec![velo_core::AvatarResolution {
             jid: "1@s.whatsapp.net".into(),
-            outcome: oxidezap_core::AvatarOutcome::NotFound,
+            outcome: velo_core::AvatarOutcome::NotFound,
         }],
     });
 
@@ -566,7 +564,7 @@ async fn the_hub_is_current_before_anyone_is_told() {
 #[test]
 fn a_ringing_call_is_state_a_new_window_can_attach_to() {
     let mut bridge = bridge();
-    let call = oxidezap_core::IncomingCall {
+    let call = velo_core::IncomingCall {
         call_id: "call-1".into(),
         caller_name: "Alice".into(),
         caller_jid: "1@s.whatsapp.net".into(),
@@ -606,7 +604,7 @@ fn a_logout_preserves_account_history_in_the_next_snapshot() {
     assert!(!bridge.hub.store_backed_chat_jids().is_empty());
     assert!(matches!(
         bridge.hub.connection(),
-        oxidezap_ipc::ConnectionState::LoggedOut { .. }
+        velo_ipc::ConnectionState::LoggedOut { .. }
     ));
     assert!(
         bridge.reads().boundary("1@s.whatsapp.net").is_none(),
@@ -627,7 +625,7 @@ fn terminal_logout_cannot_be_overwritten_by_queued_reconnect_events() {
         bridge.observe(event);
         assert!(matches!(
             bridge.hub.connection(),
-            oxidezap_ipc::ConnectionState::LoggedOut { .. }
+            velo_ipc::ConnectionState::LoggedOut { .. }
         ));
     }
 }
@@ -638,7 +636,7 @@ fn terminal_logout_cannot_be_overwritten_by_queued_reconnect_events() {
 #[test]
 fn a_lost_connection_does_not_leave_the_call_stage_standing() {
     let mut bridge = bridge();
-    bridge.observe(UiEvent::IncomingCall(oxidezap_core::IncomingCall {
+    bridge.observe(UiEvent::IncomingCall(velo_core::IncomingCall {
         call_id: "call-1".into(),
         caller_name: "Alice".into(),
         caller_jid: "1@s.whatsapp.net".into(),
@@ -664,7 +662,7 @@ fn a_lost_connection_does_not_leave_the_call_stage_standing() {
 #[test]
 fn a_mute_the_peer_was_never_told_about_is_corrected_in_the_state() {
     let mut bridge = bridge();
-    let call = oxidezap_core::IncomingCall {
+    let call = velo_core::IncomingCall {
         call_id: "call-1".into(),
         caller_name: "Alice".into(),
         caller_jid: "1@s.whatsapp.net".into(),
@@ -703,7 +701,7 @@ fn a_mute_the_peer_was_never_told_about_is_corrected_in_the_state() {
 #[test]
 fn a_call_answered_on_another_device_says_so_in_the_state() {
     let mut taken = bridge();
-    let call = oxidezap_core::IncomingCall {
+    let call = velo_core::IncomingCall {
         call_id: "call-1".into(),
         caller_name: "Alice".into(),
         caller_jid: "1@s.whatsapp.net".into(),
@@ -760,7 +758,7 @@ fn an_out_of_order_arrival_does_not_move_the_preview_backwards() {
 fn a_third_offer_is_declined_by_the_daemon() {
     let mut bridge = bridge();
     let offer = |id: &str| {
-        UiEvent::IncomingCall(oxidezap_core::IncomingCall {
+        UiEvent::IncomingCall(velo_core::IncomingCall {
             call_id: id.into(),
             caller_name: "Someone".into(),
             caller_jid: format!("{id}@s.whatsapp.net"),
@@ -795,7 +793,7 @@ fn an_outgoing_call_is_state_a_new_window_can_attach_to() {
     let mut bridge = bridge();
     // What the daemon records when it takes the request.
     bridge.hub.calls(|s| {
-        s.set_outgoing(oxidezap_core::OutgoingCall::new(
+        s.set_outgoing(velo_core::OutgoingCall::new(
             "ui-call-1",
             "1@s.whatsapp.net".into(),
             "Alice".into(),
@@ -830,7 +828,7 @@ fn an_outgoing_call_is_state_a_new_window_can_attach_to() {
 fn a_late_answer_does_not_rename_the_redial_that_replaced_it() {
     let mut bridge = bridge();
     bridge.hub.calls(|s| {
-        s.set_outgoing(oxidezap_core::OutgoingCall::new(
+        s.set_outgoing(velo_core::OutgoingCall::new(
             "ui-call-2",
             "1@s.whatsapp.net".into(),
             "Alice".into(),
@@ -916,7 +914,7 @@ async fn work_in_flight_is_capped_rather_than_queued() {
 
 #[test]
 fn business_cli_summary_includes_labels_without_response_payloads() {
-    use oxidezap_core::{BusinessAction, BusinessButton, BusinessContent, BusinessKind};
+    use velo_core::{BusinessAction, BusinessButton, BusinessContent, BusinessKind};
     let mut message = fixtures::message("template-fixture", "example@lid", "Ready");
     message.business = Some(BusinessContent {
         kind: BusinessKind::Template,

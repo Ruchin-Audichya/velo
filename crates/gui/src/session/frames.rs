@@ -15,8 +15,8 @@ use std::sync::{Arc, Mutex};
 
 use chrono::DateTime;
 use log::{debug, error, info, warn};
-use oxidezap_core::{CallState, Chat, MediaContent, UiEvent, VideoStream};
-use oxidezap_ipc::{
+use velo_core::{CallState, Chat, MediaContent, UiEvent, VideoStream};
+use velo_ipc::{
     ChatSummary, ConnectionState, DaemonEvent, DaemonMessage, PROTOCOL_VERSION, RequestId,
     StateSnapshot, StateVersion,
 };
@@ -596,7 +596,7 @@ pub(super) fn media_keys(message: &DaemonMessage, pending: &Pending) -> Vec<Stri
         // `capabilities` was wired only into the play path, so a history full
         // of cached videos spent the whole frame-media budget on files no
         // press could ever open.
-        if media.media_type == oxidezap_core::MediaType::Video
+        if media.media_type == velo_core::MediaType::Video
             && crate::platform::video_decode_unavailable().is_some()
         {
             return;
@@ -987,8 +987,8 @@ fn fill_with(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oxidezap_core::CallState;
-    use oxidezap_ipc::StateVersion;
+    use velo_core::CallState;
+    use velo_ipc::StateVersion;
 
     #[test]
     fn wire_preview_bytes_keep_their_mime_and_retry_flag_until_full_media_arrives() {
@@ -1008,7 +1008,7 @@ mod tests {
                 unreachable!()
             }
         }
-        let dl: oxidezap_core::DownloadableMedia = serde_json::from_value(serde_json::json!({
+        let dl: velo_core::DownloadableMedia = serde_json::from_value(serde_json::json!({
             "direct_path":"/v/channel", "media_key":[], "file_enc_sha256":[],
             "file_sha256":vec![7;32], "file_length":1024, "mime_type":"image/webp",
             "duration_secs":null, "download_type":"image"
@@ -1162,7 +1162,7 @@ mod tests {
             .into_iter()
             .enumerate()
             .map(|(n, media)| {
-                let mut message = oxidezap_core::ChatMessage::new_incoming(
+                let mut message = velo_core::ChatMessage::new_incoming(
                     format!("m{n}"),
                     "peer@example.invalid".into(),
                     "photo".into(),
@@ -1185,7 +1185,7 @@ mod tests {
 
     #[test]
     fn edit_confirmation_is_correlated_and_refusals_and_disconnects_release_waiters() {
-        use oxidezap_ipc::ProtocolError;
+        use velo_ipc::ProtocolError;
         let (sink, _events) = super::super::sink::channel();
         let pending = Pending::default();
         let pictures = crate::video::LatestFrames::default();
@@ -1255,7 +1255,7 @@ mod tests {
         ] {
             let call_id = "synthetic-call".to_string();
             let mut calls = CallState::default();
-            calls.set_outgoing(oxidezap_core::OutgoingCall::new(
+            calls.set_outgoing(velo_core::OutgoingCall::new(
                 &call_id,
                 "peer@example.invalid".into(),
                 "Peer".into(),
@@ -1289,7 +1289,7 @@ mod tests {
                 }),
             );
             let unit = |data: Vec<u8>, keyframe| {
-                DaemonMessage::CallVideo(Box::new(oxidezap_core::CallVideoFrame::new(
+                DaemonMessage::CallVideo(Box::new(velo_core::CallVideoFrame::new(
                     call_id.clone(),
                     VideoStream::Remote,
                     data,
@@ -1370,14 +1370,14 @@ mod tests {
 
     fn video_call(id: &str) -> CallState {
         let mut calls = CallState::default();
-        calls.set_outgoing(oxidezap_core::OutgoingCall::new(
+        calls.set_outgoing(velo_core::OutgoingCall::new(
             id,
             "peer@example.invalid".into(),
             "Test peer".into(),
             true,
         ));
         assert!(calls.connect(&id.to_string()));
-        assert!(calls.set_video(&id.to_string(), oxidezap_core::VideoStream::Remote, true));
+        assert!(calls.set_video(&id.to_string(), velo_core::VideoStream::Remote, true));
         calls
     }
 
@@ -1386,8 +1386,8 @@ mod tests {
     fn opposite_camera_off_preserves_delta_decoding_without_recovery() {
         use openh264::encoder::{Encoder, EncoderConfig};
         use openh264::formats::{RgbSliceU8, YUVBuffer};
-        use oxidezap_core::VideoStream::{Local, Remote};
         use std::time::Duration;
+        use velo_core::VideoStream::{Local, Remote};
 
         let mut encoder =
             Encoder::with_api_config(openh264::OpenH264API::from_source(), EncoderConfig::new())
@@ -1428,7 +1428,7 @@ mod tests {
             calls.set_video(&"current".into(), Local, true);
             frames.follow_calls(&calls);
             let unit = |stream, data, keyframe| {
-                DaemonMessage::CallVideo(Box::new(oxidezap_core::CallVideoFrame::new(
+                DaemonMessage::CallVideo(Box::new(velo_core::CallVideoFrame::new(
                     "current".into(),
                     stream,
                     data,
@@ -1475,9 +1475,9 @@ mod tests {
     }
 
     fn keyframe(id: &str) -> DaemonMessage {
-        DaemonMessage::CallVideo(Box::new(oxidezap_core::CallVideoFrame {
+        DaemonMessage::CallVideo(Box::new(velo_core::CallVideoFrame {
             call_id: id.into(),
-            stream: oxidezap_core::VideoStream::Remote,
+            stream: velo_core::VideoStream::Remote,
             data: Vec::new(),
             keyframe: true,
             gap: false,
@@ -1485,7 +1485,7 @@ mod tests {
         }))
     }
 
-    fn picture(id: &str, stream: oxidezap_core::VideoStream) -> crate::video::CallFrame {
+    fn picture(id: &str, stream: velo_core::VideoStream) -> crate::video::CallFrame {
         crate::video::CallFrame {
             call_id: id.into(),
             stream,
@@ -1500,20 +1500,18 @@ mod tests {
     fn fair_readiness_before_call_adoption_keeps_the_only_picture() {
         for replacement in [None, Some(CallState::default()), Some(video_call("next"))] {
             let (sink, mut events) = super::super::sink::channel();
-            let path = std::env::temp_dir().join(format!(
-                "oxidezap-frame-adoption-{}.sock",
-                std::process::id()
-            ));
+            let path = std::env::temp_dir()
+                .join(format!("velo-frame-adoption-{}.sock", std::process::id()));
             let listener = std::os::unix::net::UnixListener::bind(&path).unwrap();
-            let endpoint = oxidezap_ipc::Endpoint::connect_at(&path).unwrap();
+            let endpoint = velo_ipc::Endpoint::connect_at(&path).unwrap();
             let (_peer, _) = listener.accept().unwrap();
             std::fs::remove_file(&path).unwrap();
             let (_, writer) = endpoint.split().unwrap();
             let client = super::super::Session::new(
-                oxidezap_ipc::Link::over_stream(writer),
+                velo_ipc::Link::over_stream(writer),
                 sink.ui(),
                 Arc::new(NoMedia),
-                oxidezap_core::AccountId::LEGACY,
+                velo_core::AccountId::LEGACY,
             );
             let pending = Pending::default();
             let pictures = client.call_frames().clone();
@@ -1565,7 +1563,7 @@ mod tests {
 
     #[test]
     fn camera_retirement_clears_only_its_slot_and_generation() {
-        use oxidezap_core::VideoStream::{Local, Remote};
+        use velo_core::VideoStream::{Local, Remote};
         for disabled in [Local, Remote] {
             let healthy = if disabled == Local { Remote } else { Local };
             let (sink, _events) = super::super::sink::channel();
@@ -1608,7 +1606,7 @@ mod tests {
 
     #[test]
     fn two_latest_slots_share_one_readiness_notification() {
-        use oxidezap_core::VideoStream::{Local, Remote};
+        use velo_core::VideoStream::{Local, Remote};
         let (sink, mut events) = super::super::sink::channel();
         let pending = Pending::default();
         let pictures = crate::video::LatestFrames::default();
@@ -1673,7 +1671,7 @@ mod tests {
                 })
                 .is_continue()
         );
-        delayed(picture("ended", oxidezap_core::VideoStream::Remote));
+        delayed(picture("ended", velo_core::VideoStream::Remote));
         assert!(
             pictures.take().is_empty(),
             "retired output repopulated its slot"
@@ -1744,7 +1742,7 @@ mod tests {
         let DaemonMessage::CallVideo(mut local) = keyframe("current") else {
             unreachable!();
         };
-        local.stream = oxidezap_core::VideoStream::Local;
+        local.stream = velo_core::VideoStream::Local;
         assert!(frames.apply(DaemonMessage::CallVideo(local)).is_continue());
         assert!(
             frames.video.iter().all(Option::is_none),
@@ -1754,7 +1752,7 @@ mod tests {
 
     #[test]
     fn disabling_a_camera_rejects_late_keyframes_and_old_decoded_output() {
-        use oxidezap_core::VideoStream::Remote;
+        use velo_core::VideoStream::Remote;
         let (sink, _events) = super::super::sink::channel();
         let pending = Pending::default();
         let pictures = crate::video::LatestFrames::default();
@@ -1856,12 +1854,12 @@ mod tests {
     #[test]
     fn a_diagnosed_ending_is_not_drawn_as_an_outage() {
         let outage = Fault::unreachable("the socket went");
-        assert_eq!(outage.recovery, oxidezap_core::Recovery::AfterAWait);
+        assert_eq!(outage.recovery, velo_core::Recovery::AfterAWait);
 
         let behind = Fault::fell_behind("lost part of the stream");
         assert_eq!(
             behind.recovery,
-            oxidezap_core::Recovery::Now,
+            velo_core::Recovery::Now,
             "the body says it is attaching again, so it has to be"
         );
         assert_ne!(behind.headline, outage.headline);
@@ -1869,11 +1867,11 @@ mod tests {
         let mismatch = Fault::mismatched("protocol 3 against 4");
         assert_eq!(
             mismatch.recovery,
-            oxidezap_core::Recovery::Nothing,
+            velo_core::Recovery::Nothing,
             "reconnecting fails the same way forever, so nothing may promise it"
         );
         assert!(
-            mismatch.body.contains("Quit oxidezap"),
+            mismatch.body.contains("Quit Velo"),
             "and the thing that helps is on the screen rather than behind the fold"
         );
     }
@@ -1911,7 +1909,7 @@ mod tests {
             pinned_at_ms: None,
             muted_until_ms: None,
             group_hierarchy: None,
-            last_message: Some(oxidezap_ipc::MessagePreview {
+            last_message: Some(velo_ipc::MessagePreview {
                 id: Some("3EB0".into()),
                 text: "olá".into(),
                 from_me: false,

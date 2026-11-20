@@ -329,7 +329,7 @@ async fn attempt_batch(
                     warn!("chat-store: {error}");
                     return Err((error, false));
                 }
-                oxidezap_platform::sleep(std::time::Duration::from_millis(25 << attempt)).await;
+                velo_platform::sleep(std::time::Duration::from_millis(25 << attempt)).await;
             }
         }
     }

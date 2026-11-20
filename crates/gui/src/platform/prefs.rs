@@ -80,7 +80,7 @@ mod imp {
                         .map(|home| home.join(".config"))
                 })?
         };
-        Some(dir.join("oxidezap").join("theme.json"))
+        Some(dir.join("velo").join("theme.json"))
     }
 
     /// The path, in words: it is a file a person opens in an editor, so the
@@ -176,7 +176,7 @@ mod imp {
         #[test]
         fn the_theme_is_replaced_rather_than_overwritten() {
             let dir = std::env::temp_dir().join(format!(
-                "oxidezap-theme-{}-{:?}",
+                "velo-theme-{}-{:?}",
                 std::process::id(),
                 std::thread::current().id()
             ));
@@ -201,7 +201,7 @@ mod imp {
     /// Namespaced, because a page shares its origin's storage with anything
     /// else served from it — which on a Pages deployment is every other
     /// project the same account publishes.
-    const KEY: &str = "oxidezap.theme";
+    const KEY: &str = "velo.theme";
 
     /// The browser's own per-origin store, if this page is allowed one.
     ///

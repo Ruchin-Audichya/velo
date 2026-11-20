@@ -565,7 +565,7 @@ mod tests {
     /// its reaction map and its quote — on every frame, for readers that only
     /// ever look at the timeline cache.
     ///
-    /// `cargo test -p oxidezap-core --release -- --ignored conversation_clone_cost`
+    /// `cargo test -p velo-core --release -- --ignored conversation_clone_cost`
     #[test]
     #[ignore = "a stopwatch, not a test"]
     fn conversation_clone_cost() {

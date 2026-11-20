@@ -26,7 +26,7 @@ use crate::components::parts;
 use crate::responsive::ResponsiveLayout;
 use crate::theme::Metrics;
 use gpui::AppContext as _;
-use oxidezap_core::{ActiveCall, CallState, Stage};
+use velo_core::{ActiveCall, CallState, Stage};
 
 use super::ProductIcon;
 
@@ -578,8 +578,8 @@ fn mobile_banner(
 }
 
 /// What a call we placed is doing, in the words the peer's side would use.
-fn outgoing_label(call: &oxidezap_core::OutgoingCall) -> &'static str {
-    use oxidezap_core::OutgoingCallState;
+fn outgoing_label(call: &velo_core::OutgoingCall) -> &'static str {
+    use velo_core::OutgoingCallState;
     match call.state {
         OutgoingCallState::Initiating => crate::tr!(Calling),
         OutgoingCallState::Ringing => crate::tr!(Ringing),

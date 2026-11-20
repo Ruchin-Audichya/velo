@@ -19,7 +19,7 @@ use std::collections::BTreeMap;
 use std::ops::Bound::{Excluded, Included, Unbounded};
 use std::sync::Mutex;
 
-use oxidezap_ipc::{ChatSummary, ConnectionState, DaemonEvent, StateSnapshot, StateVersion};
+use velo_ipc::{ChatSummary, ConnectionState, DaemonEvent, StateSnapshot, StateVersion};
 
 /// What the tray renders. Small and comparable so `watch` can drop
 /// no-op updates before they reach the icon.
@@ -127,19 +127,19 @@ struct Inner {
     /// front end keeps, so attaching hands it over whole rather than replaying
     /// events that would not reconstruct it: a call this account placed was
     /// never an event at all.
-    calls: oxidezap_core::CallState,
+    calls: velo_core::CallState,
     /// Who this device is linked as, once the session has said.
     ///
     /// State for the same reason the calls are: announced on connect, once,
     /// and a client attaching afterwards never saw it.
-    account: Option<oxidezap_ipc::AccountIdentity>,
+    account: Option<velo_ipc::AccountIdentity>,
     /// Every loaded plugin, and what each wants drawn.
     ///
     /// State like the calls are: a plugin publishes its interface when it
     /// starts, once, and a window attaching an hour later never saw that
     /// happen. Held whole rather than per plugin, because a set of some
     /// plugins is not a snapshot of the set.
-    plugins: Vec<oxidezap_core::PluginSurface>,
+    plugins: Vec<velo_core::PluginSurface>,
     /// Chats keyed by JID. A map, not a Vec: every update is a lookup by JID,
     /// and a Vec would make a rename or a receipt O(n) over every chat.
     chats: std::collections::HashMap<String, ChatEntry>,
@@ -200,7 +200,7 @@ impl StateStore {
             inner: Mutex::new(Inner {
                 version: StateVersion::INITIAL,
                 connection: ConnectionState::Connecting,
-                calls: oxidezap_core::CallState::default(),
+                calls: velo_core::CallState::default(),
                 account: None,
                 plugins: Vec::new(),
                 chats: std::collections::HashMap::new(),
@@ -242,12 +242,12 @@ impl StateStore {
     }
 
     /// Whether this identity is the one already held, and so not news.
-    pub(super) fn holds_account(&self, account: &oxidezap_ipc::AccountIdentity) -> bool {
+    pub(super) fn holds_account(&self, account: &velo_ipc::AccountIdentity) -> bool {
         self.lock().account.as_ref() == Some(account)
     }
 
     /// Whether this is the set of plugins already held, and so not news.
-    pub(super) fn holds_plugins(&self, plugins: &[oxidezap_core::PluginSurface]) -> bool {
+    pub(super) fn holds_plugins(&self, plugins: &[velo_core::PluginSurface]) -> bool {
         self.lock().plugins == plugins
     }
 
@@ -267,7 +267,7 @@ impl StateStore {
         inner.attention = Attention::new(i64::MIN);
         inner.inactive_chats.clear();
         inner.account = None;
-        inner.calls = oxidezap_core::CallState::new();
+        inner.calls = velo_core::CallState::new();
         inner.version = inner.version.next();
         inner.account_generation += 1;
     }
@@ -279,7 +279,7 @@ impl StateStore {
     }
 
     /// What is happening on the call front right now.
-    pub(super) fn call_state(&self) -> oxidezap_core::CallState {
+    pub(super) fn call_state(&self) -> velo_core::CallState {
         self.lock().calls.clone()
     }
 
@@ -431,14 +431,14 @@ impl StateStore {
 
     /// Change what is happening on the call front.
     ///
-    /// The transitions live in [`oxidezap_core::CallState`], so the daemon and
+    /// The transitions live in [`velo_core::CallState`], so the daemon and
     /// the front end cannot disagree about what a call is.
     ///
     /// A change that leaves the state identical consumes no version and is
     /// nothing to publish: a mute already muted is not news.
     pub(super) fn change_calls<C>(
         &self,
-        change: impl FnOnce(&mut oxidezap_core::CallState),
+        change: impl FnOnce(&mut velo_core::CallState),
         claim: impl FnOnce() -> C,
     ) -> Option<Published<C>> {
         let mut inner = self.lock();
@@ -687,7 +687,7 @@ mod tests {
         for step in 0..2000 {
             seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
             let jid = if seed.is_multiple_of(11) {
-                oxidezap_core::STATUS_BROADCAST_JID.to_string()
+                velo_core::STATUS_BROADCAST_JID.to_string()
             } else {
                 format!("{}@s.whatsapp.net", seed % 64)
             };
@@ -784,7 +784,7 @@ mod tests {
             pinned_at_ms: Some(pinned_at_ms),
             muted_until_ms: None,
             group_hierarchy: None,
-            last_message: Some(oxidezap_ipc::MessagePreview {
+            last_message: Some(velo_ipc::MessagePreview {
                 id: None,
                 text: "t".into(),
                 from_me: false,
@@ -802,7 +802,7 @@ mod tests {
             pinned_at_ms: None,
             muted_until_ms: None,
             group_hierarchy: None,
-            last_message: Some(oxidezap_ipc::MessagePreview {
+            last_message: Some(velo_ipc::MessagePreview {
                 id: None,
                 text: "t".into(),
                 from_me: false,
@@ -815,9 +815,9 @@ mod tests {
     fn a_partial_chat_update_keeps_its_resolved_group_hierarchy() {
         let store = store();
         let jid = "120363000000000001@g.us";
-        let hierarchy = oxidezap_core::GroupHierarchy::Subgroup {
+        let hierarchy = velo_core::GroupHierarchy::Subgroup {
             parent_jid: "120363000000000009@g.us".into(),
-            kind: oxidezap_core::SubgroupKind::General,
+            kind: velo_core::SubgroupKind::General,
         };
         store.apply_unless_stale(
             Change::live(DaemonEvent::ChatUpdated(ChatSummary {
@@ -841,7 +841,7 @@ mod tests {
             "message summaries do not know community membership"
         );
 
-        let explicit = oxidezap_core::GroupHierarchy::Standalone;
+        let explicit = velo_core::GroupHierarchy::Standalone;
         store.apply_unless_stale(
             Change::live(DaemonEvent::ChatUpdated(ChatSummary {
                 jid: jid.into(),

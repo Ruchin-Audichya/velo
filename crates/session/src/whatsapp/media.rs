@@ -16,7 +16,7 @@
 use std::sync::Arc;
 
 use log::{info, warn};
-use oxidezap_core::{DownloadableMedia, MediaContent};
+use velo_core::{DownloadableMedia, MediaContent};
 use whatsapp_rust::client::Client;
 use whatsapp_rust::wacore::download::Downloadable;
 use whatsapp_rust::waproto::whatsapp as wa;
@@ -93,8 +93,8 @@ fn effective_sticker(msg: &wa::Message) -> Option<&wa::message::StickerMessage> 
 fn image_of(msg: &wa::Message) -> Option<&wa::message::ImageMessage> {
     msg.image_message
         .as_option()
-        .or_else(|| match oxidezap_chat_store::business_media(msg) {
-            Some(oxidezap_chat_store::BusinessMedia::Image(m)) => Some(m),
+        .or_else(|| match velo_chat_store::business_media(msg) {
+            Some(velo_chat_store::BusinessMedia::Image(m)) => Some(m),
             _ => None,
         })
 }
@@ -102,16 +102,16 @@ fn video_of(msg: &wa::Message) -> Option<&wa::message::VideoMessage> {
     msg.ptv_message
         .as_option()
         .or(msg.video_message.as_option())
-        .or_else(|| match oxidezap_chat_store::business_media(msg) {
-            Some(oxidezap_chat_store::BusinessMedia::Video(m)) => Some(m),
+        .or_else(|| match velo_chat_store::business_media(msg) {
+            Some(velo_chat_store::BusinessMedia::Video(m)) => Some(m),
             _ => None,
         })
 }
 fn document_of(msg: &wa::Message) -> Option<&wa::message::DocumentMessage> {
     msg.document_message
         .as_option()
-        .or_else(|| match oxidezap_chat_store::business_media(msg) {
-            Some(oxidezap_chat_store::BusinessMedia::Document(m)) => Some(m),
+        .or_else(|| match velo_chat_store::business_media(msg) {
+            Some(velo_chat_store::BusinessMedia::Document(m)) => Some(m),
             _ => None,
         })
 }
@@ -254,8 +254,8 @@ pub(super) fn still_preview(
 /// thumbnail is what shows and the download metadata is what makes the full
 /// bytes retryable.
 pub(super) fn media_of(msg: &wa::Message, fetched: Option<Vec<u8>>) -> Option<MediaContent> {
-    if let Some(oxidezap_chat_store::BusinessMedia::Thumbnail(bytes)) =
-        oxidezap_chat_store::business_media(msg)
+    if let Some(velo_chat_store::BusinessMedia::Thumbnail(bytes)) =
+        velo_chat_store::business_media(msg)
     {
         return (!bytes.is_empty())
             .then(|| MediaContent::image(Arc::new(bytes.to_vec()), "image/jpeg".into(), false));
@@ -418,7 +418,7 @@ pub(super) async fn media_now(
             image,
             "image",
             eager
-                && oxidezap_chat_store::business_media(msg).is_none()
+                && velo_chat_store::business_media(msg).is_none()
                 && !(crate::net::automatic_channel_previews()
                     && channel_thumbnail_of(image).is_some()),
             image.file_length,
@@ -444,7 +444,7 @@ pub(super) async fn media_now(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oxidezap_core::MediaType;
+    use velo_core::MediaType;
     use whatsapp_rust::buffa::MessageField;
 
     #[test]

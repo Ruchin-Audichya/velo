@@ -94,7 +94,7 @@ impl WhatsAppApp {
             kind: message
                 .media
                 .as_ref()
-                .and_then(|media| oxidezap_core::QuotedKind::of(&media.media_type)),
+                .and_then(|media| velo_core::QuotedKind::of(&media.media_type)),
         };
 
         self.reply_to = Some(draft.clone());

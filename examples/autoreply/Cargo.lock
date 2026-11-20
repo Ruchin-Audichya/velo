@@ -6,16 +6,16 @@ version = 4
 name = "autoreply"
 version = "0.1.0"
 dependencies = [
- "oxidezap-plugin",
+ "velo-plugin",
 ]
 
 [[package]]
-name = "oxidezap-plugin"
-version = "0.1.0"
+name = "velo-plugin"
+version = "1.0.0"
 dependencies = [
- "oxidezap-plugin-abi",
+ "velo-plugin-abi",
 ]
 
 [[package]]
-name = "oxidezap-plugin-abi"
-version = "0.1.0"
+name = "velo-plugin-abi"
+version = "1.0.0"

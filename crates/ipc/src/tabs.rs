@@ -112,7 +112,7 @@ pub mod fields {
 /// The channel every tab in this origin listens on.
 ///
 /// One per origin, which is one per account, for the same reason the claim is.
-pub const RENDEZVOUS: &str = "oxidezap-tabs";
+pub const RENDEZVOUS: &str = "velo-tabs";
 
 /// The rendezvous protocol's version.
 ///
@@ -207,7 +207,7 @@ impl Rendezvous {
 /// keep unique and it is the one the ask already carries.
 #[must_use]
 pub fn channel_for(ask: &str) -> String {
-    format!("oxidezap-tab-{ask}")
+    format!("velo-tab-{ask}")
 }
 
 /// The lock a follower holds for as long as its connection is worth serving.
@@ -219,7 +219,7 @@ pub fn channel_for(ask: &str) -> String {
 /// mechanism as the account's own claim, asking a different question.
 #[must_use]
 pub fn liveness_lock_for(ask: &str) -> String {
-    format!("oxidezap-tab-live-{ask}")
+    format!("velo-tab-live-{ask}")
 }
 
 #[cfg(test)]

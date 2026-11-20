@@ -1,4 +1,4 @@
-//! OxideZap CLI: A lightweight, scriptable command-line interface for WhatsApp.
+//! Velo CLI: A lightweight, scriptable command-line interface for WhatsApp.
 //!
 //! One contract for every command: a result crosses [`output`], a failure
 //! exits nonzero, and `--json` never carries a human sentence. The daemon
@@ -21,12 +21,12 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Duration;
 
-use args::{Commands, OxidezapCli};
+use args::{Commands, VeloCli};
 use output::{OutputMode, print_action, print_error, print_event, print_result};
-use oxidezap_ipc::IpcClient;
-use oxidezap_wire::envelope::CURRENT_PROTOCOL_VERSION;
-use oxidezap_wire::request::ClientRequest;
-use oxidezap_wire::response::DaemonResponse;
+use velo_ipc::IpcClient;
+use velo_wire::envelope::CURRENT_PROTOCOL_VERSION;
+use velo_wire::request::ClientRequest;
+use velo_wire::response::DaemonResponse;
 
 /// How long to keep trying before giving up on a daemon we started.
 const START_TIMEOUT: Duration = Duration::from_secs(10);
@@ -34,7 +34,7 @@ const START_TIMEOUT: Duration = Duration::from_secs(10);
 const START_ATTEMPT: Duration = Duration::from_secs(2);
 
 fn main() -> ExitCode {
-    let cli = OxidezapCli::parse();
+    let cli = VeloCli::parse();
 
     let output_mode = if cli.json {
         OutputMode::Json
@@ -47,7 +47,7 @@ fn main() -> ExitCode {
     let command = match cli.command {
         Some(cmd) => cmd,
         None => {
-            eprintln!("No command specified. Run `oxidezap-cli --help` for available commands.");
+            eprintln!("No command specified. Run `velo-cli --help` for available commands.");
             return ExitCode::from(1);
         }
     };
@@ -69,14 +69,14 @@ fn main() -> ExitCode {
                 "zsh" => usage_rs::complete::Shell::Zsh,
                 _ => usage_rs::complete::Shell::Fish,
             };
-            print!("{}", OxidezapCli::completion_script(shell));
+            print!("{}", VeloCli::completion_script(shell));
             return ExitCode::SUCCESS;
         }
         Commands::Mcp(_mcp) => {
             if !machine_output_allowed(output_mode, "mcp", "a usage spec") {
                 return ExitCode::from(1);
             }
-            print!("{}", OxidezapCli::to_kdl());
+            print!("{}", VeloCli::to_kdl());
             return ExitCode::SUCCESS;
         }
         Commands::Accounts(ref accounts)
@@ -87,8 +87,8 @@ fn main() -> ExitCode {
             }
             if let Some(args::AccountsSubcommand::Use(u)) = &accounts.command {
                 match resolve_account_arg(&u.id, output_mode) {
-                    Ok(Some(id)) => println!("export OXIDEZAP_ACCOUNT={id}"),
-                    Ok(None) => println!("unset OXIDEZAP_ACCOUNT"),
+                    Ok(Some(id)) => println!("export VELO_ACCOUNT={id}"),
+                    Ok(None) => println!("unset VELO_ACCOUNT"),
                     Err(code) => return code,
                 }
             }
@@ -103,7 +103,7 @@ fn main() -> ExitCode {
     // converge onto `work`, and the same value is echoed by `accounts use`
     // into a shell, so it must not carry a quote either.
     let account = match cli.account.as_deref() {
-        Some(id) => match oxidezap_wire::validate_account_id(id) {
+        Some(id) => match velo_wire::validate_account_id(id) {
             Some(clean) => Some(clean),
             None => {
                 print_error(
@@ -125,17 +125,17 @@ fn main() -> ExitCode {
         // Single-threaded startup, before any thread exists: no thread can
         // observe the environment changing under it.
         unsafe {
-            std::env::set_var("OXIDEZAP_ACCOUNT", id);
+            std::env::set_var("VELO_ACCOUNT", id);
         }
     }
-    if let Some(raw) = std::env::var_os("OXIDEZAP_ACCOUNT")
-        && oxidezap_wire::validate_account_id(&raw.to_string_lossy()).is_none()
+    if let Some(raw) = std::env::var_os("VELO_ACCOUNT")
+        && velo_wire::validate_account_id(&raw.to_string_lossy()).is_none()
     {
         print_error(
             output_mode,
             "invalid_account_id",
             &format!(
-                "OXIDEZAP_ACCOUNT must match [A-Za-z0-9][A-Za-z0-9_-]*, got {:?}",
+                "VELO_ACCOUNT must match [A-Za-z0-9][A-Za-z0-9_-]*, got {:?}",
                 raw.to_string_lossy()
             ),
         );
@@ -226,7 +226,7 @@ fn main() -> ExitCode {
                 print_error(
                     output_mode,
                     "daemon_not_running",
-                    &format!("could not reach or start oxidezapd: {e}"),
+                    &format!("could not reach or start velod: {e}"),
                 );
                 return ExitCode::from(2);
             }
@@ -244,7 +244,7 @@ fn main() -> ExitCode {
     // Perform handshake
     let handshake_req = ClientRequest::Hello {
         protocol: CURRENT_PROTOCOL_VERSION,
-        client_name: "oxidezap-cli".into(),
+        client_name: "velo-cli".into(),
         local_account,
         account_selection: true,
         read_only: cli.read_only,
@@ -303,7 +303,7 @@ fn resolve_account_arg(id: &str, output_mode: OutputMode) -> Result<Option<Strin
     if id == "default" {
         return Ok(None);
     }
-    match oxidezap_wire::validate_account_id(id) {
+    match velo_wire::validate_account_id(id) {
         Some(clean) => Ok(Some(clean)),
         None => {
             print_error(
@@ -325,7 +325,7 @@ fn resolve_account_arg(id: &str, output_mode: OutputMode) -> Result<Option<Strin
 /// unlinked before that lock was released. Retrying until the deadline closes
 /// that window.
 fn connect_or_start() -> std::io::Result<IpcClient> {
-    let Some(path) = oxidezap_ipc::endpoint_path() else {
+    let Some(path) = velo_ipc::endpoint_path() else {
         return Err(std::io::Error::other(
             "no per-user directory to look for the daemon in",
         ));
@@ -388,11 +388,7 @@ fn connect_or_start() -> std::io::Result<IpcClient> {
 /// Where to find the daemon, beside this binary and nowhere else: the two ship
 /// together and a release directory is not on anybody's `PATH`.
 fn daemon_program() -> Option<PathBuf> {
-    const NAME: &str = if cfg!(windows) {
-        "oxidezapd.exe"
-    } else {
-        "oxidezapd"
-    };
+    const NAME: &str = if cfg!(windows) { "velod.exe" } else { "velod" };
     std::env::current_exe()
         .ok()
         .and_then(|exe| exe.parent().map(|dir| dir.join(NAME)))
@@ -411,7 +407,7 @@ fn spawn_daemon(program: &Path) -> std::io::Result<std::process::Child> {
         use std::os::windows::process::CommandExt as _;
         command.creation_flags(windows_sys::Win32::System::Threading::CREATE_NO_WINDOW);
     }
-    if let Ok(account) = std::env::var("OXIDEZAP_ACCOUNT")
+    if let Ok(account) = std::env::var("VELO_ACCOUNT")
         && !account.is_empty()
     {
         command.arg("--account").arg(account);
@@ -426,26 +422,26 @@ fn reap(child: Option<std::process::Child>) {
         return;
     };
     let _ = std::thread::Builder::new()
-        .name("oxidezap-daemon-wait".to_string())
+        .name("velo-daemon-wait".to_string())
         .spawn(move || {
             let _ = child.wait();
         });
 }
 
 /// Register a profile: validate the id and bring its daemon up.
-fn account_add(id: &str, output_mode: OutputMode) -> Result<(), oxidezap_wire::ApiError> {
-    let Some(clean) = oxidezap_wire::validate_account_id(id) else {
-        return Err(oxidezap_wire::ApiError::invalid_argument(format!(
+fn account_add(id: &str, output_mode: OutputMode) -> Result<(), velo_wire::ApiError> {
+    let Some(clean) = velo_wire::validate_account_id(id) else {
+        return Err(velo_wire::ApiError::invalid_argument(format!(
             "an account id must match [A-Za-z0-9][A-Za-z0-9_-]*, got {id:?}"
         )));
     };
     if clean == "default" {
-        return Err(oxidezap_wire::ApiError::invalid_argument(
+        return Err(velo_wire::ApiError::invalid_argument(
             "the default profile exists already; add a named one",
         ));
     }
-    if let Some(path) = oxidezap_ipc::endpoint_path_for_account(&clean)
-        && oxidezap_ipc::Endpoint::connect_at(&path).is_ok()
+    if let Some(path) = velo_ipc::endpoint_path_for_account(&clean)
+        && velo_ipc::Endpoint::connect_at(&path).is_ok()
     {
         print_action(output_mode, "account_exists", || {
             println!("Account {clean} is already running.");
@@ -453,23 +449,23 @@ fn account_add(id: &str, output_mode: OutputMode) -> Result<(), oxidezap_wire::A
         return Ok(());
     }
     unsafe {
-        std::env::set_var("OXIDEZAP_ACCOUNT", &clean);
+        std::env::set_var("VELO_ACCOUNT", &clean);
     }
     let Some(program) = daemon_program() else {
-        return Err(oxidezap_wire::ApiError::not_connected(
+        return Err(velo_wire::ApiError::not_connected(
             "no daemon beside this binary to start; the two ship in one directory",
         ));
     };
     let child = spawn_daemon(&program)
-        .map_err(|e| oxidezap_wire::ApiError::internal(format!("could not start it: {e}")))?;
-    let Some(path) = oxidezap_ipc::endpoint_path() else {
-        return Err(oxidezap_wire::ApiError::internal(
+        .map_err(|e| velo_wire::ApiError::internal(format!("could not start it: {e}")))?;
+    let Some(path) = velo_ipc::endpoint_path() else {
+        return Err(velo_wire::ApiError::internal(
             "no per-user directory to look for the daemon in",
         ));
     };
     let deadline = std::time::Instant::now() + START_TIMEOUT;
     while std::time::Instant::now() < deadline {
-        match oxidezap_ipc::Endpoint::connect_at(&path) {
+        match velo_ipc::Endpoint::connect_at(&path) {
             Ok(_) => {
                 reap(Some(child));
                 print_action(output_mode, "account_added", || {
@@ -481,7 +477,7 @@ fn account_add(id: &str, output_mode: OutputMode) -> Result<(), oxidezap_wire::A
         }
     }
     reap(Some(child));
-    Err(oxidezap_wire::ApiError::timeout(format!(
+    Err(velo_wire::ApiError::timeout(format!(
         "the daemon for {clean} did not come up"
     )))
 }
@@ -491,22 +487,22 @@ fn account_add(id: &str, output_mode: OutputMode) -> Result<(), oxidezap_wire::A
 /// The wipe is the daemon's own `ForgetSession`, which is the one process that
 /// holds the database; the media cache lives in the runtime directory beside
 /// the socket, so it is removed here once the daemon is gone.
-fn account_remove(id: &str, output_mode: OutputMode) -> Result<(), oxidezap_wire::ApiError> {
-    let Some(clean) = oxidezap_wire::validate_account_id(id) else {
-        return Err(oxidezap_wire::ApiError::invalid_argument(format!(
+fn account_remove(id: &str, output_mode: OutputMode) -> Result<(), velo_wire::ApiError> {
+    let Some(clean) = velo_wire::validate_account_id(id) else {
+        return Err(velo_wire::ApiError::invalid_argument(format!(
             "an account id must match [A-Za-z0-9][A-Za-z0-9_-]*, got {id:?}"
         )));
     };
     if clean == "default" {
-        return Err(oxidezap_wire::ApiError::invalid_argument(
+        return Err(velo_wire::ApiError::invalid_argument(
             "the default profile shares the historic paths; use `auth --logout` for it",
         ));
     }
-    let path = oxidezap_ipc::endpoint_path_for_account(&clean).ok_or_else(|| {
-        oxidezap_wire::ApiError::internal("no per-user directory to look for the daemon in")
+    let path = velo_ipc::endpoint_path_for_account(&clean).ok_or_else(|| {
+        velo_wire::ApiError::internal("no per-user directory to look for the daemon in")
     })?;
     let mut client = IpcClient::connect_at(&path).map_err(|e| {
-        oxidezap_wire::ApiError::not_connected(format!(
+        velo_wire::ApiError::not_connected(format!(
             "no daemon for {clean} on {}: {e}",
             path.display()
         ))
@@ -518,20 +514,20 @@ fn account_remove(id: &str, output_mode: OutputMode) -> Result<(), oxidezap_wire
     // as a file, so `Path::exists` would wait out the deadline every time.
     let deadline = std::time::Instant::now() + Duration::from_secs(10);
     while std::time::Instant::now() < deadline {
-        if oxidezap_ipc::Endpoint::connect_at(&path).is_err() {
+        if velo_ipc::Endpoint::connect_at(&path).is_err() {
             break;
         }
         std::thread::sleep(Duration::from_millis(50));
     }
     // The media cache is per-profile and lives beside the socket.
     unsafe {
-        std::env::set_var("OXIDEZAP_ACCOUNT", &clean);
+        std::env::set_var("VELO_ACCOUNT", &clean);
     }
-    if let Some(media) = oxidezap_ipc::media_dir()
+    if let Some(media) = velo_ipc::media_dir()
         && let Err(e) = std::fs::remove_dir_all(&media)
         && e.kind() != std::io::ErrorKind::NotFound
     {
-        return Err(oxidezap_wire::ApiError::internal(format!(
+        return Err(velo_wire::ApiError::internal(format!(
             "the store was wiped but the media cache at {} was not: {e}",
             media.display()
         )));
@@ -546,7 +542,7 @@ fn execute_command(
     client: &mut IpcClient,
     command: Commands,
     output_mode: OutputMode,
-) -> Result<(), oxidezap_wire::ApiError> {
+) -> Result<(), velo_wire::ApiError> {
     match command {
         Commands::Status(_) => {
             let resp = client.request(ClientRequest::GetStatus)?;
@@ -885,7 +881,7 @@ fn execute_command(
                 if let Some(path) = e.output {
                     let json = serde_json::to_string_pretty(&exported).unwrap_or_default();
                     if let Err(err) = std::fs::write(&path, json) {
-                        return Err(oxidezap_wire::ApiError::internal(format!(
+                        return Err(velo_wire::ApiError::internal(format!(
                             "could not write {path}: {err}"
                         )));
                     }
@@ -1199,7 +1195,7 @@ fn execute_command(
                 client.request(ClientRequest::ManageGroupParticipant {
                     group_jid: p.group,
                     participant_jid: p.participant,
-                    action: oxidezap_wire::dto::GroupParticipantAction::Add,
+                    action: velo_wire::dto::GroupParticipantAction::Add,
                 })?;
                 print_action(output_mode, "participant_added", || {
                     println!("Participant added.");
@@ -1210,7 +1206,7 @@ fn execute_command(
                 client.request(ClientRequest::ManageGroupParticipant {
                     group_jid: p.group,
                     participant_jid: p.participant,
-                    action: oxidezap_wire::dto::GroupParticipantAction::Remove,
+                    action: velo_wire::dto::GroupParticipantAction::Remove,
                 })?;
                 print_action(output_mode, "participant_removed", || {
                     println!("Participant removed.");
@@ -1221,7 +1217,7 @@ fn execute_command(
                 client.request(ClientRequest::ManageGroupParticipant {
                     group_jid: p.group,
                     participant_jid: p.participant,
-                    action: oxidezap_wire::dto::GroupParticipantAction::Promote,
+                    action: velo_wire::dto::GroupParticipantAction::Promote,
                 })?;
                 print_action(output_mode, "participant_promoted", || {
                     println!("Participant promoted to admin.");
@@ -1232,7 +1228,7 @@ fn execute_command(
                 client.request(ClientRequest::ManageGroupParticipant {
                     group_jid: p.group,
                     participant_jid: p.participant,
-                    action: oxidezap_wire::dto::GroupParticipantAction::Demote,
+                    action: velo_wire::dto::GroupParticipantAction::Demote,
                 })?;
                 print_action(output_mode, "participant_demoted", || {
                     println!("Admin demoted to regular participant.");
@@ -1430,7 +1426,7 @@ fn execute_command(
                     },
                 };
                 if jid.is_empty() {
-                    return Err(oxidezap_wire::ApiError::not_connected(
+                    return Err(velo_wire::ApiError::not_connected(
                         "no account JID available; the account is not linked",
                     ));
                 }
@@ -1448,7 +1444,7 @@ fn execute_command(
             Some(args::PresenceSubcommand::Typing(t)) => {
                 client.request(ClientRequest::SetPresence {
                     chat_jid: t.chat,
-                    state: oxidezap_wire::dto::PresenceState::Composing,
+                    state: velo_wire::dto::PresenceState::Composing,
                 })?;
                 print_action(output_mode, "composing_sent", || {
                     println!("Sent composing indicator.");
@@ -1458,7 +1454,7 @@ fn execute_command(
             Some(args::PresenceSubcommand::Paused(p)) => {
                 client.request(ClientRequest::SetPresence {
                     chat_jid: p.chat,
-                    state: oxidezap_wire::dto::PresenceState::Paused,
+                    state: velo_wire::dto::PresenceState::Paused,
                 })?;
                 print_action(output_mode, "paused_sent", || {
                     println!("Sent paused indicator.");
@@ -1468,7 +1464,7 @@ fn execute_command(
             Some(args::PresenceSubcommand::Recording(r)) => {
                 client.request(ClientRequest::SetPresence {
                     chat_jid: r.chat,
-                    state: oxidezap_wire::dto::PresenceState::Recording,
+                    state: velo_wire::dto::PresenceState::Recording,
                 })?;
                 print_action(output_mode, "recording_sent", || {
                     println!("Sent recording indicator.");
@@ -1478,7 +1474,7 @@ fn execute_command(
             Some(args::PresenceSubcommand::Online(_)) => {
                 client.request(ClientRequest::SetPresence {
                     chat_jid: None,
-                    state: oxidezap_wire::dto::PresenceState::Available,
+                    state: velo_wire::dto::PresenceState::Available,
                 })?;
                 print_action(output_mode, "online", || println!("Appearing online."));
                 Ok(())
@@ -1486,7 +1482,7 @@ fn execute_command(
             Some(args::PresenceSubcommand::Offline(_)) => {
                 client.request(ClientRequest::SetPresence {
                     chat_jid: None,
-                    state: oxidezap_wire::dto::PresenceState::Unavailable,
+                    state: velo_wire::dto::PresenceState::Unavailable,
                 })?;
                 print_action(output_mode, "offline", || println!("Appearing offline."));
                 Ok(())
@@ -1783,7 +1779,7 @@ fn execute_command(
                     Ok(Some(event)) => print_event(&event),
                     Ok(None) => break,
                     Err(e) => {
-                        return Err(oxidezap_wire::ApiError::not_connected(format!(
+                        return Err(velo_wire::ApiError::not_connected(format!(
                             "event stream ended: {e}"
                         )));
                     }
@@ -1796,7 +1792,7 @@ fn execute_command(
 }
 
 /// One contact as a human line: name, address, and local labels.
-fn print_contact(contact: &oxidezap_wire::dto::ContactDto) {
+fn print_contact(contact: &velo_wire::dto::ContactDto) {
     let name = contact
         .alias
         .as_deref()

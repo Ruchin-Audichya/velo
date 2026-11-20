@@ -27,7 +27,7 @@ mod imp {
             return Err(CONVERSION_ERROR.to_string());
         }
         let directory = tempfile::Builder::new()
-            .prefix("oxidezap-video-")
+            .prefix("velo-video-")
             .tempdir()
             .map_err(|_| CONVERSION_ERROR.to_string())?;
         let source = directory.path().join(format!("source.{source_extension}"));

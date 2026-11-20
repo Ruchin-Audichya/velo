@@ -134,10 +134,8 @@ async fn newer_history_delivery_resolves_pn_lid_without_crossing_accounts() {
 
 #[tokio::test]
 async fn recipient_delivery_survives_database_reopen_and_stale_ack() {
-    let path = std::env::temp_dir().join(format!(
-        "oxidezap-synthetic-delivery-{}.db",
-        std::process::id()
-    ));
+    let path =
+        std::env::temp_dir().join(format!("velo-synthetic-delivery-{}.db", std::process::id()));
     assert!(
         !path.exists(),
         "synthetic fixture must not overwrite a file"

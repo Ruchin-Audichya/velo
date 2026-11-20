@@ -9,10 +9,10 @@
 
 use wacore_binary::jid::{Jid, JidExt as _};
 
-use oxidezap_core::{Availability, ChatMessage, UiEvent};
-use oxidezap_ipc::{ChatSummary, ConnectionState, DaemonEvent as LegacyEvent, DaemonMessage};
-use oxidezap_wire::dto::{ChatDto, ConnectionStatusDto, MediaDto, MessageDto, PresenceState};
-use oxidezap_wire::event::DaemonEvent;
+use velo_core::{Availability, ChatMessage, UiEvent};
+use velo_ipc::{ChatSummary, ConnectionState, DaemonEvent as LegacyEvent, DaemonMessage};
+use velo_wire::dto::{ChatDto, ConnectionStatusDto, MediaDto, MessageDto, PresenceState};
+use velo_wire::event::DaemonEvent;
 
 use crate::state::StateHub;
 
@@ -30,7 +30,7 @@ pub(crate) fn translate_wire_frame(frame: &str, hub: &StateHub) -> Option<String
 }
 
 /// The connection status the wire reports, from the state and the account
-/// the hub holds. What [`WireRequest::GetStatus`](oxidezap_wire::request::ClientRequest::GetStatus)
+/// the hub holds. What [`WireRequest::GetStatus`](velo_wire::request::ClientRequest::GetStatus)
 /// answers with, so a poll and an event never disagree.
 pub(crate) fn connection_status_of(state: &ConnectionState, hub: &StateHub) -> ConnectionStatusDto {
     let snap = hub.snapshot();
@@ -91,7 +91,7 @@ pub(crate) fn chat_summary_to_dto(summary: ChatSummary) -> ChatDto {
     }
 }
 
-pub(crate) fn chat_to_dto(chat: oxidezap_core::Chat) -> ChatDto {
+pub(crate) fn chat_to_dto(chat: velo_core::Chat) -> ChatDto {
     ChatDto {
         jid: chat.jid,
         name: chat.name,
@@ -110,23 +110,23 @@ pub(crate) fn chat_to_dto(chat: oxidezap_core::Chat) -> ChatDto {
 
 pub(crate) fn chat_message_to_dto(chat_jid: &str, msg: ChatMessage) -> MessageDto {
     let summary = match &msg.system {
-        Some(oxidezap_core::SystemNotice::GroupMembership(event)) => Some(event.summary()),
+        Some(velo_core::SystemNotice::GroupMembership(event)) => Some(event.summary()),
         _ => msg.business.as_ref().map(|b| b.summary()),
     };
     let (kind, media) = if msg.revoked {
         ("revoked", None)
     } else if matches!(
         msg.system,
-        Some(oxidezap_core::SystemNotice::GroupMembership(_))
+        Some(velo_core::SystemNotice::GroupMembership(_))
     ) {
         ("system", None)
     } else if let Some(media) = &msg.media {
         let kind = match media.media_type {
-            oxidezap_core::MediaType::Image => "image",
-            oxidezap_core::MediaType::Video => "video",
-            oxidezap_core::MediaType::Audio => "audio",
-            oxidezap_core::MediaType::Document => "document",
-            oxidezap_core::MediaType::Sticker => "sticker",
+            velo_core::MediaType::Image => "image",
+            velo_core::MediaType::Video => "video",
+            velo_core::MediaType::Audio => "audio",
+            velo_core::MediaType::Document => "document",
+            velo_core::MediaType::Sticker => "sticker",
         };
         let file_sha256 = media
             .downloadable
@@ -166,26 +166,26 @@ pub(crate) fn chat_message_to_dto(chat_jid: &str, msg: ChatMessage) -> MessageDt
         kind
     } else {
         msg.business.as_ref().map_or(kind, |b| match b.kind {
-            oxidezap_core::BusinessKind::Template => "template",
-            oxidezap_core::BusinessKind::Buttons => "buttons",
-            oxidezap_core::BusinessKind::List => "list",
-            oxidezap_core::BusinessKind::Interactive => "interactive",
-            oxidezap_core::BusinessKind::Response => "business_response",
+            velo_core::BusinessKind::Template => "template",
+            velo_core::BusinessKind::Buttons => "buttons",
+            velo_core::BusinessKind::List => "list",
+            velo_core::BusinessKind::Interactive => "interactive",
+            velo_core::BusinessKind::Response => "business_response",
         })
     };
     let status = match msg.status {
-        oxidezap_core::MessageStatus::Pending => "pending",
-        oxidezap_core::MessageStatus::Sent => "sent",
-        oxidezap_core::MessageStatus::Delivered => "delivered",
-        oxidezap_core::MessageStatus::Read => "read",
-        oxidezap_core::MessageStatus::Played => "played",
-        oxidezap_core::MessageStatus::Failed => "failed",
+        velo_core::MessageStatus::Pending => "pending",
+        velo_core::MessageStatus::Sent => "sent",
+        velo_core::MessageStatus::Delivered => "delivered",
+        velo_core::MessageStatus::Read => "read",
+        velo_core::MessageStatus::Played => "played",
+        velo_core::MessageStatus::Failed => "failed",
     };
 
     let mut reactions = Vec::new();
     for (emoji, senders) in msg.reactions {
         for sender in senders {
-            reactions.push(oxidezap_wire::dto::ReactionDto {
+            reactions.push(velo_wire::dto::ReactionDto {
                 sender_jid: sender,
                 emoji: emoji.clone(),
                 timestamp_ms: msg.timestamp.timestamp_millis(),
@@ -212,7 +212,7 @@ pub(crate) fn chat_message_to_dto(chat_jid: &str, msg: ChatMessage) -> MessageDt
         reply_to_id: msg.quoted.map(|q| q.message_id),
         media,
         reactions,
-        poll: msg.poll.map(|poll| oxidezap_wire::dto::MessagePollDto {
+        poll: msg.poll.map(|poll| velo_wire::dto::MessagePollDto {
             question: poll.question,
             options: poll.options,
             selectable_count: poll.selectable_count,
@@ -314,8 +314,8 @@ mod tests {
     /// message event, not the GUI's frame.
     #[test]
     fn a_message_frame_becomes_a_wire_message_event() {
-        use oxidezap_core::fixtures;
-        use oxidezap_ipc::DaemonMessage;
+        use velo_core::fixtures;
+        use velo_ipc::DaemonMessage;
 
         let hub = StateHub::new();
         let message = fixtures::message("m1", "559900000001@s.whatsapp.net", "oi");
@@ -340,11 +340,11 @@ mod tests {
     /// A state update about a chat crosses over with its summary.
     #[test]
     fn a_chat_update_frame_becomes_a_wire_chat_event() {
-        use oxidezap_ipc::{ChatSummary, DaemonEvent as LegacyEvent, DaemonMessage};
+        use velo_ipc::{ChatSummary, DaemonEvent as LegacyEvent, DaemonMessage};
 
         let hub = StateHub::new();
         let frame = serde_json::to_string(&DaemonMessage::Update {
-            version: oxidezap_ipc::StateVersion::INITIAL,
+            version: velo_ipc::StateVersion::INITIAL,
             event: Box::new(LegacyEvent::ChatUpdated(ChatSummary {
                 jid: "559900000001@s.whatsapp.net".into(),
                 name: "Maria".into(),
@@ -372,7 +372,7 @@ mod tests {
     /// silent rather than approximating them.
     #[test]
     fn frames_without_a_wire_spelling_are_skipped() {
-        use oxidezap_ipc::DaemonMessage;
+        use velo_ipc::DaemonMessage;
 
         let hub = StateHub::new();
         let frame = serde_json::to_string(&DaemonMessage::Session {
@@ -385,7 +385,7 @@ mod tests {
 
     #[test]
     fn membership_dto_keeps_ids_and_uses_the_shared_sentence() {
-        use oxidezap_core::{GroupMembership, MembershipAction, NoticeParticipant, SystemNotice};
+        use velo_core::{GroupMembership, MembershipAction, NoticeParticipant, SystemNotice};
         let group = "120363000000000099@g.us";
         let event = GroupMembership {
             action: MembershipAction::Add,

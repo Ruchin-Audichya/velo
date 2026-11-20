@@ -3,7 +3,7 @@
 use log::{info, warn};
 
 use super::{DATA_DIR, DB_FILE};
-use oxidezap_core::AccountId;
+use velo_core::AccountId;
 use wacore::store::error::StoreError;
 
 /// Resolve a stable per-user path for the SQLite database.
@@ -89,8 +89,8 @@ fn database_dir() -> Option<std::path::PathBuf> {
     // directory. Unset means the default profile and the historic path.
     // Validated with the one shared rule, so the database can never read a
     // profile name differently from the socket beside it.
-    let dir = match std::env::var_os("OXIDEZAP_ACCOUNT")
-        .and_then(|v| oxidezap_wire::validate_account_id(&v.to_string_lossy()))
+    let dir = match std::env::var_os("VELO_ACCOUNT")
+        .and_then(|v| velo_wire::validate_account_id(&v.to_string_lossy()))
     {
         None => data_root.map(|root| root.join(DATA_DIR))?,
         Some(id) => data_root.map(|root| root.join(format!("{DATA_DIR}-{id}")))?,

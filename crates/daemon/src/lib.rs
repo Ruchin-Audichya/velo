@@ -1,6 +1,6 @@
 //! The daemon, minus the process it usually is.
 //!
-//! Everything here is what `oxidezapd` *does* — hold the state every front end
+//! Everything here is what `velod` *does* — hold the state every front end
 //! observes, translate their requests onto a session, and speak the protocol
 //! down a byte stream. None of it is a process: no socket to accept on, no
 //! tray, no signals, no directory to claim. Those are the binary's, and they

@@ -18,10 +18,10 @@
 //! `File.size` on the other. Reading a file that cannot be staged costs the
 //! whole read — and, in a page, a copy of it in a linear memory that has a
 //! ceiling — to arrive at a refusal the length alone already decided. So the
-//! ceiling is the protocol's ([`oxidezap_ipc::MAX_STAGED_BYTES`]) and it is
+//! ceiling is the protocol's ([`velo_ipc::MAX_STAGED_BYTES`]) and it is
 //! applied before anything is read.
 
-use oxidezap_core::OutgoingMedia;
+use velo_core::OutgoingMedia;
 
 /// A file somebody chose, read.
 #[derive(Clone, Debug)]
@@ -409,7 +409,7 @@ pub(crate) fn previewable_image_mime(bytes: &[u8]) -> Option<&'static str> {
 /// a trip to the chooser may cost what one file may cost. Ten photos are a
 /// normal send and fit; ten films are not one act, and the files past the
 /// budget are refused by name rather than silently dropped.
-const SELECTION_BUDGET_BYTES: u64 = oxidezap_ipc::MAX_STAGED_BYTES;
+const SELECTION_BUDGET_BYTES: u64 = velo_ipc::MAX_STAGED_BYTES;
 
 /// Tracks what a selection is actually holding, and refuses what would not
 /// fit beside it.
@@ -470,7 +470,7 @@ impl Budget {
 /// mean uploading nothing to be told nothing.
 #[must_use]
 pub fn unsendable(file_name: &str, size: u64) -> Option<String> {
-    let ceiling = oxidezap_ipc::MAX_STAGED_BYTES;
+    let ceiling = velo_ipc::MAX_STAGED_BYTES;
     if size == 0 {
         return Some(crate::tr!(file_empty, file_name));
     }
@@ -600,7 +600,7 @@ mod imp {
         fn native_picker_validates_each_media_result_after_selection() {
             let directory = std::env::temp_dir();
             let marker = format!(
-                "oxidezap-picker-{}-{:?}",
+                "velo-picker-{}-{:?}",
                 std::process::id(),
                 std::thread::current().id()
             );
@@ -627,8 +627,8 @@ mod imp {
             std::fs::remove_file(extensionless).expect("remove extensionless fixture");
 
             assert_eq!(media.files.len(), 2);
-            assert_eq!(media.files[0].kind, oxidezap_core::OutgoingMedia::Image);
-            assert_eq!(media.files[1].kind, oxidezap_core::OutgoingMedia::Image);
+            assert_eq!(media.files[0].kind, velo_core::OutgoingMedia::Image);
+            assert_eq!(media.files[1].kind, velo_core::OutgoingMedia::Image);
             assert_eq!(media.files[1].mime_type, "image/png");
             assert_eq!(media.refused.len(), 1);
             assert!(media.refused[0].contains(".heic"));
@@ -637,7 +637,7 @@ mod imp {
                 documents
                     .files
                     .iter()
-                    .all(|file| file.kind == oxidezap_core::OutgoingMedia::Document)
+                    .all(|file| file.kind == velo_core::OutgoingMedia::Document)
             );
             assert_eq!(documents.files[1].bytes, b"\x89PNG\r\n\x1a\nrest");
             assert_eq!(documents.files[1].mime_type, "application/octet-stream");
@@ -832,7 +832,7 @@ mod imp {
 
 #[cfg(test)]
 mod tests {
-    use oxidezap_core::OutgoingMedia;
+    use velo_core::OutgoingMedia;
 
     use super::{
         AttachmentCategory, Budget, SELECTION_BUDGET_BYTES, image_mime_from_bytes, kind_for,
@@ -1128,7 +1128,7 @@ mod tests {
     /// Nothing has been read at this point, which is the point.
     #[test]
     fn an_oversized_file_is_refused_before_it_is_read() {
-        let ceiling = oxidezap_ipc::MAX_STAGED_BYTES;
+        let ceiling = velo_ipc::MAX_STAGED_BYTES;
         assert!(unsendable("clipe.mp4", ceiling).is_none());
         let refusal = unsendable("clipe.mp4", ceiling + 1).expect("past the ceiling");
         assert!(refusal.contains("clipe.mp4"), "{refusal}");

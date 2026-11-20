@@ -34,18 +34,18 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Resolve-Path (Join-Path $PSScriptRoot '..\..')
 $install = Join-Path $env:LOCALAPPDATA 'Programs\Velo'
-$window = Join-Path $install 'oxidezap.exe'
-$service = Join-Path $install 'oxidezapd.exe'
+$window = Join-Path $install 'velo.exe'
+$service = Join-Path $install 'velod.exe'
 if (!(Test-Path $window)) { throw "Velo is not installed at $install" }
 
 function Stop-Window {
-    Get-Process oxidezap -ErrorAction SilentlyContinue | Stop-Process -Force
+    Get-Process velo -ErrorAction SilentlyContinue | Stop-Process -Force
     Start-Sleep -Milliseconds 800
 }
 
 function Pipe-Name {
     $suffix = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value -replace '[^0-9A-Za-z]', '_'
-    "oxidezap-$suffix"
+    "velo-$suffix"
 }
 
 # One request to the background service over its wire protocol: `get_status`
@@ -97,7 +97,7 @@ function Measure-Service {
     Stop-Window
     try { Invoke-Service 'shutdown' | Out-Null } catch {}
     $deadline = (Get-Date).AddSeconds(15)
-    while ((Get-Process oxidezapd -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 100 }
+    while ((Get-Process velod -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 100 }
     $watch = [Diagnostics.Stopwatch]::StartNew()
     Start-Process $service | Out-Null
     $ready = if (Wait-Pipe 30000) { $watch.ElapsedMilliseconds } else { -1 }
@@ -136,7 +136,7 @@ for ($run = 1; $run -le $Runs; $run++) {
     Start-Sleep -Seconds 20
     $row = @(
         $Label, $version, $run, $windowMs, $serviceTimes[0], $serviceTimes[1],
-        (Private-MB oxidezap), (Private-MB oxidezapd),
+        (Private-MB velo), (Private-MB velod),
         (& $size $window), (& $size $service), (& $size $installer.FullName),
         "`"$machine`""
     ) -join ','

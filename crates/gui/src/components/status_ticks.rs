@@ -10,7 +10,7 @@
 use gpui::{App, IntoElement, Pixels, Styled};
 use gpui_component::ActiveTheme as _;
 use gpui_component::{Icon, IconName};
-use oxidezap_core::MessageStatus;
+use velo_core::MessageStatus;
 
 use crate::components::parts;
 use crate::theme::ActiveProductTheme as _;

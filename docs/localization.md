@@ -7,7 +7,7 @@ Settings opened, and Reload reads the saved choice again.
 
 The existing `theme.json` preferences document stores `"language": "en"` or
 `"language": "pt"`. Desktop uses the configuration directory already shown in
-Settings. Web uses the existing `oxidezap.theme` localStorage document. No second
+Settings. Web uses the existing `velo.theme` localStorage document. No second
 file, storage key, daemon request or migration is needed. Old documents and
 unsupported language tags use English. Portuguese regional tags also resolve to
 Portuguese. Storage failures use the existing visible Save error reporting.
@@ -76,11 +76,11 @@ needs translator-managed grammar or languages with additional plural categories.
 The catalog and interpolation regressions have no GUI or protocol dependencies:
 
 ```sh
-rustc --edition=2024 --test crates/gui/src/i18n/language.rs -o /tmp/oxidezap-i18n-tests
-/tmp/oxidezap-i18n-tests
+rustc --edition=2024 --test crates/gui/src/i18n/language.rs -o /tmp/velo-i18n-tests
+/tmp/velo-i18n-tests
 ```
 
-`cargo test -p oxidezap-gui --all-features` also runs those tests, domain rendering
+`cargo test -p velo-gui --all-features` also runs those tests, domain rendering
 regressions and preference round trips. Follow the repository CI flags for
 formatting, Clippy and web type-checks. For a manual check, switch languages with
 a draft and an active search, inspect the attachment and delete menus, Save and

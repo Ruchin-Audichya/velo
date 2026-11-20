@@ -50,7 +50,7 @@ impl KsniTray for Item {
 
     fn id(&self) -> String {
         // Stable across restarts so the host can keep the icon's position.
-        "oxidezap".into()
+        "velo".into()
     }
 
     fn title(&self) -> String {

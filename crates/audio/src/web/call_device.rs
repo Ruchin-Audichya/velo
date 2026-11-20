@@ -7,7 +7,7 @@
 //!
 //! Nothing about it is a stub any more. It used to be — a page held no
 //! session, so it opened no device — and the sentence that justified that is
-//! still true of a page attached to an `oxidezapd`. What changed is that a
+//! still true of a page attached to an `velod`. What changed is that a
 //! page can hold the session itself, and the process that owns the session
 //! owns the microphone whichever process that is.
 //!
@@ -473,7 +473,7 @@ async fn open_microphone() -> Result<web_sys::MediaStream> {
 
     let opened = wasm_bindgen_futures::JsFuture::from(asked);
     let Some(opened) = futures_lite::future::or(async move { Some(opened.await) }, async {
-        oxidezap_platform::sleep(Duration::from_millis(PERMISSION_CEILING_MS as u64)).await;
+        velo_platform::sleep(Duration::from_millis(PERMISSION_CEILING_MS as u64)).await;
         None
     })
     .await

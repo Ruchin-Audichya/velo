@@ -28,8 +28,8 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use log::warn;
-use oxidezap_chat_store::ChatStore;
-use oxidezap_core::fallback_chat_name;
+use velo_chat_store::ChatStore;
+use velo_core::fallback_chat_name;
 // The library's own error type, named through the library: `anyhow` is a
 // direct dependency of this crate on the browser target only.
 use whatsapp_rust::anyhow::Result;

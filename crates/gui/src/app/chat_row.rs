@@ -5,11 +5,11 @@
 //! badge is a count or a dot — can be tested without a window.
 
 use chrono::{DateTime, Utc};
-use oxidezap_core::{
+use std::collections::HashMap;
+use velo_core::{
     Chat, ChatMessage, GroupHierarchy, MediaType, MessageStatus, SubgroupKind, SystemNotice,
     TypingSummary, format_duration, plain_message_text,
 };
-use std::collections::HashMap;
 
 /// The badge at the end of a row.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -323,8 +323,8 @@ fn single_line(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oxidezap_core::{ComposingKind, MediaContent, Typist, fixtures};
     use std::sync::Arc;
+    use velo_core::{ComposingKind, MediaContent, Typist, fixtures};
 
     /// The shared chat, under a name of its own: every assertion below is
     /// about the preview rather than about what the row is called, and a

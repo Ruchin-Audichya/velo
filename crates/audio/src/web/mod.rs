@@ -21,7 +21,7 @@
 //! - **Call devices**, which used to be the exception here and are not any
 //!   more. The sentence was that the process owning the session owns the
 //!   microphone and that process is the daemon — true of a page attached to
-//!   an `oxidezapd`, and not of a page holding the session itself, which is
+//!   an `velod`, and not of a page holding the session itself, which is
 //!   the arrangement this build now has. See [`call_device`].
 //!
 //! What still does not survive is libopus, and nothing here needs it: a
@@ -40,5 +40,5 @@ pub use recorder::AudioRecorder;
 /// Re-exported rather than written, so the two modules that spawn do not each
 /// reach for `wasm_bindgen_futures` and drift on what they mean by it — and
 /// so that this crate agrees with the rest of the workspace about what "hand
-/// it to the loop" is. See `oxidezap_platform`.
-pub(crate) use oxidezap_platform::spawn;
+/// it to the loop" is. See `velo_platform`.
+pub(crate) use velo_platform::spawn;

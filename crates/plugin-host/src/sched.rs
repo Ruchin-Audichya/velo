@@ -30,11 +30,11 @@ pub use platform::{Receiver, Sender, Task, breathe, channel, sleep, spawn};
 /// loop moves nothing anywhere and would rule out every browser object the
 /// storage behind a plugin holds.
 ///
-/// Re-exported from [`oxidezap_platform`] rather than declared here, which is
+/// Re-exported from [`velo_platform`] rather than declared here, which is
 /// the whole reason that crate exists: this host cannot depend on the
 /// session, so "the same trick the session plays" was a copy — and so was the
 /// `setTimeout` under `sleep` beside it.
-pub use oxidezap_platform::MaybeSend;
+pub use velo_platform::MaybeSend;
 
 /// What a full or closed queue gives back.
 ///

@@ -214,7 +214,7 @@ impl Write for Writer {
 /// Refuse a daemon that is not us, on the other platform.
 ///
 /// The same sentence as the Unix check above and for the same reason: the
-/// name is predictable — `\\.\pipe\oxidezap-<SID>` — and it is not reserved,
+/// name is predictable — `\\.\pipe\velo-<SID>` — and it is not reserved,
 /// so another local account can create it before the daemon does. The
 /// `first_pipe_instance` flag on the listener protects the daemon *after* it
 /// exists, which is the wrong half: the daemon then refuses to start and the
@@ -341,8 +341,7 @@ mod tests {
     #[allow(clippy::disallowed_methods)]
     #[test]
     fn a_send_nobody_is_reading_gives_up_rather_than_hanging() {
-        let dir =
-            std::env::temp_dir().join(format!("oxidezap-write-timeout-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("velo-write-timeout-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("scratch directory");
         let path = dir.join("endpoint.sock");

@@ -139,9 +139,9 @@ impl WhatsAppClient {
                 .to_string();
             let mime = mime_type.unwrap_or_else(|| guess_mime(&file_name));
             let kind = if as_document {
-                oxidezap_core::OutgoingMedia::Document
+                velo_core::OutgoingMedia::Document
             } else {
-                oxidezap_core::OutgoingMedia::for_mime(&mime)
+                velo_core::OutgoingMedia::for_mime(&mime)
             };
             let file = super::OutgoingFile {
                 data,
@@ -343,7 +343,7 @@ impl WhatsAppClient {
 
 /// The wire's enqueue acknowledgement is valid only after local admission.
 fn admit_announced_outgoing(
-    store: &oxidezap_chat_store::ChatStore,
+    store: &velo_chat_store::ChatStore,
     chat: &Jid,
     message_id: &str,
     message: &wa::Message,
@@ -359,16 +359,16 @@ fn admit_announced_outgoing(
 
 /// The quote behind a reply id, read from the store.
 pub(super) async fn quoted_for_reply(
-    store: &oxidezap_chat_store::ChatStore,
+    store: &velo_chat_store::ChatStore,
     chat: &Jid,
     message_id: &str,
-) -> Result<oxidezap_core::QuotedMessage, String> {
+) -> Result<velo_core::QuotedMessage, String> {
     let stored = store
         .message(chat, message_id)
         .await
         .map_err(|e| format!("database query failed: {e}"))?
         .ok_or_else(|| format!("no message {message_id} to reply to"))?;
-    Ok(oxidezap_core::QuotedMessage {
+    Ok(velo_core::QuotedMessage {
         message_id: stored.id,
         sender: stored.sender_jid.to_string(),
         sender_name: String::new(),
@@ -378,14 +378,14 @@ pub(super) async fn quoted_for_reply(
 }
 
 /// What the quote bar says about a non-text original.
-fn quoted_kind_of(kind: &oxidezap_chat_store::MessageKind) -> Option<oxidezap_core::QuotedKind> {
-    use oxidezap_chat_store::MessageKind as Stored;
+fn quoted_kind_of(kind: &velo_chat_store::MessageKind) -> Option<velo_core::QuotedKind> {
+    use velo_chat_store::MessageKind as Stored;
     match kind {
-        Stored::Image => Some(oxidezap_core::QuotedKind::Image),
-        Stored::Video | Stored::VideoNote => Some(oxidezap_core::QuotedKind::Video),
-        Stored::Audio | Stored::VoiceNote => Some(oxidezap_core::QuotedKind::Audio),
-        Stored::Document => Some(oxidezap_core::QuotedKind::Document),
-        Stored::Sticker => Some(oxidezap_core::QuotedKind::Sticker),
+        Stored::Image => Some(velo_core::QuotedKind::Image),
+        Stored::Video | Stored::VideoNote => Some(velo_core::QuotedKind::Video),
+        Stored::Audio | Stored::VoiceNote => Some(velo_core::QuotedKind::Audio),
+        Stored::Document => Some(velo_core::QuotedKind::Document),
+        Stored::Sticker => Some(velo_core::QuotedKind::Sticker),
         _ => None,
     }
 }
@@ -453,14 +453,14 @@ mod tests {
 
     #[test]
     fn quote_bars_name_the_original_kind() {
-        use oxidezap_chat_store::MessageKind as Stored;
+        use velo_chat_store::MessageKind as Stored;
         assert_eq!(
             quoted_kind_of(&Stored::Image),
-            Some(oxidezap_core::QuotedKind::Image)
+            Some(velo_core::QuotedKind::Image)
         );
         assert_eq!(
             quoted_kind_of(&Stored::VoiceNote),
-            Some(oxidezap_core::QuotedKind::Audio)
+            Some(velo_core::QuotedKind::Audio)
         );
         assert_eq!(quoted_kind_of(&Stored::Text), None);
         assert_eq!(quoted_kind_of(&Stored::Poll), None);
@@ -470,7 +470,7 @@ mod tests {
 #[cfg(all(test, not(target_family = "wasm")))]
 mod announcement_tests {
     use super::*;
-    use oxidezap_chat_store::ChatStore;
+    use velo_chat_store::ChatStore;
     use whatsapp_rust::store::SqliteStore;
 
     #[tokio::test(flavor = "current_thread")]

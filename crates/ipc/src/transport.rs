@@ -169,7 +169,7 @@ use std::path::PathBuf;
 ///
 /// 20: `SetLogLevel`. How loud the daemon is is a setting rather than a
 /// launch argument: nearly everything worth reading about a session is
-/// written at `debug`, and restarting `oxidezapd` to see it ends the very
+/// written at `debug`, and restarting `velod` to see it ends the very
 /// connection being investigated. A v19 daemon does not recognise the
 /// request, so a v20 client asking one would be silently no louder.
 ///
@@ -316,7 +316,7 @@ pub const WEB_MEDIA_PATH: &str = "/media";
 /// Only a Unix endpoint is a file with a name in a directory.
 #[cfg(unix)]
 const SOCKET_NAME: &str = "daemon.sock";
-const DIR_NAME: &str = "oxidezap";
+const DIR_NAME: &str = "velo";
 const MEDIA_DIR: &str = "media";
 
 /// Where the daemon listens and a client connects.
@@ -494,7 +494,7 @@ pub fn is_global_staged_key(key: &str) -> bool {
 /// Whether this key is an account's staged payload (`a<id>-u-...`).
 ///
 /// The account id itself is not returned here, and this deliberately does not
-/// need [`oxidezap_core::AccountId`]: the predicates above are used by every
+/// need [`velo_core::AccountId`]: the predicates above are used by every
 /// consumer of this crate, including the CLI, which must not pull the domain
 /// crate in. The typed form is [`account_staged_prefix_of`].
 #[must_use]
@@ -540,14 +540,14 @@ pub fn staged_key(name: &str) -> String {
 /// See [`STAGED_PREFIX`] for why an account's send payload is not global.
 #[cfg(feature = "legacy-protocol")]
 #[must_use]
-pub fn account_staged_key(account: oxidezap_core::AccountId, name: &str) -> String {
+pub fn account_staged_key(account: velo_core::AccountId, name: &str) -> String {
     format!("{}{name}", account_staged_prefix(account))
 }
 
 /// The prefix every one of `account`'s staged payloads carries.
 #[cfg(feature = "legacy-protocol")]
 #[must_use]
-pub fn account_staged_prefix(account: oxidezap_core::AccountId) -> String {
+pub fn account_staged_prefix(account: velo_core::AccountId) -> String {
     format!("a{}{ACCOUNT_STAGED_INFIX}", account.get())
 }
 
@@ -586,22 +586,22 @@ pub fn key_local_name(key: &str) -> &str {
 /// path is what has to decide whether it belongs to the account being asked
 /// to send. The shape rule lives in [`account_staged_local`]; this only wraps
 /// the parsed id, and is gated on `legacy-protocol` because
-/// [`oxidezap_core::AccountId`] is.
+/// [`velo_core::AccountId`] is.
 #[cfg(feature = "legacy-protocol")]
 #[must_use]
-pub fn account_staged_prefix_of(key: &str) -> Option<oxidezap_core::AccountId> {
+pub fn account_staged_prefix_of(key: &str) -> Option<velo_core::AccountId> {
     account_staged_local(key)?;
     let digits = key.strip_prefix('a')?.split_once('-')?.0;
     digits
         .parse::<i32>()
         .ok()
-        .and_then(|id| oxidezap_core::AccountId::new(id).ok())
+        .and_then(|id| velo_core::AccountId::new(id).ok())
 }
 
 /// The account id embedded in any account-scoped key (`a<id>-...`), if this is one.
 #[cfg(feature = "legacy-protocol")]
 #[must_use]
-pub fn account_id_of(key: &str) -> Option<oxidezap_core::AccountId> {
+pub fn account_id_of(key: &str) -> Option<velo_core::AccountId> {
     let rest = key.strip_prefix('a')?;
     let (digits, _) = rest.split_once('-')?;
     if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
@@ -610,7 +610,7 @@ pub fn account_id_of(key: &str) -> Option<oxidezap_core::AccountId> {
     digits
         .parse::<i32>()
         .ok()
-        .and_then(|id| oxidezap_core::AccountId::new(id).ok())
+        .and_then(|id| velo_core::AccountId::new(id).ok())
 }
 
 /// The directory [`media_path`] resolves into.
@@ -619,11 +619,11 @@ pub fn media_dir() -> Option<PathBuf> {
     Some(state_dir()?.join(media_dir_name()))
 }
 
-/// The account profile in force, from `OXIDEZAP_ACCOUNT`.
+/// The account profile in force, from `VELO_ACCOUNT`.
 ///
 /// Validated, never sanitized: an invalid value falls back to the default
 /// profile rather than converging onto a real one (see
-/// [`oxidezap_wire::validate_account_id`]). Entry points that take an id
+/// [`velo_wire::validate_account_id`]). Entry points that take an id
 /// from the user — CLI `--account`, `accounts use`, daemon `--account` —
 /// reject invalid ids outright instead of reaching this fallback. Unset or
 /// empty means the default profile. One account is one daemon over one
@@ -631,8 +631,8 @@ pub fn media_dir() -> Option<PathBuf> {
 /// from this, so two profiles never share state.
 #[must_use]
 pub fn account_id() -> Option<String> {
-    let raw = std::env::var_os("OXIDEZAP_ACCOUNT")?;
-    oxidezap_wire::validate_account_id(&raw.to_string_lossy())
+    let raw = std::env::var_os("VELO_ACCOUNT")?;
+    velo_wire::validate_account_id(&raw.to_string_lossy())
 }
 
 /// Every account socket the state directory holds: the default
@@ -679,7 +679,7 @@ pub fn account_sockets() -> Vec<(String, PathBuf)> {
 /// so a rejected id never converges onto another profile's socket.
 #[must_use]
 pub fn endpoint_path_for_account(id: &str) -> Option<PathBuf> {
-    let clean = oxidezap_wire::validate_account_id(id)?;
+    let clean = velo_wire::validate_account_id(id)?;
     #[cfg(unix)]
     {
         Some(state_dir()?.join(format!("daemon-{clean}.sock")))
@@ -689,7 +689,7 @@ pub fn endpoint_path_for_account(id: &str) -> Option<PathBuf> {
         // The id the caller named, never the one in the environment: a caller
         // that says `work` must get `work`'s pipe whatever profile the shell
         // had selected. Delegating to `endpoint_path` would read
-        // `OXIDEZAP_ACCOUNT`, so `accounts remove work` could resolve the pipe
+        // `VELO_ACCOUNT`, so `accounts remove work` could resolve the pipe
         // of whoever was selected instead.
         Some(account_pipe_name(&clean, &user_suffix()?))
     }
@@ -875,7 +875,7 @@ mod tests {
     /// profile is selected in the environment.
     ///
     /// The Windows branch used to fall back to `endpoint_path()`, which reads
-    /// `OXIDEZAP_ACCOUNT`: `accounts remove work` could resolve the pipe of
+    /// `VELO_ACCOUNT`: `accounts remove work` could resolve the pipe of
     /// the currently selected account and wipe the wrong store.
     #[test]
     fn an_account_pipe_name_carries_the_id_it_was_given() {
@@ -943,7 +943,7 @@ mod tests {
     #[cfg(feature = "legacy-protocol")]
     #[test]
     fn an_account_staged_key_round_trips_through_its_prefix() {
-        let account = oxidezap_core::AccountId::new(7).expect("a positive id");
+        let account = velo_core::AccountId::new(7).expect("a positive id");
         let key = account_staged_key(account, "voice-note");
         assert!(is_account_staged_key(&key));
         assert_eq!(account_staged_prefix_of(&key), Some(account));

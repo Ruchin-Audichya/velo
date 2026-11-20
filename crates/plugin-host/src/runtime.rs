@@ -12,7 +12,7 @@ use portable_atomic::AtomicI64;
 use std::sync::Arc;
 
 use anyhow::{Result, anyhow};
-use oxidezap_plugin_abi as abi;
+use velo_plugin_abi as abi;
 use wasmi::{Config, Engine, Instance, Linker, Module, Store, StoreLimitsBuilder, TypedFunc};
 
 use crate::event::Event;
@@ -53,7 +53,7 @@ pub struct Runtime {
 #[derive(Debug, Default)]
 pub struct Effects {
     /// A tree to publish, if the plugin set one.
-    pub ui: Option<Vec<oxidezap_core::PluginRoot>>,
+    pub ui: Option<Vec<velo_core::PluginRoot>>,
     /// Timers to arm: `(delay_ms, token)`.
     pub timers: Vec<(i64, i64)>,
 }
@@ -316,7 +316,7 @@ impl Runtime {
     /// caller made: a plugin that draws a settings panel does it here, and
     /// its first interface has to reach the front end without waiting for an
     /// event that may never come.
-    pub fn take_initial_ui(&mut self) -> Option<Vec<oxidezap_core::PluginRoot>> {
+    pub fn take_initial_ui(&mut self) -> Option<Vec<velo_core::PluginRoot>> {
         self.store.data_mut().ui.take()
     }
 

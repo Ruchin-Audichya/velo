@@ -5,12 +5,12 @@
 //! updates in the pane the conversation would otherwise occupy.
 //!
 //! Only the *selection* lives here. What there is to select is derived from
-//! the broadcast's messages by [`oxidezap_core::StatusFeed`], rebuilt when
+//! the broadcast's messages by [`velo_core::StatusFeed`], rebuilt when
 //! they change rather than mirrored into a second copy that could disagree
 //! with the first.
 
 use gpui::Context;
-use oxidezap_core::{MediaType, STATUS_BROADCAST_JID, StatusFeed};
+use velo_core::{MediaType, STATUS_BROADCAST_JID, StatusFeed};
 
 use super::WhatsAppApp;
 
@@ -40,8 +40,8 @@ impl Destination {
         self != Self::Status
     }
 
-    pub fn matches(self, chat: &oxidezap_core::Chat) -> bool {
-        use oxidezap_core::GroupHierarchy;
+    pub fn matches(self, chat: &velo_core::Chat) -> bool {
+        use velo_core::GroupHierarchy;
         if chat.is_status {
             return self == Self::Status;
         }
@@ -161,10 +161,7 @@ impl StatusPane {
 /// Never one of ours: `is_read` on a row from us is the peer's read tick, and
 /// nothing local may set it. Nothing should put one in the set either — this
 /// is the second lock on the same door.
-fn apply_watched(
-    chat: &mut oxidezap_core::Chat,
-    watched: &std::collections::HashSet<String>,
-) -> usize {
+fn apply_watched(chat: &mut velo_core::Chat, watched: &std::collections::HashSet<String>) -> usize {
     let mut marked = 0;
     for message in &mut chat.messages {
         if message.is_from_me || message.is_read || !watched.contains(&message.id) {
@@ -705,7 +702,7 @@ impl WhatsAppApp {
     /// The update on screen and its media, whatever state that media is in.
     ///
     /// `None` for a text status, which has none.
-    fn shown_status_media(&self) -> Option<(String, oxidezap_core::MediaContent)> {
+    fn shown_status_media(&self) -> Option<(String, velo_core::MediaContent)> {
         let author_jid = self.status_pane.author()?.to_string();
         let feed = self.status_feed();
         let author = feed.author(&author_jid)?;
@@ -727,7 +724,7 @@ mod tests {
 
     #[test]
     fn destinations_separate_channels_and_community_containers_but_keep_child_conversations() {
-        use oxidezap_core::{Chat, GroupHierarchy, SubgroupKind};
+        use velo_core::{Chat, GroupHierarchy, SubgroupKind};
         let direct = Chat::new("peer@example.invalid".into());
         let channel = Chat::new("channel@newsletter".into());
         let mut parent = Chat::new("community@g.us".into());
@@ -762,9 +759,8 @@ mod tests {
         assert!(!Destination::Communities.matches(&parent));
     }
 
-    fn update(id: &str, read: bool) -> oxidezap_core::ChatMessage {
-        let mut message =
-            oxidezap_core::ChatMessage::new_outgoing(id.to_string(), "hi".to_string());
+    fn update(id: &str, read: bool) -> velo_core::ChatMessage {
+        let mut message = velo_core::ChatMessage::new_outgoing(id.to_string(), "hi".to_string());
         message.is_from_me = false;
         message.is_read = read;
         message
@@ -776,7 +772,7 @@ mod tests {
     /// why the prune cannot be read off this.
     #[test]
     fn applying_a_view_marks_only_what_still_needs_it() {
-        let mut chat = oxidezap_core::Chat::new(STATUS_BROADCAST_JID.to_string());
+        let mut chat = velo_core::Chat::new(STATUS_BROADCAST_JID.to_string());
         chat.messages = vec![
             update("AGREED", true),
             update("OURS", false),
@@ -801,7 +797,7 @@ mod tests {
     /// it, however the id got into the set.
     #[test]
     fn a_view_never_touches_one_of_our_own_updates() {
-        let mut chat = oxidezap_core::Chat::new(STATUS_BROADCAST_JID.to_string());
+        let mut chat = velo_core::Chat::new(STATUS_BROADCAST_JID.to_string());
         let mut ours = update("MINE", false);
         ours.is_from_me = true;
         chat.messages = vec![ours];

@@ -103,8 +103,8 @@ pub(super) fn request_authorization() {
 /// Asked per post rather than settled once, because the arrangement can
 /// change under the tab: a follower is promoted when its leader goes.
 fn this_tab_should_post() -> bool {
-    match oxidezap_ipc::web::named_daemon() {
-        oxidezap_ipc::web::NamedDaemon::Named(_) => true,
+    match velo_ipc::web::named_daemon() {
+        velo_ipc::web::NamedDaemon::Named(_) => true,
         _ => crate::session::this_tab_holds_the_account(),
     }
 }
@@ -293,24 +293,20 @@ fn watch_worker_clicks() {
         };
         let worker = window.navigator().service_worker();
         let handler = Closure::new(move |event: web_sys::MessageEvent| {
-            let epoch =
-                js_sys::Reflect::get(&event.data(), &JsValue::from_str("oxidezapAccountEpoch"))
-                    .ok()
-                    .and_then(|value| value.as_string());
+            let epoch = js_sys::Reflect::get(&event.data(), &JsValue::from_str("veloAccountEpoch"))
+                .ok()
+                .and_then(|value| value.as_string());
             if epoch.as_deref() != Some(&ACCOUNT_EPOCH.load(Ordering::Relaxed).to_string()) {
                 // A notification shown for a departed account must not
                 // select a JID in the account paired afterward.
                 return;
             }
             let Ok(tag) =
-                js_sys::Reflect::get(&event.data(), &JsValue::from_str("oxidezapNotificationTag"))
+                js_sys::Reflect::get(&event.data(), &JsValue::from_str("veloNotificationTag"))
             else {
                 return;
             };
-            if let Some(tag) = tag
-                .as_string()
-                .filter(|tag| tag.starts_with("oxidezap-chat-"))
-            {
+            if let Some(tag) = tag.as_string().filter(|tag| tag.starts_with("velo-chat-")) {
                 push_activation(tag);
             }
         });
@@ -328,7 +324,7 @@ fn identify_to_worker(worker: &web_sys::ServiceWorkerContainer) {
     let id = crate::platform::front_end_id().to_string();
     if js_sys::Reflect::set(
         &data,
-        &JsValue::from_str("oxidezapClientId"),
+        &JsValue::from_str("veloClientId"),
         &JsValue::from_str(&id),
     )
     .is_ok()
@@ -357,7 +353,7 @@ fn show_from_worker(tag: &str, title: &str, body: &str) -> bool {
     let title = title.to_string();
     let body = body.to_string();
     let epoch = ACCOUNT_EPOCH.load(Ordering::Relaxed);
-    oxidezap_platform::spawn(async move {
+    velo_platform::spawn(async move {
         let Ok(registration) = wasm_bindgen_futures::JsFuture::from(ready).await else {
             log::warn!("notification worker did not become ready");
             return;
@@ -374,19 +370,19 @@ fn show_from_worker(tag: &str, title: &str, body: &str) -> bool {
         let data = js_sys::Object::new();
         if js_sys::Reflect::set(
             &data,
-            &JsValue::from_str("oxidezapTag"),
+            &JsValue::from_str("veloTag"),
             &JsValue::from_str(&tag),
         )
         .is_err()
             || js_sys::Reflect::set(
                 &data,
-                &JsValue::from_str("oxidezapClientId"),
+                &JsValue::from_str("veloClientId"),
                 &JsValue::from_str(&crate::platform::front_end_id().to_string()),
             )
             .is_err()
             || js_sys::Reflect::set(
                 &data,
-                &JsValue::from_str("oxidezapAccountEpoch"),
+                &JsValue::from_str("veloAccountEpoch"),
                 &JsValue::from_str(&epoch.to_string()),
             )
             .is_err()
@@ -443,7 +439,7 @@ pub(super) fn clear_notifications() {
     if let Some(window) = web_sys::window() {
         let worker = window.navigator().service_worker();
         if let Ok(ready) = worker.ready() {
-            oxidezap_platform::spawn(async move {
+            velo_platform::spawn(async move {
                 let Ok(registration) = wasm_bindgen_futures::JsFuture::from(ready).await else {
                     return;
                 };
@@ -462,13 +458,13 @@ pub(super) fn clear_notifications() {
                     let notification: Notification = item.unchecked_into();
                     let id = js_sys::Reflect::get(
                         &notification.data(),
-                        &JsValue::from_str("oxidezapClientId"),
+                        &JsValue::from_str("veloClientId"),
                     )
                     .ok()
                     .and_then(|value| value.as_string());
                     let epoch = js_sys::Reflect::get(
                         &notification.data(),
-                        &JsValue::from_str("oxidezapAccountEpoch"),
+                        &JsValue::from_str("veloAccountEpoch"),
                     )
                     .ok()
                     .and_then(|value| value.as_string());

@@ -520,7 +520,7 @@ pub(super) mod tests {
                 app.find_chat_mut("peer@example.invalid")
                     .unwrap()
                     .messages
-                    .push(oxidezap_core::ChatMessage::new_outgoing(
+                    .push(velo_core::ChatMessage::new_outgoing(
                         "own-reply-target".into(),
                         "Synthetic body".into(),
                     ));
@@ -533,10 +533,10 @@ pub(super) mod tests {
                     "Você"
                 );
                 assert_eq!(draft.sender_label(crate::i18n::Language::English), "You");
-                let quote: oxidezap_core::QuotedMessage = draft.clone().into();
+                let quote: velo_core::QuotedMessage = draft.clone().into();
                 assert!(app.is_own_number(&quote.sender));
                 assert_eq!(quote.sender_name, "Account owner");
-                let mut reply = oxidezap_core::ChatMessage::new_outgoing(
+                let mut reply = velo_core::ChatMessage::new_outgoing(
                     "own-reply".into(),
                     "Synthetic reply".into(),
                 );
@@ -607,13 +607,13 @@ pub(super) mod tests {
                 app.chats.push(Arc::new(channel));
                 let mut parent = Chat::new("community@g.us".into());
                 parent.is_group = true;
-                parent.group_hierarchy = Some(oxidezap_core::GroupHierarchy::Community);
+                parent.group_hierarchy = Some(velo_core::GroupHierarchy::Community);
                 app.chats.push(Arc::new(parent));
                 let mut child = Chat::new("child@g.us".into());
                 child.is_group = true;
-                child.group_hierarchy = Some(oxidezap_core::GroupHierarchy::Subgroup {
+                child.group_hierarchy = Some(velo_core::GroupHierarchy::Subgroup {
                     parent_jid: "community@g.us".into(),
-                    kind: oxidezap_core::SubgroupKind::Regular,
+                    kind: velo_core::SubgroupKind::Regular,
                 });
                 app.chats.push(Arc::new(child));
                 app.invalidate_chat_cache();
@@ -686,13 +686,11 @@ pub(super) mod tests {
         use std::io::Read as _;
         let (mut cx, app) = connected_app_fixture(cx);
         cx.simulate_resize(gpui::size(gpui::px(360.), gpui::px(800.)));
-        let path = std::env::temp_dir().join(format!(
-            "oxidezap-hidden-tab-read-{}.sock",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("velo-hidden-tab-read-{}.sock", std::process::id()));
         let _ = std::fs::remove_file(&path);
         let listener = std::os::unix::net::UnixListener::bind(&path).unwrap();
-        let endpoint = oxidezap_ipc::Endpoint::connect_at(&path).unwrap();
+        let endpoint = velo_ipc::Endpoint::connect_at(&path).unwrap();
         let (mut peer, _) = listener.accept().unwrap();
         peer.set_nonblocking(true).unwrap();
         cx.update(|window, cx| {
@@ -1154,7 +1152,7 @@ pub(super) mod tests {
                     String::new(),
                 );
                 photo.media = Some(
-                    oxidezap_core::MediaContent::image(
+                    velo_core::MediaContent::image(
                         std::sync::Arc::new(one_pixel_png()),
                         "image/png".into(),
                         false,
@@ -1294,10 +1292,8 @@ pub(super) mod tests {
     #[gpui::test]
     fn dropped_file_waits_in_preview_instead_of_sending(cx: &mut gpui::TestAppContext) {
         let (mut cx, app) = connected_app_fixture(cx);
-        let path = std::env::temp_dir().join(format!(
-            "oxidezap-modal-drop-{}-foto.png",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("velo-modal-drop-{}-foto.png", std::process::id()));
         std::fs::write(&path, one_pixel_png()).expect("write test file");
         cx.update(|_window, cx| {
             app.update(cx, |app, cx| app.drop_paths(vec![path.clone()], cx));
@@ -1392,10 +1388,8 @@ pub(super) mod tests {
     #[gpui::test]
     fn dropped_video_confirms_as_a_file_without_an_image_preview(cx: &mut gpui::TestAppContext) {
         let (mut cx, app) = connected_app_fixture(cx);
-        let path = std::env::temp_dir().join(format!(
-            "oxidezap-modal-drop-{}-clipe.mp4",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("velo-modal-drop-{}-clipe.mp4", std::process::id()));
         std::fs::write(&path, b"not really a video").expect("write test file");
         cx.update(|_window, cx| {
             app.update(cx, |app, cx| app.drop_paths(vec![path.clone()], cx));

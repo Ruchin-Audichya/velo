@@ -94,14 +94,14 @@ Then sign and verify the release:
 
 ```powershell
 ./packaging/windows/sign.ps1 -Thumbprint <THUMBPRINT> -Files `
-  target\release\oxidezap.exe, target\release\oxidezapd.exe, target\release\oxidezap-cli.exe
+  target\release\velo.exe, target\release\velod.exe, target\release\velo-cli.exe
 ```
 
 Check the result yourself:
 
 ```powershell
-& "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool.exe" verify /pa /v target\release\oxidezap.exe
-Get-AuthenticodeSignature target\release\oxidezap.exe | Format-List Status, SignerCertificate
+& "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool.exe" verify /pa /v target\release\velo.exe
+Get-AuthenticodeSignature target\release\velo.exe | Format-List Status, SignerCertificate
 ```
 
 ## Signing in GitHub Actions

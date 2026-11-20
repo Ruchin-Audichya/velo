@@ -212,7 +212,7 @@ fn usable_endpoint(url: &str) -> Result<(), String> {
 
 /// Whether this page is a preview rather than the deployment.
 ///
-/// Declared by the page itself — a `<meta name="oxidezap-build" content="preview">`
+/// Declared by the page itself — a `<meta name="velo-build" content="preview">`
 /// the publisher puts there — and not guessed from the path, because the
 /// consequence is too sharp for a guess. A preview shares its origin with the
 /// deployment: same scheme, same host, same port, a different directory. That
@@ -241,7 +241,7 @@ pub fn is_preview() -> bool {
     let Some(document) = web_sys::window().and_then(|window| window.document()) else {
         return false;
     };
-    let Ok(Some(meta)) = document.query_selector("meta[name='oxidezap-build']") else {
+    let Ok(Some(meta)) = document.query_selector("meta[name='velo-build']") else {
         return false;
     };
     meta.get_attribute("content").as_deref() == Some("preview")

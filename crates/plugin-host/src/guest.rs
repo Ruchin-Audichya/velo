@@ -15,8 +15,8 @@
 use portable_atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
 
-use oxidezap_core::{PluginNode, PluginRoot, PluginSlot, PluginWidget};
-use oxidezap_plugin_abi as abi;
+use velo_core::{PluginNode, PluginRoot, PluginSlot, PluginWidget};
+use velo_plugin_abi as abi;
 use wasmi::{Caller, Extern, Linker, Memory, StoreLimits};
 
 use crate::event::{Event, Value};

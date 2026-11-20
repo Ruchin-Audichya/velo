@@ -13,7 +13,7 @@
 
 use whatsapp_rust::wacore_binary::jid::{Jid, JidExt as _};
 
-use oxidezap_core::{GroupMember, GroupRoster};
+use velo_core::{GroupMember, GroupRoster};
 
 use super::WhatsAppClient;
 use super::history::own_jids;

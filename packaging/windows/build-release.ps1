@@ -39,21 +39,21 @@ Set-Location $root
 $version = (Select-String -Path Cargo.toml -Pattern '^version = "(.+)"' | Select-Object -First 1).Matches[0].Groups[1].Value
 Write-Host "Velo $version"
 
-& $Cargo build --release @extra -p oxidezap-gui -p oxidezap-daemon -p oxidezap-cli
+& $Cargo build --release @extra -p velo-gui -p velo-daemon -p velo-cli
 if ($LASTEXITCODE -ne 0) { throw 'building Velo failed' }
 
 $payload = Join-Path $root 'target\velo-payload'
 Remove-Item -Recurse -Force $payload -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $payload | Out-Null
-foreach ($exe in 'oxidezap.exe', 'oxidezapd.exe', 'oxidezap-cli.exe') {
+foreach ($exe in 'velo.exe', 'velod.exe', 'velo-cli.exe') {
     Copy-Item (Join-Path $root "target\release\$exe") $payload
 }
 Copy-Item (Join-Path $root 'packaging\release\LICENSE.txt') $payload
 Copy-Item (Join-Path $root 'packaging\release\THIRD-PARTY-NOTICES.txt') $payload
 Sign-Files @(
-    (Join-Path $payload 'oxidezap.exe'),
-    (Join-Path $payload 'oxidezapd.exe'),
-    (Join-Path $payload 'oxidezap-cli.exe')
+    (Join-Path $payload 'velo.exe'),
+    (Join-Path $payload 'velod.exe'),
+    (Join-Path $payload 'velo-cli.exe')
 )
 
 $env:VELO_PAYLOAD_DIR = $payload

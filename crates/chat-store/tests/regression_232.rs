@@ -268,8 +268,7 @@ async fn queued_writes_have_a_finite_admission_bound() {
 async fn sqlite_busy_retains_local_write_until_lock_released() {
     use diesel::Connection;
     use whatsapp_rust_sqlite_storage::SqliteDatabaseConfig;
-    let path =
-        std::env::temp_dir().join(format!("oxidezap-232-busy-{}.sqlite", std::process::id()));
+    let path = std::env::temp_dir().join(format!("velo-232-busy-{}.sqlite", std::process::id()));
     let db = whatsapp_rust_sqlite_storage::SqliteDatabase::open(
         path.to_str().unwrap(),
         SqliteDatabaseConfig {
@@ -602,8 +601,7 @@ async fn handler_overflow_is_reported_by_flush_and_does_not_claim_delivery() {
 
 #[tokio::test]
 async fn recovered_local_write_persists_across_fresh_disk_store_open() {
-    let path =
-        std::env::temp_dir().join(format!("oxidezap-232-reopen-{}.sqlite", std::process::id()));
+    let path = std::env::temp_dir().join(format!("velo-232-reopen-{}.sqlite", std::process::id()));
     let url = path.to_str().unwrap();
     let db = SqliteStore::open(url).await.unwrap();
     db.database()

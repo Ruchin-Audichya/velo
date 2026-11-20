@@ -168,8 +168,8 @@ Before a test call, stop the existing daemon and rebuild/restart it with symbols
 Do not restart it during the call or start a second daemon.
 
 ```sh
-CARGO_PROFILE_RELEASE_STRIP=none CARGO_PROFILE_RELEASE_DEBUG=line-tables-only cargo build --release --bin oxidezapd
-RUST_LOG=info,oxidezap_video::camera=debug ./target/release/oxidezapd
+CARGO_PROFILE_RELEASE_STRIP=none CARGO_PROFILE_RELEASE_DEBUG=line-tables-only cargo build --release --bin velod
+RUST_LOG=info,velo_video::camera=debug ./target/release/velod
 ```
 
 On Linux, from another terminal during the call, record the verified daemon PID
@@ -177,8 +177,8 @@ for 30 seconds. Keep the profile on disk, not in `/tmp`.
 
 ```bash
 mkdir -p .cache/native-video-cpu
-pgrep -a -x oxidezapd
-pids=( $(pgrep -x oxidezapd) )
+pgrep -a -x velod
+pids=( $(pgrep -x velod) )
 if [ "${#pids[@]}" -eq 1 ]; then
     perf record -e cpu-clock:u -F 99 --call-graph dwarf,8192 \
         -p "${pids[0]}" -o .cache/native-video-cpu/native-call.data -- sleep 30 &&

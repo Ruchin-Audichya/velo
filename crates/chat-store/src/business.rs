@@ -1,5 +1,5 @@
 //! Bounded, shared projections of business messages for live traffic and history.
-use oxidezap_core::{BusinessAction, BusinessButton, BusinessContent, BusinessKind};
+use velo_core::{BusinessAction, BusinessButton, BusinessContent, BusinessKind};
 use waproto::whatsapp as wa;
 
 const TEXT_LIMIT: usize = 16 * 1024;

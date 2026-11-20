@@ -128,9 +128,9 @@ jobs:
       # heavy dependency the moment it lands.
       - name: Check the CLI binary budget
         run: |
-          cargo build -p oxidezap-cli --release
-          size=$(stat -c%s target/release/oxidezap-cli)
-          echo "oxidezap-cli release size: $size bytes"
+          cargo build -p velo-cli --release
+          size=$(stat -c%s target/release/velo-cli)
+          echo "velo-cli release size: $size bytes"
           test "$size" -lt 2097152
       # The example plugins, which the workspace steps above compile no line
       # of: `examples/` is excluded from the root workspace so that a host
@@ -155,7 +155,7 @@ jobs:
           for example in examples/*/; do
             cargo xtask plugin build "$example"
           done
-          cargo test -p oxidezap-plugin-host --all-features -- --ignored
+          cargo test -p velo-plugin-host --all-features -- --ignored
 
   # The repository's own tooling, which the workspace jobs above do not see.
   #
@@ -242,18 +242,18 @@ jobs:
       # test that no longer builds is the same break as a `cfg`-gated module
       # that no longer builds.
       - run: cargo check --workspace --all-targets --all-features
-      # And the ones that touch the platform actually run. `oxidezap-daemon`
+      # And the ones that touch the platform actually run. `velo-daemon`
       # is where the transport tests live, because they need both ends of it.
       - name: Test the platform-sensitive crates
-        run: cargo test -p oxidezap-ipc -p oxidezap-daemon -p oxidezap-core -p oxidezap-video -p oxidezap-session --all-features
+        run: cargo test -p velo-ipc -p velo-daemon -p velo-core -p velo-video -p velo-session --all-features
       - name: Test avatar cache recovery without a display
-        run: cargo test -p oxidezap-gui --all-features session::avatar::tests
+        run: cargo test -p velo-gui --all-features session::avatar::tests
       - name: Test call alerts and video controls without hardware
         run: |
-          cargo test -p oxidezap-audio --all-features devices
-          cargo test -p oxidezap-gui --all-features devices
-          cargo test -p oxidezap-gui --all-features call_alert
-          cargo test -p oxidezap-gui --all-features call_card
+          cargo test -p velo-audio --all-features devices
+          cargo test -p velo-gui --all-features devices
+          cargo test -p velo-gui --all-features call_alert
+          cargo test -p velo-gui --all-features call_card
 
   # The web half, run in a browser rather than checked.
   #
@@ -322,7 +322,7 @@ jobs:
         env:
           RUSTFLAGS: --cfg web_sys_unstable_apis
         run: |
-          cargo clippy -p oxidezap-audio -p oxidezap-session \
+          cargo clippy -p velo-audio -p velo-session \
             --target wasm32-unknown-unknown -- \
             -A clippy::all -A warnings \
             -D clippy::disallowed_methods -D clippy::disallowed_types
@@ -345,14 +345,14 @@ jobs:
         run: |
           export CHROMEDRIVER="${CHROMEWEBDRIVER:-}/chromedriver"
           test -x "$CHROMEDRIVER" || CHROMEDRIVER=$(command -v chromedriver)
-          cargo test -p oxidezap-daemon -p oxidezap-session --lib --target wasm32-unknown-unknown
+          cargo test -p velo-daemon -p velo-session --lib --target wasm32-unknown-unknown
           CARGO_TARGET_DIR=target/webcodecs-tests cargo test \
             --manifest-path crates/gui/tests/webcodecs/Cargo.toml \
             --locked --target wasm32-unknown-unknown --test readback --test recovery --test transform
           # Audio needs autoplay; shared-view rejection needs SharedArrayBuffer.
           export WASM_BINDGEN_TEST_WEBDRIVER_JSON="$RUNNER_TEMP/call-playout-webdriver.json"
           printf '%s\n' '{"goog:chromeOptions":{"args":["--enable-features=SharedArrayBuffer","--autoplay-policy=no-user-gesture-required"]}}' > "$WASM_BINDGEN_TEST_WEBDRIVER_JSON"
-          cargo test -p oxidezap-audio --target wasm32-unknown-unknown --test call_audio_lifecycle
+          cargo test -p velo-audio --target wasm32-unknown-unknown --test call_audio_lifecycle
           CARGO_TARGET_DIR=target/call-playout-browser cargo test \
             --manifest-path crates/audio/src/web/call_device/tests/Cargo.toml \
             --locked --target wasm32-unknown-unknown --test browser
@@ -373,7 +373,7 @@ jobs:
             --manifest-path crates/audio/src/web/call_device/tests/Cargo.toml \
             --locked --target wasm32-unknown-unknown -Z build-std=std,panic_abort --test browser
           CARGO_TARGET_DIR=target/call-audio-shared cargo +nightly-2026-10-29 test \
-            -p oxidezap-audio --target wasm32-unknown-unknown \
+            -p velo-audio --target wasm32-unknown-unknown \
             -Z build-std=std,panic_abort --test call_audio_lifecycle
 
   # The library crates an embedder can depend on: the chat store, which lost
@@ -408,4 +408,4 @@ jobs:
           key: msrv-${{ hashFiles('Cargo.toml') }}
           cache-on-failure: "true"
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - run: cargo check -p oxidezap-chat-store -p oxidezap-core -p oxidezap-ipc --all-features
+      - run: cargo check -p velo-chat-store -p velo-core -p velo-ipc --all-features

@@ -1,13 +1,13 @@
 //! Web implementation of persistent avatar storage via the browser Cache Storage API.
 //!
 //! Avatars survive browser refresh (F5) in the Cache Storage API (`window.caches`)
-//! strictly scoped to the active account: `oxidezap-avatar-v2-a<account_id>`.
-//! Keys are mapped to synthetic HTTP URLs (`<origin>/_oxidezap/avatar/<cache_key>`).
+//! strictly scoped to the active account: `velo-avatar-v2-a<account_id>`.
+//! Keys are mapped to synthetic HTTP URLs (`<origin>/_velo/avatar/<cache_key>`).
 //!
 //! Security and Isolation:
 //! - No `"default"` namespace fallback. If account identity is unknown, persistent
 //!   caching is safely bypassed for that operation.
-//! - Caches from older versions (`oxidezap-avatar-v1-*`) are lazily cleaned on startup
+//! - Caches from older versions (`velo-avatar-v1-*`) are lazily cleaned on startup
 //!   without touching foreign origin caches.
 //! - The cache has byte and entry limits, evicting oldest stored entries,
 //!   tracked via lightweight metadata in `localStorage`.
@@ -25,9 +25,9 @@ const MAX_CACHE_ENTRIES: usize = 2048;
 const MAX_METADATA_BYTES: usize = 1024 * 1024;
 static STORAGE_GENERATION: portable_atomic::AtomicU64 = portable_atomic::AtomicU64::new(0);
 
-static ACTIVE_ACCOUNT: RwLock<Option<oxidezap_core::AccountId>> = RwLock::new(None);
+static ACTIVE_ACCOUNT: RwLock<Option<velo_core::AccountId>> = RwLock::new(None);
 
-pub fn set_active_account(account: Option<oxidezap_core::AccountId>) {
+pub fn set_active_account(account: Option<velo_core::AccountId>) {
     if let Ok(mut lock) = ACTIVE_ACCOUNT.write() {
         if *lock != account {
             STORAGE_GENERATION.fetch_add(1, portable_atomic::Ordering::Relaxed);
@@ -36,30 +36,30 @@ pub fn set_active_account(account: Option<oxidezap_core::AccountId>) {
     }
 }
 
-pub fn active_account() -> Option<oxidezap_core::AccountId> {
+pub fn active_account() -> Option<velo_core::AccountId> {
     ACTIVE_ACCOUNT.read().ok().and_then(|lock| *lock)
 }
 
-pub fn rotate_account_scope() -> Option<oxidezap_core::AccountId> {
+pub fn rotate_account_scope() -> Option<velo_core::AccountId> {
     let old = active_account();
     set_active_account(None);
     old
 }
 
-pub fn resolve_account(key: &str) -> Option<oxidezap_core::AccountId> {
-    oxidezap_ipc::account_id_of(key).or_else(active_account)
+pub fn resolve_account(key: &str) -> Option<velo_core::AccountId> {
+    velo_ipc::account_id_of(key).or_else(active_account)
 }
 
-pub fn cache_name_for_account(account: oxidezap_core::AccountId) -> String {
-    format!("oxidezap-avatar-v2-a{}", account.get())
+pub fn cache_name_for_account(account: velo_core::AccountId) -> String {
+    format!("velo-avatar-v2-a{}", account.get())
 }
 
 pub fn cache_url(key: &str) -> String {
     let origin = web_sys::window()
         .and_then(|w| w.location().origin().ok())
         .filter(|o| !o.is_empty() && o != "null")
-        .unwrap_or_else(|| "https://oxidezap.local".to_string());
-    format!("{origin}/_oxidezap/avatar/{key}")
+        .unwrap_or_else(|| "https://velo.local".to_string());
+    format!("{origin}/_velo/avatar/{key}")
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
@@ -74,11 +74,11 @@ struct MetaEntry {
     last_accessed: u64,
 }
 
-fn meta_storage_key(account: oxidezap_core::AccountId) -> String {
-    format!("oxidezap_avatar_meta_v2_a{}", account.get())
+fn meta_storage_key(account: velo_core::AccountId) -> String {
+    format!("velo_avatar_meta_v2_a{}", account.get())
 }
 
-fn load_meta(account: oxidezap_core::AccountId) -> Option<CacheMeta> {
+fn load_meta(account: velo_core::AccountId) -> Option<CacheMeta> {
     let Some(window) = web_sys::window() else {
         return None;
     };
@@ -110,14 +110,14 @@ fn storage() -> Result<web_sys::Storage, String> {
         .ok_or_else(|| "localStorage unavailable".into())
 }
 
-fn save_meta(account: oxidezap_core::AccountId, meta: &CacheMeta) -> Result<(), String> {
+fn save_meta(account: velo_core::AccountId, meta: &CacheMeta) -> Result<(), String> {
     let json = serde_json::to_string(meta).map_err(|e| e.to_string())?;
     storage()?
         .set_item(&meta_storage_key(account), &json)
         .map_err(|e| format!("{e:?}"))
 }
 
-pub fn persistent_stamp(account: Option<oxidezap_core::AccountId>) -> Result<u64, String> {
+pub fn persistent_stamp(account: Option<velo_core::AccountId>) -> Result<u64, String> {
     let account = account.ok_or("no account")?;
     storage()?
         .get_item(&format!("{}_generation", meta_storage_key(account)))
@@ -127,17 +127,17 @@ pub fn persistent_stamp(account: Option<oxidezap_core::AccountId>) -> Result<u64
         })
 }
 
-fn dirty_key(account: oxidezap_core::AccountId) -> String {
+fn dirty_key(account: velo_core::AccountId) -> String {
     format!("{}_dirty", meta_storage_key(account))
 }
 
-fn mark_dirty(account: oxidezap_core::AccountId) -> Result<(), String> {
+fn mark_dirty(account: velo_core::AccountId) -> Result<(), String> {
     storage()?
         .set_item(&dirty_key(account), "1")
         .map_err(|e| format!("{e:?}"))
 }
 
-fn finish_meta(account: oxidezap_core::AccountId, meta: &CacheMeta) -> Result<(), String> {
+fn finish_meta(account: velo_core::AccountId, meta: &CacheMeta) -> Result<(), String> {
     save_meta(account, meta)?;
     storage()?
         .remove_item(&dirty_key(account))
@@ -146,13 +146,13 @@ fn finish_meta(account: oxidezap_core::AccountId, meta: &CacheMeta) -> Result<()
 
 thread_local! {
     // One remembered account, so visiting old accounts cannot grow a registry.
-    static RECONCILED: std::cell::Cell<Option<oxidezap_core::AccountId>> = const { std::cell::Cell::new(None) };
+    static RECONCILED: std::cell::Cell<Option<velo_core::AccountId>> = const { std::cell::Cell::new(None) };
 }
 
 /// Recover once per account opening, and after an interrupted mutation. Keys and
 /// blob sizes are authoritative; localStorage is only a bounded derived index.
 async fn ensure_meta(
-    account: oxidezap_core::AccountId,
+    account: velo_core::AccountId,
     cache: &web_sys::Cache,
 ) -> Result<CacheMeta, String> {
     let old = load_meta(account);
@@ -295,7 +295,7 @@ pub async fn delete_persistent(key: &str) -> Result<(), String> {
 pub async fn write_persistent(
     key: &str,
     bytes: &[u8],
-    account: Option<oxidezap_core::AccountId>,
+    account: Option<velo_core::AccountId>,
     stamp: u64,
 ) -> Result<(), String> {
     let generation = STORAGE_GENERATION.load(portable_atomic::Ordering::Relaxed);
@@ -405,9 +405,7 @@ pub async fn write_persistent(
     Ok(())
 }
 
-pub async fn delete_account_storage(
-    account: Option<oxidezap_core::AccountId>,
-) -> Result<(), String> {
+pub async fn delete_account_storage(account: Option<velo_core::AccountId>) -> Result<(), String> {
     let Some(account) = account else {
         return Ok(());
     };
@@ -437,11 +435,11 @@ pub async fn delete_account_storage(
     Ok(())
 }
 
-pub async fn clear_cache_storage(account: Option<oxidezap_core::AccountId>) -> Result<(), String> {
+pub async fn clear_cache_storage(account: Option<velo_core::AccountId>) -> Result<(), String> {
     delete_account_storage(account.or_else(active_account)).await
 }
 
-pub async fn avatar_cache_usage(account: oxidezap_core::AccountId) -> (u64, u64) {
+pub async fn avatar_cache_usage(account: velo_core::AccountId) -> (u64, u64) {
     let Some(meta) = load_meta(account) else {
         return (0, 0);
     };
@@ -464,7 +462,7 @@ pub async fn purge_legacy_caches() {
     };
     for i in 0..array.length() {
         if let Some(name) = array.get(i).as_string() {
-            if name.starts_with("oxidezap-avatar-v1-") {
+            if name.starts_with("velo-avatar-v1-") {
                 let _ = wasm_bindgen_futures::JsFuture::from(caches.delete(&name)).await;
             }
         }

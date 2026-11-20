@@ -8,7 +8,7 @@ use gpui_component::ActiveTheme as _;
 use super::centered_view;
 use crate::components::parts;
 use crate::theme::{ActiveProductTheme as _, Metrics};
-use oxidezap_core::{CachedQrCode, Issued, Lifetime};
+use velo_core::{CachedQrCode, Issued, Lifetime};
 
 /// The QR code as PNG bytes, built once each time the code rotates.
 ///

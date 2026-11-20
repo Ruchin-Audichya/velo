@@ -134,8 +134,8 @@ fn aggregate(states: &[TrayState]) -> TrayState {
 mod tests {
     use super::*;
     use crate::account::AccountRuntime;
-    use oxidezap_core::AccountId;
-    use oxidezap_ipc::{ConnectionState, DaemonEvent};
+    use velo_core::AccountId;
+    use velo_ipc::{ConnectionState, DaemonEvent};
 
     fn runtime(id: i32) -> Arc<AccountRuntime> {
         let id = AccountId::new(id).unwrap();
@@ -143,9 +143,7 @@ mod tests {
         Arc::new(AccountRuntime::new(
             id,
             StateHub::for_account(id),
-            Arc::new(oxidezap_plugin_host::Plugins::nothing_loaded(Arc::new(
-                |_| {},
-            ))),
+            Arc::new(velo_plugin_host::Plugins::nothing_loaded(Arc::new(|_| {}))),
             commands,
         ))
     }
@@ -183,16 +181,14 @@ mod tests {
         assert!(tray.windows_attached());
         crate::window::Toggle::default().click_every(tray.hubs());
         assert!(matches!(
-            serde_json::from_str::<oxidezap_ipc::DaemonMessage>(&signals.try_recv().unwrap())
-                .unwrap(),
-            oxidezap_ipc::DaemonMessage::HideWindow
+            serde_json::from_str::<velo_ipc::DaemonMessage>(&signals.try_recv().unwrap()).unwrap(),
+            velo_ipc::DaemonMessage::HideWindow
         ));
         assert!(stale_signals.try_recv().is_err());
         tray.show();
         assert!(matches!(
-            serde_json::from_str::<oxidezap_ipc::DaemonMessage>(&signals.try_recv().unwrap())
-                .unwrap(),
-            oxidezap_ipc::DaemonMessage::ShowWindow
+            serde_json::from_str::<velo_ipc::DaemonMessage>(&signals.try_recv().unwrap()).unwrap(),
+            velo_ipc::DaemonMessage::ShowWindow
         ));
         assert!(stale_signals.try_recv().is_err());
         following.abort();

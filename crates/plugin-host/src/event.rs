@@ -12,9 +12,9 @@
 //! more than a dozen, and a map would cost a hash per read to save a
 //! comparison per read.
 
-use oxidezap_core::{MediaType, UiEvent};
-use oxidezap_plugin_abi as abi;
-use oxidezap_plugin_abi::fields;
+use velo_core::{MediaType, UiEvent};
+use velo_plugin_abi as abi;
+use velo_plugin_abi::fields;
 
 /// One field's value, in the three shapes the ABI can answer.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -107,7 +107,7 @@ pub fn from_session(event: &UiEvent) -> Option<Event> {
     if matches!(
         event,
         UiEvent::ReceiptReceived {
-            receipt_type: oxidezap_core::ReceiptType::Sent,
+            receipt_type: velo_core::ReceiptType::Sent,
             ..
         }
     ) {
@@ -130,7 +130,7 @@ pub fn from_session(event: &UiEvent) -> Option<Event> {
             // them is the one least equipped to.
             .str(
                 fields::TEXT,
-                oxidezap_core::plain_message_text(&message.content).into_owned(),
+                velo_core::plain_message_text(&message.content).into_owned(),
             )
             .flag(fields::FROM_ME, message.is_from_me)
             .int(fields::TIMESTAMP_MS, message.timestamp.timestamp_millis())
@@ -212,10 +212,10 @@ pub fn from_session(event: &UiEvent) -> Option<Event> {
             .int(
                 fields::RECEIPT_KIND,
                 match receipt_type {
-                    oxidezap_core::ReceiptType::Read | oxidezap_core::ReceiptType::ReadSelf => {
+                    velo_core::ReceiptType::Read | velo_core::ReceiptType::ReadSelf => {
                         receipt::READ
                     }
-                    oxidezap_core::ReceiptType::Played | oxidezap_core::ReceiptType::PlayedSelf => {
+                    velo_core::ReceiptType::Played | velo_core::ReceiptType::PlayedSelf => {
                         receipt::PLAYED
                     }
                     // Delivered, and anything the library adds later. A
@@ -309,7 +309,7 @@ pub fn kind_of(event: &UiEvent) -> Option<i32> {
     if matches!(
         event,
         UiEvent::ReceiptReceived {
-            receipt_type: oxidezap_core::ReceiptType::Sent,
+            receipt_type: velo_core::ReceiptType::Sent,
             ..
         }
     ) {
@@ -350,7 +350,7 @@ fn is_group(jid: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oxidezap_core::{MessageStatus, fixtures};
+    use velo_core::{MessageStatus, fixtures};
 
     /// The sender is the peer whatever `chat` is, so the group case below has
     /// a sender that is not the chat — which is the only case that maps one.

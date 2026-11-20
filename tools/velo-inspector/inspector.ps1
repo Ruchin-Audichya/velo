@@ -49,8 +49,8 @@ public static class VeloWin {
 [void][VeloWin]::SetProcessDPIAware()
 
 function Get-VeloWindow {
-    $p = Get-Process oxidezap -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1
-    if (!$p) { throw 'Velo is not running (no oxidezap window).' }
+    $p = Get-Process velo -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1
+    if (!$p) { throw 'Velo is not running (no velo window).' }
     if ([VeloWin]::IsIconic($p.MainWindowHandle)) { [void][VeloWin]::ShowWindow($p.MainWindowHandle, 9) }
     $r = New-Object VeloWin+R
     [void][VeloWin]::DwmGetWindowAttribute($p.MainWindowHandle, 9, [ref]$r, 16)
@@ -149,8 +149,8 @@ switch ($Action) {
         @{ scrolled = $Delta } | ConvertTo-Json -Compress
     }
     'status' {
-        $daemon = Get-Process oxidezapd -ErrorAction SilentlyContinue | Select-Object -First 1
-        $cli = Join-Path (Split-Path $w.Process.Path) 'oxidezap-cli.exe'
+        $daemon = Get-Process velod -ErrorAction SilentlyContinue | Select-Object -First 1
+        $cli = Join-Path (Split-Path $w.Process.Path) 'velo-cli.exe'
         $state = try { (& $cli --read-only --json status 2>$null | ConvertFrom-Json).data } catch { $null }
         [ordered]@{
             title = $w.Process.MainWindowTitle; width = $width; height = $height

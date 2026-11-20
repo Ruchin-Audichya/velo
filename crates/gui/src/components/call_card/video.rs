@@ -23,7 +23,7 @@ use crate::app::WhatsAppApp;
 use crate::components::parts;
 use crate::components::{Avatar, ProductIcon};
 use crate::theme::Metrics;
-use oxidezap_core::{ActiveCall, VideoStream};
+use velo_core::{ActiveCall, VideoStream};
 
 use super::active::live_header;
 

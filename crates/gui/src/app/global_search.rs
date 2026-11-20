@@ -8,7 +8,7 @@
 //! scrolls to the message once it is on screen.
 
 use gpui::{Context, Task, WeakEntity, Window};
-use oxidezap_core::ChatMessage;
+use velo_core::ChatMessage;
 
 use super::{ChatOpen, WhatsAppApp};
 

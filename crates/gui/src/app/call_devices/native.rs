@@ -9,7 +9,7 @@ pub(super) struct PreviewDecoder {
 impl PreviewDecoder {
     pub(super) fn decode(
         &mut self,
-        frame: &oxidezap_ipc::CameraPreviewFrame,
+        frame: &velo_ipc::CameraPreviewFrame,
     ) -> Result<Option<Arc<RenderImage>>, String> {
         use openh264::formats::YUVSource as _;
         if !self.started && !frame.keyframe {
@@ -45,7 +45,7 @@ impl PreviewDecoder {
 #[cfg(test)]
 mod preview_tests {
     use super::*;
-    use oxidezap_core::CameraPreviewId;
+    use velo_core::CameraPreviewId;
     #[test]
     fn preview_decodes_synthetic_video_without_a_call_identity() {
         use openh264::encoder::{Encoder, EncoderConfig};
@@ -61,7 +61,7 @@ mod preview_tests {
         let mut decoder = PreviewDecoder::default();
         assert!(
             decoder
-                .decode(&oxidezap_ipc::CameraPreviewFrame {
+                .decode(&velo_ipc::CameraPreviewFrame {
                     preview_id: id,
                     data: delta.clone(),
                     keyframe: false
@@ -71,7 +71,7 @@ mod preview_tests {
         );
         let mut images = usize::from(
             decoder
-                .decode(&oxidezap_ipc::CameraPreviewFrame {
+                .decode(&velo_ipc::CameraPreviewFrame {
                     preview_id: id,
                     data: idr,
                     keyframe: true,
@@ -81,7 +81,7 @@ mod preview_tests {
         );
         images += usize::from(
             decoder
-                .decode(&oxidezap_ipc::CameraPreviewFrame {
+                .decode(&velo_ipc::CameraPreviewFrame {
                     preview_id: id,
                     data: delta,
                     keyframe: false,

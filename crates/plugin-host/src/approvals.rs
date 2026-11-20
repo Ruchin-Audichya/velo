@@ -18,7 +18,7 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
-use oxidezap_plugin_abi as abi;
+use velo_plugin_abi as abi;
 
 use crate::store::Backing;
 
@@ -285,8 +285,8 @@ impl Approvals {
 mod tests {
     use super::*;
     use crate::store::Files;
-    use oxidezap_plugin_abi as abi;
     use std::path::{Path, PathBuf};
+    use velo_plugin_abi as abi;
 
     /// The store these tests are about: files in a directory of their own.
     fn files(dir: &Path) -> Arc<dyn Backing> {
@@ -298,7 +298,7 @@ mod tests {
     impl TempDir {
         fn new(tag: &str) -> Self {
             let path = std::env::temp_dir().join(format!(
-                "oxidezap-approvals-{tag}-{}-{:?}",
+                "velo-approvals-{tag}-{}-{:?}",
                 std::process::id(),
                 std::thread::current().id()
             ));

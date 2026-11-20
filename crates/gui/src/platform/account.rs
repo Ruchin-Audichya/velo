@@ -1,7 +1,7 @@
 //! The account this frontend resumes after reopening.
 
-use oxidezap_core::AccountId;
 use serde::{Deserialize, Serialize};
+use velo_core::AccountId;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct AccountSelection {
@@ -72,8 +72,8 @@ impl AccountSelection {
 fn selection_key(path: &str, daemon: Option<&str>) -> String {
     let source = daemon.map(|url| url.split('?').next().unwrap_or(url));
     match source {
-        Some(url) => format!("oxidezap:account-selection:{path}:daemon:{url}"),
-        None => format!("oxidezap:account-selection:{path}:embedded"),
+        Some(url) => format!("velo:account-selection:{path}:daemon:{url}"),
+        None => format!("velo:account-selection:{path}:embedded"),
     }
 }
 
@@ -153,16 +153,16 @@ mod tab_selection {
                 .active
         };
         let first = new_tab();
-        assert_eq!(active(&first), oxidezap_core::AccountId::LEGACY);
+        assert_eq!(active(&first), velo_core::AccountId::LEGACY);
         let second = new_tab();
         save(&second, r#"{"active":2,"retained":1}"#).unwrap();
-        assert_eq!(active(&first), oxidezap_core::AccountId::LEGACY);
-        assert_eq!(active(&second), oxidezap_core::AccountId::new(2).unwrap());
+        assert_eq!(active(&first), velo_core::AccountId::LEGACY);
+        assert_eq!(active(&second), velo_core::AccountId::new(2).unwrap());
         let third = new_tab();
-        assert_eq!(active(&third), oxidezap_core::AccountId::new(2).unwrap());
+        assert_eq!(active(&third), velo_core::AccountId::new(2).unwrap());
         save(&second, r#"{"active":1,"retained":null}"#).unwrap();
-        assert_eq!(active(&third), oxidezap_core::AccountId::new(2).unwrap());
-        assert_eq!(active(&new_tab()), oxidezap_core::AccountId::LEGACY);
+        assert_eq!(active(&third), velo_core::AccountId::new(2).unwrap());
+        assert_eq!(active(&new_tab()), velo_core::AccountId::LEGACY);
     }
 }
 
@@ -182,7 +182,7 @@ mod imp {
                     std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config"))
                 })?
         };
-        Some(dir.join("oxidezap").join("account-selection.json"))
+        Some(dir.join("velo").join("account-selection.json"))
     }
 
     pub(super) fn read() -> Result<Option<String>, String> {
@@ -223,7 +223,7 @@ mod imp {
     #[test]
     fn selection_documents_survive_reopening_and_atomic_replacement() {
         let path = std::env::temp_dir().join(format!(
-            "oxidezap-selection-fixture-{}.json",
+            "velo-selection-fixture-{}.json",
             std::process::id()
         ));
         let first = r#"{"active":2,"retained":1}"#;
@@ -231,8 +231,8 @@ mod imp {
         assert_eq!(read_from(&path).unwrap().as_deref(), Some(first));
         let selection: super::AccountSelection =
             serde_json::from_str(&read_from(&path).unwrap().unwrap()).unwrap();
-        assert_eq!(selection.active, oxidezap_core::AccountId::new(2).unwrap());
-        assert_eq!(selection.retained, Some(oxidezap_core::AccountId::LEGACY));
+        assert_eq!(selection.active, velo_core::AccountId::new(2).unwrap());
+        assert_eq!(selection.retained, Some(velo_core::AccountId::LEGACY));
         let second = r#"{"active":1,"retained":null}"#;
         write_to(&path, second).unwrap();
         assert_eq!(read_from(&path).unwrap().as_deref(), Some(second));
@@ -249,10 +249,10 @@ mod imp {
             .map_err(|_| "session storage is unavailable")?
             .ok_or("session storage is unavailable")?;
         let location = window.location();
-        let endpoint = match oxidezap_ipc::web::named_daemon() {
-            oxidezap_ipc::web::NamedDaemon::Nobody => None,
-            oxidezap_ipc::web::NamedDaemon::Named(url) => Some(url),
-            oxidezap_ipc::web::NamedDaemon::Rejected(_) => Some("rejected".to_owned()),
+        let endpoint = match velo_ipc::web::named_daemon() {
+            velo_ipc::web::NamedDaemon::Nobody => None,
+            velo_ipc::web::NamedDaemon::Named(url) => Some(url),
+            velo_ipc::web::NamedDaemon::Rejected(_) => Some("rejected".to_owned()),
         };
         let key = super::selection_key(
             &location.pathname().unwrap_or_default(),

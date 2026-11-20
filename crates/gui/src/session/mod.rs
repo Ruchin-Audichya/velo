@@ -83,19 +83,19 @@ use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 
 use log::error;
-use oxidezap_core::{
+use velo_core::{
     AccountId, CallState, Chat, ChatMessage, DownloadableMedia, QuotedMessage, UiEvent,
 };
-use oxidezap_ipc::{CallAction, ClientRequest, Link, PageCursor, Request, RequestId};
+use velo_ipc::{CallAction, ClientRequest, Link, PageCursor, Request, RequestId};
 // The payload structs the protocol declares, named rather than glob-imported
 // so `Typing` and `Download` read at the call site as what they are: the
 // request's own payload, built here and moved onto the wire unchanged.
-use oxidezap_ipc::{
+use portable_atomic::AtomicU64;
+use tokio::sync::oneshot;
+use velo_ipc::{
     Download, EditMessage, LoadChats, LoadMessages, MarkRead, MarkStatusWatched, RevokeMessage,
     SendAudio, SendMedia, SendReaction, SendText, Typing, VotePoll,
 };
-use portable_atomic::AtomicU64;
-use tokio::sync::oneshot;
 
 pub use self::sink::Events;
 use self::sink::{ReaderSink, UiSink};
@@ -116,7 +116,7 @@ pub struct StorageUsage {
 /// out where the bytes end up, which is the daemon.
 pub struct Attachment {
     pub bytes: Vec<u8>,
-    pub kind: oxidezap_core::OutgoingMedia,
+    pub kind: velo_core::OutgoingMedia,
     pub mime_type: String,
     pub file_name: String,
     pub caption: Option<String>,
@@ -129,7 +129,7 @@ pub struct Attachment {
 /// client attached to are things the *daemon* says to a front end. Keeping
 /// them apart is what stops the session's vocabulary from growing terms only
 /// one transport uses.
-pub use oxidezap_core::Fault;
+pub use velo_core::Fault;
 
 pub enum FromDaemon {
     AccountRetired {
@@ -145,7 +145,7 @@ pub enum FromDaemon {
     /// nothing to replay it from.
     Calls(Box<CallState>),
     /// Who this device is linked as, at the moment this client attached.
-    Account(Option<oxidezap_ipc::AccountIdentity>),
+    Account(Option<velo_ipc::AccountIdentity>),
     /// A profile picture is ready in the daemon media cache.
     Avatar { jid: String, key: String },
     /// A local cache read completed. It cannot change the selected picture.
@@ -158,7 +158,7 @@ pub enum FromDaemon {
     /// started and nothing replays that, so a window attaching later has only
     /// the set the daemon holds. Republished in full whenever any of them
     /// changes, which is what spares this side from merging deltas.
-    Plugins(Vec<oxidezap_core::PluginSurface>),
+    Plugins(Vec<velo_core::PluginSurface>),
     /// Somebody asked for a front end to come forward.
     ShowWindow,
     /// Somebody asked for the front end to go away — the tray's Hide, or
@@ -187,7 +187,7 @@ pub enum FromDaemon {
         archived: bool,
     },
     /// Who is in a group, for the header that asked.
-    Members(oxidezap_core::GroupRoster),
+    Members(velo_core::GroupRoster),
     /// A roster that never arrived, so the header stops waiting on it.
     ///
     /// Named by the group rather than carrying an error, like a page: a
@@ -230,7 +230,7 @@ pub enum FromDaemon {
 /// same thing again could work at all. Nothing on this side can work it out —
 /// a full disk and a dropped connection are both "the download failed" from
 /// here — so the daemon says which, through
-/// [`ProtocolError::Failed`](oxidezap_ipc::ProtocolError::Failed), and this
+/// [`ProtocolError::Failed`](velo_ipc::ProtocolError::Failed), and this
 /// is where that lands.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Failure {
@@ -264,7 +264,7 @@ impl std::fmt::Display for Failure {
     }
 }
 
-impl From<&oxidezap_ipc::ProtocolError> for Failure {
+impl From<&velo_ipc::ProtocolError> for Failure {
     /// What the daemon said, plus what a front end may do about it.
     ///
     /// Only one of these variants carries the answer; the rest are read off
@@ -282,8 +282,8 @@ impl From<&oxidezap_ipc::ProtocolError> for Failure {
     /// built from that reads "Could not download that image: failed:
     /// connection reset by peer". The prefix is for a log line, which is
     /// where the full error still goes.
-    fn from(error: &oxidezap_ipc::ProtocolError) -> Self {
-        use oxidezap_ipc::ProtocolError as E;
+    fn from(error: &velo_ipc::ProtocolError) -> Self {
+        use velo_ipc::ProtocolError as E;
         let (detail, retryable) = match error {
             E::Failed { detail, retryable } => (detail.clone(), *retryable),
             E::NoSession { detail } => (detail.clone(), true),
@@ -302,18 +302,18 @@ impl From<&oxidezap_ipc::ProtocolError> for Failure {
 /// is waiting, and a send that was refused becomes the failure the message it
 /// drew is already able to render.
 enum Awaiting {
-    Account(oneshot::Sender<Result<oxidezap_core::AccountId, String>>),
+    Account(oneshot::Sender<Result<velo_core::AccountId, String>>),
     /// A message mutation whose result must reach the action that opened it.
     Mutation(oneshot::Sender<Result<(), Failure>>),
     Download(oneshot::Sender<Result<std::sync::Arc<Vec<u8>>, Failure>>),
     /// What this account occupies on disk, for the Storage pane.
     Storage(oneshot::Sender<StorageUsage>),
-    CallHistory(oneshot::Sender<Result<Vec<oxidezap_core::CallHistoryEntry>, String>>),
-    SearchResults(oneshot::Sender<Result<Vec<(String, oxidezap_core::ChatMessage)>, String>>),
+    CallHistory(oneshot::Sender<Result<Vec<velo_core::CallHistoryEntry>, String>>),
+    SearchResults(oneshot::Sender<Result<Vec<(String, velo_core::ChatMessage)>, String>>),
     ChatActed(oneshot::Sender<Result<(), String>>),
-    Contacts(oneshot::Sender<Result<Vec<oxidezap_ipc::ContactSummary>, String>>),
-    FileMatches(oneshot::Sender<Result<Vec<oxidezap_ipc::FileMatch>, String>>),
-    CallDevices(oneshot::Sender<Result<oxidezap_ipc::CallDeviceReply, String>>),
+    Contacts(oneshot::Sender<Result<Vec<velo_ipc::ContactSummary>, String>>),
+    FileMatches(oneshot::Sender<Result<Vec<velo_ipc::FileMatch>, String>>),
+    CallDevices(oneshot::Sender<Result<velo_ipc::CallDeviceReply, String>>),
     /// A message drawn before it was sent. On refusal it has to stop being
     /// pending, and the front end is the side that knows which bubble it is.
     Send {
@@ -784,7 +784,7 @@ struct Conn {
     events: UiSink,
 }
 
-/// A connection to `oxidezapd`, and the one value that ends it.
+/// A connection to `velod`, and the one value that ends it.
 ///
 /// The requests all live on [`SessionHandle`], which this derefs to, so a
 /// caller that only sends can be handed a handle and never learn that the
@@ -819,7 +819,7 @@ pub struct Session {
 
 impl Session {
     #[cfg(all(test, target_os = "linux"))]
-    pub(crate) fn recording_test_session(endpoint: oxidezap_ipc::Endpoint) -> Self {
+    pub(crate) fn recording_test_session(endpoint: velo_ipc::Endpoint) -> Self {
         let (_, writer) = endpoint.split().expect("split test endpoint");
         attach::begin(Link::over_stream(writer), Arc::new(media::Directory), false)
             .expect("attach recording peer")
@@ -873,7 +873,7 @@ impl Session {
     /// # Errors
     ///
     /// Nothing is listening and nothing could be made to listen.
-    async fn connect(account: oxidezap_core::AccountId) -> std::io::Result<(Self, Events)> {
+    async fn connect(account: velo_core::AccountId) -> std::io::Result<(Self, Events)> {
         #[cfg(not(target_family = "wasm"))]
         {
             native::connect(account)
@@ -948,7 +948,7 @@ impl Session {
     ///
     /// As [`Self::connect`].
     pub async fn attach(
-        account: oxidezap_core::AccountId,
+        account: velo_core::AccountId,
         cx: &mut gpui::AsyncApp,
     ) -> std::io::Result<(Self, Events)> {
         #[cfg(not(target_family = "wasm"))]
@@ -1033,7 +1033,7 @@ impl Session {
     }
 
     /// The account bound to this connection.
-    pub fn account(&self) -> oxidezap_core::AccountId {
+    pub fn account(&self) -> velo_core::AccountId {
         self.handle.account()
     }
 }
@@ -1240,7 +1240,7 @@ impl SessionHandle {
         // do not belong in a frame. The key is the local id, which is already
         // unique per send, filed under this connection's account so only the
         // account that staged it can send it and only its own reset sweeps it.
-        let upload = oxidezap_ipc::account_staged_key(self.conn.account, &sanitize(&local_id));
+        let upload = velo_ipc::account_staged_key(self.conn.account, &sanitize(&local_id));
         let request = request(upload.clone(), local_id.clone());
         // The ceiling, once, where every staged payload passes rather than in
         // each of the four caches. Only one of those enforced it — the web
@@ -1254,7 +1254,7 @@ impl SessionHandle {
         // this at about a megabyte per ten minutes. What it is here for is the
         // path that grows a payload nobody measured.
         let size = payload.len() as u64;
-        if size > oxidezap_ipc::MAX_STAGED_BYTES {
+        if size > velo_ipc::MAX_STAGED_BYTES {
             // Reserved and failed rather than dropped: the caller draws its
             // bubble after this returns, and the failure travels the events
             // channel, so it lands on a message that exists by then. Nothing
@@ -1274,7 +1274,7 @@ impl SessionHandle {
                 format!(
                     "{what} could not be sent: it is {} and the most that can be staged is {}.",
                     crate::utils::format_size(size),
-                    crate::utils::format_size(oxidezap_ipc::MAX_STAGED_BYTES)
+                    crate::utils::format_size(velo_ipc::MAX_STAGED_BYTES)
                 ),
             );
             return;
@@ -1382,9 +1382,10 @@ impl SessionHandle {
 
     /// Report playback after the audio sink advances.
     pub fn mark_audio_played(&self, jid: String, message_id: String) {
-        self.tell(ClientRequest::MarkAudioPlayed(
-            oxidezap_ipc::MarkAudioPlayed { jid, message_id },
-        ));
+        self.tell(ClientRequest::MarkAudioPlayed(velo_ipc::MarkAudioPlayed {
+            jid,
+            message_id,
+        }));
     }
 
     /// Mark a chat read up to the message the UI is looking at.
@@ -1496,7 +1497,7 @@ impl SessionHandle {
     /// The membership list lives on the connection the daemon holds.
     pub fn load_group_members(&self, jid: String) {
         self.ask(
-            ClientRequest::GroupMembers(oxidezap_ipc::GroupMembers { jid: jid.clone() }),
+            ClientRequest::GroupMembers(velo_ipc::GroupMembers { jid: jid.clone() }),
             Awaiting::Members { jid },
         );
     }
@@ -1603,11 +1604,11 @@ impl SessionHandle {
         action: &str,
         value: Option<String>,
         chat_jid: Option<String>,
-        slot: oxidezap_core::PluginSlot,
-        widget: oxidezap_core::PluginWidget,
+        slot: velo_core::PluginSlot,
+        widget: velo_core::PluginWidget,
     ) {
         self.tell(ClientRequest::PluginAction {
-            action: Box::new(oxidezap_core::PluginAction {
+            action: Box::new(velo_core::PluginAction {
                 plugin: plugin.to_string(),
                 action: action.to_string(),
                 value,
@@ -1626,7 +1627,7 @@ impl SessionHandle {
     /// somebody remembered the level rather than merely that somebody was
     /// handed it. A frame can sit in a full outbox, and a window that closed
     /// while it sat there would leave nobody having written anything.
-    pub fn set_log_level(&self, level: oxidezap_core::LogLevel) -> oneshot::Receiver<()> {
+    pub fn set_log_level(&self, level: velo_core::LogLevel) -> oneshot::Receiver<()> {
         let (tx, rx) = oneshot::channel();
         self.ask(ClientRequest::SetLogLevel { level }, Awaiting::Acted(tx));
         rx
@@ -1650,14 +1651,14 @@ impl SessionHandle {
     ) -> oneshot::Receiver<Result<String, String>> {
         let (tell, rx) = oneshot::channel();
         let size = bytes.len() as u64;
-        if size > oxidezap_ipc::MAX_STAGED_BYTES {
+        if size > velo_ipc::MAX_STAGED_BYTES {
             // Refused here rather than staged and refused there: nothing has
             // been reserved and nothing claimed, so there is no queue to
             // release and the answer is the whole of it.
             let _ = tell.send(Err(format!(
                 "that file is {} and the most that can be staged is {}.",
                 crate::utils::format_size(size),
-                crate::utils::format_size(oxidezap_ipc::MAX_STAGED_BYTES)
+                crate::utils::format_size(velo_ipc::MAX_STAGED_BYTES)
             )));
             return rx;
         }
@@ -1677,12 +1678,12 @@ impl SessionHandle {
         // one is about to name, and each would install the other's bytes. The
         // same two facts a local id carries, from the same place: this
         // process's own id, and the clock.
-        let upload = oxidezap_ipc::staged_key(&sanitize(&format!(
+        let upload = velo_ipc::staged_key(&sanitize(&format!(
             "plugin_{}_{}_{ticket}",
             crate::platform::front_end_id(),
             wacore::time::now_millis()
         )));
-        let request = ClientRequest::InstallPlugin(oxidezap_ipc::InstallPlugin {
+        let request = ClientRequest::InstallPlugin(velo_ipc::InstallPlugin {
             file_name,
             upload: upload.clone(),
         });
@@ -1759,8 +1760,8 @@ impl SessionHandle {
 
     pub fn relink_account(
         &self,
-        account: oxidezap_core::AccountId,
-    ) -> oneshot::Receiver<Result<oxidezap_core::AccountId, String>> {
+        account: velo_core::AccountId,
+    ) -> oneshot::Receiver<Result<velo_core::AccountId, String>> {
         let (tx, rx) = oneshot::channel();
         self.ask(
             ClientRequest::RelinkAccount { account },
@@ -1776,7 +1777,7 @@ impl SessionHandle {
     pub fn call_history(
         &self,
         refresh: bool,
-    ) -> oneshot::Receiver<Result<Vec<oxidezap_core::CallHistoryEntry>, String>> {
+    ) -> oneshot::Receiver<Result<Vec<velo_core::CallHistoryEntry>, String>> {
         let (tx, rx) = oneshot::channel();
         self.ask(
             ClientRequest::LoadCallHistory { refresh },
@@ -1789,7 +1790,7 @@ impl SessionHandle {
     pub fn chat_action(
         &self,
         jid: String,
-        action: oxidezap_ipc::ChatAction,
+        action: velo_ipc::ChatAction,
     ) -> oneshot::Receiver<Result<(), String>> {
         let (tx, rx) = oneshot::channel();
         self.ask(
@@ -1804,7 +1805,7 @@ impl SessionHandle {
         &self,
         query: Option<String>,
         limit: u32,
-    ) -> oneshot::Receiver<Result<Vec<oxidezap_ipc::ContactSummary>, String>> {
+    ) -> oneshot::Receiver<Result<Vec<velo_ipc::ContactSummary>, String>> {
         let (tx, rx) = oneshot::channel();
         self.ask(
             ClientRequest::ListContacts { query, limit },
@@ -1832,7 +1833,7 @@ impl SessionHandle {
         &self,
         query: String,
         limit: u32,
-    ) -> oneshot::Receiver<Result<Vec<oxidezap_ipc::FileMatch>, String>> {
+    ) -> oneshot::Receiver<Result<Vec<velo_ipc::FileMatch>, String>> {
         let (tx, rx) = oneshot::channel();
         self.ask(
             ClientRequest::SearchFiles { query, limit },
@@ -1865,7 +1866,7 @@ impl SessionHandle {
         &self,
         query: String,
         limit: u32,
-    ) -> oneshot::Receiver<Result<Vec<(String, oxidezap_core::ChatMessage)>, String>> {
+    ) -> oneshot::Receiver<Result<Vec<(String, velo_core::ChatMessage)>, String>> {
         let (tx, rx) = oneshot::channel();
         self.ask(
             ClientRequest::SearchEverywhere { query, limit },
@@ -1876,8 +1877,8 @@ impl SessionHandle {
 
     pub fn call_devices(
         &self,
-        action: oxidezap_ipc::CallDeviceAction,
-    ) -> oneshot::Receiver<Result<oxidezap_ipc::CallDeviceReply, String>> {
+        action: velo_ipc::CallDeviceAction,
+    ) -> oneshot::Receiver<Result<velo_ipc::CallDeviceReply, String>> {
         let (tx, rx) = oneshot::channel();
         self.ask(
             ClientRequest::CallDevices(Box::new(action)),
@@ -1906,17 +1907,17 @@ impl SessionHandle {
     }
 
     /// Demand profile pictures for visible rows or overscan.
-    pub fn ensure_avatars(&self, items: Vec<oxidezap_core::AvatarDemand>) {
+    pub fn ensure_avatars(&self, items: Vec<velo_core::AvatarDemand>) {
         if items.is_empty() {
             return;
         }
-        self.tell(ClientRequest::EnsureAvatars(oxidezap_ipc::EnsureAvatars {
+        self.tell(ClientRequest::EnsureAvatars(velo_ipc::EnsureAvatars {
             items,
         }));
     }
 
     /// The account bound to this connection.
-    pub fn account(&self) -> oxidezap_core::AccountId {
+    pub fn account(&self) -> velo_core::AccountId {
         self.conn.account
     }
 
@@ -2182,7 +2183,7 @@ fn fail_reserved(conn: &Conn, id: RequestId, detail: String) {
     }
 }
 
-/// Keep a key to what `oxidezap_ipc::media_path` accepts.
+/// Keep a key to what `velo_ipc::media_path` accepts.
 fn sanitize(id: &str) -> String {
     id.chars()
         .map(|c| {
@@ -2199,7 +2200,7 @@ fn sanitize(id: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oxidezap_core::MediaContent;
+    use velo_core::MediaContent;
 
     /// What a flush would write, in order. The reservation ids the slots
     /// carry are how a flush drops what has already been failed; the order is
@@ -2351,11 +2352,8 @@ mod tests {
     #[test]
     fn a_staged_recording_cannot_escape_the_cache() {
         for id in ["../../etc/passwd", "local/1", "local 1"] {
-            let key = oxidezap_ipc::staged_key(&sanitize(id));
-            assert!(
-                oxidezap_ipc::media_path(&key).is_some(),
-                "{id} produced {key}"
-            );
+            let key = velo_ipc::staged_key(&sanitize(id));
+            assert!(velo_ipc::media_path(&key).is_some(), "{id} produced {key}");
             assert!(!key.contains('/'), "{key}");
         }
     }

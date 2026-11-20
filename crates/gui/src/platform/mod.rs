@@ -18,7 +18,7 @@
 //! cannot be called `imp` too, and a file that grew one ended up with three
 //! module names for one idea. A half becomes its own *file* only when it
 //! grows submodules or stops fitting beside the question it answers — as
-//! `oxidezap-audio`'s and `oxidezap-video`'s web backends have. Nothing here
+//! `velo-audio`'s and `velo-video`'s web backends have. Nothing here
 //! is near that: these are two-line answers, and a file per platform would
 //! put the question and its answers in three places.
 //!

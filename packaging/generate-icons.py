@@ -28,7 +28,7 @@ def main():
     parser.add_argument("source", nargs="?", type=Path, help="replacement organization PNG")
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
-    master = root / "packaging/linux/org.oxidezap.client.local.png"
+    master = root / "packaging/linux/io.github.RuchinAudichya.Velo.png"
     original = Image.open(args.source or master).convert("RGBA")
     if original.width != original.height:
         raise ValueError("organization icon must have a square canvas")

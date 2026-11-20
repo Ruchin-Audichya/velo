@@ -3,8 +3,8 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use oxidezap_ipc::ProtocolError;
 use tokio::sync::oneshot;
+use velo_ipc::ProtocolError;
 
 type Answer = Result<String, ProtocolError>;
 type Key = (String, usize);

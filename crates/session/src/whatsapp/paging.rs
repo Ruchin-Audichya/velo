@@ -10,12 +10,12 @@
 use std::sync::Arc;
 
 use log::warn;
-use oxidezap_chat_store::{ChatEntry, ChatStore};
+use velo_chat_store::{ChatEntry, ChatStore};
 use whatsapp_rust::client::Client;
 use whatsapp_rust::wacore_binary::jid::{Jid, JidExt, observe_str};
 use whatsapp_rust::waproto::whatsapp as wa;
 
-use oxidezap_core::{Chat, ChatMessage};
+use velo_core::{Chat, ChatMessage};
 
 use super::WhatsAppClient;
 use super::convert::{stored_to_chat_message, stored_with_unread_tail};
@@ -35,14 +35,14 @@ pub struct Page<T> {
 }
 
 /// The cursor for continuing a conversation before `message`.
-pub(super) fn message_cursor(message: &oxidezap_chat_store::StoredMessage) -> String {
-    let cursor = oxidezap_chat_store::MessageCursor::from(message);
+pub(super) fn message_cursor(message: &velo_chat_store::StoredMessage) -> String {
+    let cursor = velo_chat_store::MessageCursor::from(message);
     format!("m1:{}:{}", cursor.timestamp_ms, cursor.seq)
 }
 
-pub(super) fn parse_message_cursor(token: &str) -> Option<oxidezap_chat_store::MessageCursor> {
+pub(super) fn parse_message_cursor(token: &str) -> Option<velo_chat_store::MessageCursor> {
     let mut parts = token.strip_prefix("m1:")?.split(':');
-    Some(oxidezap_chat_store::MessageCursor {
+    Some(velo_chat_store::MessageCursor {
         timestamp_ms: parts.next()?.parse().ok()?,
         seq: parts.next()?.parse().ok()?,
     })
@@ -53,14 +53,14 @@ pub(super) fn parse_message_cursor(token: &str) -> Option<oxidezap_chat_store::M
 /// The JID goes last and is not split on, because a device address carries a
 /// colon of its own (`5599…:57`).
 pub(super) fn chat_cursor(entry: &ChatEntry) -> String {
-    let cursor = oxidezap_chat_store::ChatCursor::from(entry);
+    let cursor = velo_chat_store::ChatCursor::from(entry);
     let pinned = cursor
         .pinned_at_ms
         .map_or_else(|| "-".to_string(), |t| t.to_string());
     format!("c1:{pinned}:{}:{}", cursor.last_message_ts, cursor.jid)
 }
 
-pub(super) fn parse_chat_cursor(token: &str) -> Option<oxidezap_chat_store::ChatCursor> {
+pub(super) fn parse_chat_cursor(token: &str) -> Option<velo_chat_store::ChatCursor> {
     let mut parts = token.strip_prefix("c1:")?.splitn(3, ':');
     // An unreadable pin is an unreadable cursor, not an unpinned chat: read as
     // `None` it is a valid position in the wrong half of the order, and the
@@ -69,7 +69,7 @@ pub(super) fn parse_chat_cursor(token: &str) -> Option<oxidezap_chat_store::Chat
         "-" => None,
         pinned => Some(pinned.parse().ok()?),
     };
-    Some(oxidezap_chat_store::ChatCursor {
+    Some(velo_chat_store::ChatCursor {
         pinned_at_ms,
         last_message_ts: parts.next()?.parse().ok()?,
         jid: parts.next()?.to_string(),
@@ -100,7 +100,7 @@ impl WhatsAppClient {
         &self,
         limit: usize,
         refresh: bool,
-    ) -> Task<Result<Vec<oxidezap_core::CallHistoryEntry>, String>> {
+    ) -> Task<Result<Vec<velo_core::CallHistoryEntry>, String>> {
         let session = self.session.clone();
         self.exec.spawn(async move {
             let Some(live) = session.lock().await.clone() else {
@@ -319,7 +319,7 @@ impl WhatsAppClient {
         &self,
         query: String,
         limit: i64,
-    ) -> Task<Result<Vec<oxidezap_chat_store::FileHit>, String>> {
+    ) -> Task<Result<Vec<velo_chat_store::FileHit>, String>> {
         let session = self.session.clone();
         self.exec.spawn(async move {
             let Some(live) = session.lock().await.clone() else {
@@ -391,7 +391,7 @@ impl WhatsAppClient {
             let Some(target) = target else {
                 return Err("message not found".to_string());
             };
-            let before_cursor = oxidezap_chat_store::MessageCursor::from(&target);
+            let before_cursor = velo_chat_store::MessageCursor::from(&target);
             let before_messages = live
                 .chat_store
                 .messages(&chat, Some(before_cursor), (limit / 2).max(1) as i64)
@@ -450,7 +450,7 @@ impl WhatsAppClient {
         &self,
         query: Option<String>,
         limit: i64,
-    ) -> Task<Result<Vec<oxidezap_chat_store::ContactEntry>, String>> {
+    ) -> Task<Result<Vec<velo_chat_store::ContactEntry>, String>> {
         let session = self.session.clone();
         self.exec.spawn(async move {
             let Some(live) = session.lock().await.clone() else {
@@ -545,7 +545,7 @@ impl WhatsAppClient {
         client: &Arc<Client>,
         names: &NameBook,
         chat: &Jid,
-        page: Vec<oxidezap_chat_store::StoredMessage>,
+        page: Vec<velo_chat_store::StoredMessage>,
         unread: i64,
     ) -> Vec<ChatMessage> {
         // The broadcast's unread count is not a per-author view state. Each
@@ -555,8 +555,8 @@ impl WhatsAppClient {
                 .map(|row| {
                     matches!(
                         row.status,
-                        oxidezap_chat_store::MessageStatus::Read
-                            | oxidezap_chat_store::MessageStatus::Played
+                        velo_chat_store::MessageStatus::Read
+                            | velo_chat_store::MessageStatus::Played
                     )
                 })
                 .collect::<Vec<_>>()
@@ -603,7 +603,7 @@ impl WhatsAppClient {
         after: Option<String>,
         limit: i64,
         include_archived: bool,
-    ) -> Task<Result<Page<oxidezap_core::Chat>, String>> {
+    ) -> Task<Result<Page<velo_core::Chat>, String>> {
         let session = self.session.clone();
         self.exec.spawn(async move {
             let Some(live) = session.lock().await.clone() else {
@@ -618,9 +618,9 @@ impl WhatsAppClient {
             let entries = store
                 .chats_page(
                     if include_archived {
-                        oxidezap_chat_store::ChatArchiveFilter::All
+                        velo_chat_store::ChatArchiveFilter::All
                     } else {
-                        oxidezap_chat_store::ChatArchiveFilter::Unarchived
+                        velo_chat_store::ChatArchiveFilter::Unarchived
                     },
                     after,
                     limit,

@@ -45,7 +45,7 @@ use crate::responsive::ResponsiveLayout;
 use crate::theme::{ActiveProductTheme as _, Metrics};
 use crate::utils::format_time_local;
 use crate::video::VideoPlayerState;
-use oxidezap_core::ChatMessage;
+use velo_core::ChatMessage;
 
 /// Everything one bubble needs, gathered by the list.
 pub struct BubbleProps {
@@ -593,7 +593,7 @@ pub fn render_message_bubble(
 /// The time and, on our own messages, its tick.
 fn render_meta(
     time: SharedString,
-    status: Option<oxidezap_core::MessageStatus>,
+    status: Option<velo_core::MessageStatus>,
     is_from_me: bool,
     edited: bool,
     edited_id: SharedString,

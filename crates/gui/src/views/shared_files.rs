@@ -10,7 +10,7 @@ use gpui::{prelude::*, *};
 use gpui_component::button::{Button, ButtonVariants as _};
 use gpui_component::input::Input;
 use gpui_component::{ActiveTheme as _, Disableable as _, IconName, Selectable as _, Sizable as _};
-use oxidezap_core::{Chat, ChatMessage, MediaContent, MediaType};
+use velo_core::{Chat, ChatMessage, MediaContent, MediaType};
 
 use crate::app::WhatsAppApp;
 use crate::components::file_badge::{FileKind, extension_label, file_badge};
@@ -556,8 +556,8 @@ mod tests {
     // Named rather than globbed: the module's `gpui::*` import carries a
     // `test` macro of its own that shadows the standard one.
     use super::{Entry, badge_label, display_name, format_size, kind_of, matches, size_of};
-    use oxidezap_core::{ChatMessage, MediaContent, MediaType};
     use std::sync::Arc;
+    use velo_core::{ChatMessage, MediaContent, MediaType};
 
     fn doc(name: &str, mime: &str) -> MediaContent {
         let mut media = MediaContent::image(Arc::new(vec![1; 10]), mime.into(), false);

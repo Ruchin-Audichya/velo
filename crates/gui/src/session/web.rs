@@ -21,7 +21,7 @@
 
 use std::sync::Arc;
 
-use oxidezap_ipc::web::{self, FromSocket};
+use velo_ipc::web::{self, FromSocket};
 use wasm_bindgen_futures::spawn_local;
 
 use super::Session;
@@ -41,9 +41,7 @@ use super::sink::Events;
 /// Only a URL the browser refuses outright. A daemon that is not running
 /// arrives as a close on the event stream, which the front end already
 /// handles as a lost connection and retries.
-pub(super) async fn connect(
-    account: oxidezap_core::AccountId,
-) -> std::io::Result<(Session, Events)> {
+pub(super) async fn connect(account: velo_core::AccountId) -> std::io::Result<(Session, Events)> {
     connect_scoped(false, account).await
 }
 
@@ -52,12 +50,12 @@ pub(super) async fn connect(
 /// No account, no session events, no call video: the requests it carries are
 /// the process-wide ones. See `attach::begin_control`.
 pub(super) async fn connect_control() -> std::io::Result<(Session, Events)> {
-    connect_scoped(true, oxidezap_core::AccountId::LEGACY).await
+    connect_scoped(true, velo_core::AccountId::LEGACY).await
 }
 
 async fn connect_scoped(
     control: bool,
-    account: oxidezap_core::AccountId,
+    account: velo_core::AccountId,
 ) -> std::io::Result<(Session, Events)> {
     // Nobody named a daemon, so there is nothing to attach to and no reason
     // to look: this page runs its own. Naming one is how somebody chooses the

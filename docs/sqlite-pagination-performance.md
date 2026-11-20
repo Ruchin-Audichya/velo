@@ -67,7 +67,7 @@ still require scanning their tied run.
 At each recorded code ref, run:
 
 ```sh
-cargo test -p oxidezap-chat-store --lib --all-features --release --no-run \
+cargo test -p velo-chat-store --lib --all-features --release --no-run \
   --message-format=json
 ```
 

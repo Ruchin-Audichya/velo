@@ -1,6 +1,6 @@
 //! The session in this page, and the window beside it.
 //!
-//! Same protocol, same state machine, no socket. `oxidezap_daemon::embedded`
+//! Same protocol, same state machine, no socket. `velo_daemon::embedded`
 //! is the whole daemon minus the process, and what it hands back is one end
 //! of a pipe in memory — so this is the desktop's reader thread and writer
 //! lock, written as two tasks on the page's own executor because a tab has no
@@ -19,8 +19,8 @@
 
 use std::sync::Arc;
 
-use oxidezap_ipc::Link;
 use tokio::io::{AsyncBufReadExt as _, AsyncWriteExt as _, BufReader};
+use velo_ipc::Link;
 use wasm_bindgen_futures::spawn_local;
 
 use super::Session;
@@ -46,9 +46,7 @@ use super::sink::Events;
 /// Something is holding the account that this tab can neither start beside
 /// nor reach — a tab running a build whose rendezvous this one does not speak
 /// is the realistic one — or this tab's own session is still closing.
-pub(super) async fn connect(
-    account: oxidezap_core::AccountId,
-) -> std::io::Result<(Session, Events)> {
+pub(super) async fn connect(account: velo_core::AccountId) -> std::io::Result<(Session, Events)> {
     connect_scoped(false, account).await
 }
 
@@ -58,12 +56,12 @@ pub(super) async fn connect(
 /// account its own service answers, and otherwise the tab that does. Both are
 /// the daemon for the process-wide requests, so both can.
 pub(super) async fn connect_control() -> std::io::Result<(Session, Events)> {
-    connect_scoped(true, oxidezap_core::AccountId::LEGACY).await
+    connect_scoped(true, velo_core::AccountId::LEGACY).await
 }
 
 async fn connect_scoped(
     control: bool,
-    account: oxidezap_core::AccountId,
+    account: velo_core::AccountId,
 ) -> std::io::Result<(Session, Events)> {
     log::info!("no daemon named; looking for a session in this origin");
 
@@ -174,15 +172,15 @@ enum Held {
 /// `control` only changes what the another-tab branch asks for: a control
 /// connection is a second connection on the same rendezvous, and this tab's
 /// own service answers it from the same registry either way.
-async fn take_or_attach(control: bool, account: oxidezap_core::AccountId) -> std::io::Result<Held> {
+async fn take_or_attach(control: bool, account: velo_core::AccountId) -> std::io::Result<Held> {
     let mut refused = String::new();
     for attempt in 0..ATTEMPTS {
-        match oxidezap_daemon::embedded::start().await {
+        match velo_daemon::embedded::start().await {
             Ok(pipe) => return Ok(Held::Session(pipe)),
-            Err(oxidezap_daemon::embedded::StartFailed::Storage(error)) => {
+            Err(velo_daemon::embedded::StartFailed::Storage(error)) => {
                 return Err(std::io::Error::other(error));
             }
-            Err(oxidezap_daemon::embedded::StartFailed::Claimed(who)) => {
+            Err(velo_daemon::embedded::StartFailed::Claimed(who)) => {
                 refused = who;
                 // The lock says somebody has it, so ask them for a
                 // connection. A failure is not that refusal coming back: it
@@ -228,7 +226,7 @@ struct InProcess;
 
 impl MediaCache for InProcess {
     fn read(&self, key: &str) -> Result<Arc<Vec<u8>>, String> {
-        oxidezap_daemon::media::read(key).ok_or_else(|| format!("media {key} is not cached"))
+        velo_daemon::media::read(key).ok_or_else(|| format!("media {key} is not cached"))
     }
 
     /// Handed over, and the claim released with it.
@@ -239,7 +237,7 @@ impl MediaCache for InProcess {
     /// megabytes in an address space with a one-gigabyte ceiling — as an
     /// ordinary cache entry the budget may now reclaim.
     fn read_once(&self, key: &str) -> Result<Arc<Vec<u8>>, String> {
-        oxidezap_daemon::media::deliver(key).ok_or_else(|| format!("media {key} is not cached"))
+        velo_daemon::media::deliver(key).ok_or_else(|| format!("media {key} is not cached"))
     }
 
     fn clear_cached(&self) {
@@ -247,12 +245,12 @@ impl MediaCache for InProcess {
     }
 
     fn stage(&self, key: &str, bytes: &[u8]) -> Result<(), String> {
-        oxidezap_daemon::media::put(key, bytes)
+        velo_daemon::media::put(key, bytes)
             .map(|_| ())
             .map_err(|e| e.to_string())
     }
 
     fn discard(&self, key: &str) {
-        let _ = oxidezap_daemon::media::take(key);
+        let _ = velo_daemon::media::take(key);
     }
 }

@@ -133,9 +133,7 @@ fn newest_chat_head(
             } else if kind == "group_membership" {
                 let preview = membership
                     .as_deref()
-                    .and_then(|raw| {
-                        serde_json::from_str::<oxidezap_core::GroupMembership>(raw).ok()
-                    })
+                    .and_then(|raw| serde_json::from_str::<velo_core::GroupMembership>(raw).ok())
                     .map(|event| event.summary())
                     .unwrap_or_else(|| "Group membership changed".to_owned());
                 (Some(preview), Some(kind))

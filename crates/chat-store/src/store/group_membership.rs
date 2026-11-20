@@ -4,7 +4,7 @@ use super::message_rows::{NewMessage, StoredRow, insert_message};
 use super::writer::ChangeSet;
 use crate::schema::messages::dsl;
 use diesel::prelude::*;
-use oxidezap_core::GroupMembership;
+use velo_core::GroupMembership;
 use wacore::types::events::GroupUpdate;
 use waproto::whatsapp as wa;
 

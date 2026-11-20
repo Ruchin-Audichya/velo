@@ -102,7 +102,7 @@ fn monotonic_now() -> f64 {
 /// Whether this browser has a camera and an H.264 encoder at all.
 ///
 /// Asked before a call is offered as a video call rather than after, the same
-/// way `oxidezap_audio::can_record` is asked before the microphone is drawn:
+/// way `velo_audio::can_record` is asked before the microphone is drawn:
 /// the alternative is a person granting camera permission to a call that then
 /// cannot encode.
 ///
@@ -673,7 +673,7 @@ async fn open_device(
     // caller receives a guard. Cancellation and timeout both drop the receiver,
     // so even a stream delivered between polls is stopped rather than leaked.
     let (tx, opened) = async_channel::bounded(1);
-    oxidezap_platform::spawn(async move {
+    velo_platform::spawn(async move {
         let stream = wasm_bindgen_futures::JsFuture::from(asked)
             .await
             .map_err(|e| anyhow!("the camera was refused: {}", describe(&e)))
@@ -685,7 +685,7 @@ async fn open_device(
             .map(|stream| CameraGuard(Some(stream)));
         let _ = tx.try_send(stream);
     });
-    let deadline = oxidezap_platform::sleep(Duration::from_millis(PERMISSION_CEILING_MS as u64));
+    let deadline = velo_platform::sleep(Duration::from_millis(PERMISSION_CEILING_MS as u64));
     let Some(opened) = futures_lite::future::or(async { Some(opened.recv().await) }, async move {
         deadline.await;
         None
@@ -787,7 +787,7 @@ async fn attach(window: &web_sys::Window, stream: &web_sys::MediaStream) -> Resu
                 .map(|e| describe(&e))
         },
         async {
-            oxidezap_platform::sleep(Duration::from_millis(PLAYBACK_GRACE_MS as u64)).await;
+            velo_platform::sleep(Duration::from_millis(PLAYBACK_GRACE_MS as u64)).await;
             None
         },
     )

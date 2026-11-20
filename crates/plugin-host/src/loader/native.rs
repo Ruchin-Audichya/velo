@@ -275,7 +275,7 @@ fn read_module(path: &Path) -> anyhow::Result<Vec<u8>> {
 /// it would take to allow the link is a verdict on the target's directory,
 /// and on that directory's directory — a walk to the root, with a race at
 /// every step — where the rule that a module is a file is one line and
-/// checkable. Loading from somewhere else is what `OXIDEZAP_PLUGIN_DIR` is
+/// checkable. Loading from somewhere else is what `VELO_PLUGIN_DIR` is
 /// for, and it is checked the same way.
 ///
 /// Nothing to check off unix: a Windows plugin directory sits under
@@ -526,14 +526,14 @@ pub fn plugin_id(path: &Path) -> Option<String> {
 
 /// Where plugins are looked for, unless the daemon is told otherwise.
 ///
-/// `OXIDEZAP_PLUGIN_DIR` wins, which is what a developer building one uses
+/// `VELO_PLUGIN_DIR` wins, which is what a developer building one uses
 /// and what keeps a test from needing a home directory at all.
 #[must_use]
 pub fn default_dir() -> Option<PathBuf> {
-    if let Some(dir) = std::env::var_os("OXIDEZAP_PLUGIN_DIR") {
+    if let Some(dir) = std::env::var_os("VELO_PLUGIN_DIR") {
         return Some(PathBuf::from(dir));
     }
-    data_dir().map(|d| d.join("oxidezap").join("plugins"))
+    data_dir().map(|d| d.join("velo").join("plugins"))
 }
 
 /// Where a plugin's own settings and the user's permission answers live.
@@ -549,13 +549,13 @@ pub fn default_dir() -> Option<PathBuf> {
 /// do is not a file a user drops in a folder.
 #[must_use]
 pub fn default_state_dir() -> Option<PathBuf> {
-    data_dir().map(|d| d.join("oxidezap").join("plugin-state"))
+    data_dir().map(|d| d.join("velo").join("plugin-state"))
 }
 
 /// The root under which the plugins and their state live.
 ///
 /// On Windows this is `%LOCALAPPDATA%` and deliberately not `%APPDATA%`,
-/// which is the same choice `oxidezap-session` makes for the store — and it
+/// which is the same choice `velo-session` makes for the store — and it
 /// has to be the same one. A roaming profile follows the user to another
 /// machine, so approvals kept there arrive beside a daemon holding a
 /// *different* paired account, where a plugin with the matching id and mask

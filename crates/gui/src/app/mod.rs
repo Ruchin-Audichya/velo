@@ -327,7 +327,7 @@ use gpui_component::input::InputState;
 // Define our own actions since gpui-component's actions module is private
 actions!(chat_list, [SelectUp, SelectDown, ToggleSelectedCommunity]);
 actions!(
-    oxidezap,
+    velo,
     [
         /// Move focus to the conversation search field.
         FocusSearch,
@@ -440,8 +440,8 @@ use crate::views::{
     render_loading_view, render_logged_out_view, render_pairing_view, render_refused_view,
     render_settings_view, render_syncing_view,
 };
-use oxidezap_audio::{AudioPlayer, AudioRecorder, encode_to_opus_ogg};
-use oxidezap_core::{
+use velo_audio::{AudioPlayer, AudioRecorder, encode_to_opus_ogg};
+use velo_core::{
     AppState, Availability, CachedQrCode, CallOutcome, CallRecord, CallState, Chat, ChatMessage,
     ComposingKind, DownloadableMedia, Ending, Issued, MediaContent, MessageStatus, OutgoingCall,
     PresenceRegistry, QuotedMessage, ReceiptType, Resend, Stage, SystemNotice, TypingSummary,
@@ -473,9 +473,9 @@ const MAX_VIDEO_PLAYERS: usize = 10;
 /// hundred megabytes of encoded bytes before `gpui` has decoded any of them —
 /// in a linear memory with a one-gigabyte ceiling that never shrinks.
 ///
-/// [`oxidezap_core::DECODED_IMAGE_BUDGET_BYTES`] is where the share comes
+/// [`velo_core::DECODED_IMAGE_BUDGET_BYTES`] is where the share comes
 /// from, because the page's budgets are ceilings on one heap.
-const DECODED_IMAGE_BUDGET: usize = oxidezap_core::DECODED_IMAGE_BUDGET_BYTES as usize;
+const DECODED_IMAGE_BUDGET: usize = velo_core::DECODED_IMAGE_BUDGET_BYTES as usize;
 
 /// The fewest decoded images the byte budget may leave in the cache.
 ///
@@ -582,7 +582,7 @@ fn default_media_name(message_id: &str, mime_type: &str) -> String {
         .iter()
         .rev()
         .collect();
-    format!("oxidezap-{suffix}.{extension}")
+    format!("velo-{suffix}.{extension}")
 }
 
 /// Currently active media playback (mutual exclusion: only one media at a time)
@@ -1034,7 +1034,7 @@ pub struct WhatsAppApp {
     ///
     /// Kept while a newer answer is in flight: a roster a moment out of date
     /// is a better header than an empty one.
-    group_rosters: HashMap<String, oxidezap_core::GroupRoster>,
+    group_rosters: HashMap<String, velo_core::GroupRoster>,
     /// The groups an ask is out for, so re-opening a conversation while its
     /// answer is on the way does not ask again. Emptied by the answer, or by
     /// the refusal that stands in for one.
@@ -1115,7 +1115,7 @@ pub struct WhatsAppApp {
     status_pane: StatusPane,
     /// The broadcast grouped by author, against the message count it was
     /// built from.
-    status_feed_cache: RefCell<Option<(usize, oxidezap_core::StatusFeed)>>,
+    status_feed_cache: RefCell<Option<(usize, velo_core::StatusFeed)>>,
     /// Redraws the status feed when its next update lapses. A status is the
     /// one thing that changes with nothing happening.
     #[allow(dead_code)]
@@ -1201,7 +1201,7 @@ impl WhatsAppApp {
     pub(crate) fn call_history_request(
         &self,
         refresh: bool,
-    ) -> Option<tokio::sync::oneshot::Receiver<Result<Vec<oxidezap_core::CallHistoryEntry>, String>>>
+    ) -> Option<tokio::sync::oneshot::Receiver<Result<Vec<velo_core::CallHistoryEntry>, String>>>
     {
         self.client
             .as_ref()
@@ -1213,7 +1213,7 @@ impl WhatsAppApp {
         &self,
         query: String,
         limit: u32,
-    ) -> Option<tokio::sync::oneshot::Receiver<Result<Vec<oxidezap_ipc::FileMatch>, String>>> {
+    ) -> Option<tokio::sync::oneshot::Receiver<Result<Vec<velo_ipc::FileMatch>, String>>> {
         self.client
             .as_ref()
             .map(|client| client.search_files(query, limit))
@@ -3326,7 +3326,7 @@ impl WhatsAppApp {
     }
 
     /// Who is in `jid`, as far as this window has been told.
-    pub fn group_members(&self, jid: &str) -> Option<&oxidezap_core::GroupRoster> {
+    pub fn group_members(&self, jid: &str) -> Option<&velo_core::GroupRoster> {
         self.group_rosters.get(jid)
     }
 
@@ -4506,7 +4506,7 @@ fn notification_tag(jid: &str) -> String {
         hash ^= u64::from(*byte);
         hash = hash.wrapping_mul(1_099_511_628_211);
     }
-    format!("oxidezap-chat-{hash:016x}")
+    format!("velo-chat-{hash:016x}")
 }
 
 fn notification_chat_jid(chats: &[Arc<Chat>], tag: &str) -> Option<String> {
@@ -5082,7 +5082,7 @@ mod tests {
         cx: &mut gpui::TestAppContext,
     ) {
         use crate::components::rich_text_selection::{MessageSelection, MessageTextSegment};
-        use oxidezap_core::{BusinessContent, BusinessKind};
+        use velo_core::{BusinessContent, BusinessKind};
         cx.update(|cx| {
             gpui_component::init(cx);
             crate::theme::init(cx);
@@ -5403,7 +5403,7 @@ mod tests {
         cx: &mut gpui::TestAppContext,
     ) {
         cx.update(|cx| {
-            cx.set_app_identity("org.oxidezap.test", "OxideZap Test");
+            cx.set_app_identity("io.github.RuchinAudichya.Velo.Test", "Velo Test");
             gpui_component::init(cx);
             crate::theme::init(cx);
             init_app_bindings(cx);
@@ -5482,7 +5482,7 @@ mod tests {
         cx: &mut gpui::TestAppContext,
     ) {
         cx.update(|cx| {
-            cx.set_app_identity("org.oxidezap.test", "OxideZap Test");
+            cx.set_app_identity("io.github.RuchinAudichya.Velo.Test", "Velo Test");
             gpui_component::init(cx);
             crate::theme::init(cx);
             init_app_bindings(cx);
@@ -5572,7 +5572,7 @@ mod tests {
         cx: &mut gpui::TestAppContext,
     ) {
         let app = cx.update(|cx| {
-            cx.set_app_identity("org.oxidezap.test", "OxideZap Test");
+            cx.set_app_identity("io.github.RuchinAudichya.Velo.Test", "Velo Test");
             cx.new(|cx| {
                 let mut app = WhatsAppApp::new(cx);
                 app.chats.push(Arc::new(Chat::with_name(
@@ -6131,12 +6131,12 @@ mod tests {
     #[test]
     fn a_message_landing_under_the_typing_row_is_still_an_arrival() {
         let typing = Some(TypingSummary {
-            typists: vec![oxidezap_core::Typist {
+            typists: vec![velo_core::Typist {
                 jid: "a@s.whatsapp.net".to_string(),
                 name: "A".to_string(),
             }],
             total: 1,
-            kind: oxidezap_core::ComposingKind::Text,
+            kind: velo_core::ComposingKind::Text,
         });
         let before = MessageListCache::new(&messages_of(&["m1", "m2"]), false, typing.clone());
         let anchor = anchored("a@s.whatsapp.net", &before, same_layout());

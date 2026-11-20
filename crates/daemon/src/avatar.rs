@@ -18,13 +18,13 @@ use std::sync::{LazyLock, Mutex};
 use portable_atomic::{AtomicU64, Ordering};
 
 use crate::state::StateHub;
-use oxidezap_session::AvatarRecorder;
+use velo_session::AvatarRecorder;
 
 struct AvatarResponse {
     status: u16,
     body: Vec<u8>,
 }
-use oxidezap_ipc::DaemonMessage;
+use velo_ipc::DaemonMessage;
 
 type InFlightKey = (u64, String, String, u64);
 
@@ -48,7 +48,7 @@ impl Drop for InFlightGuard {
 /// whose bytes landed after the cache was cleared, is refused.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Selection {
-    account: oxidezap_core::AccountId,
+    account: velo_core::AccountId,
     account_generation: usize,
     cache_epoch: usize,
     picture_id: Option<String>,
@@ -116,9 +116,9 @@ pub fn resolve(
     hub: &Arc<StateHub>,
     recorder: &AvatarRecorder,
     jid: &str,
-    outcome: &oxidezap_core::AvatarOutcome,
+    outcome: &velo_core::AvatarOutcome,
 ) {
-    use oxidezap_core::AvatarOutcome;
+    use velo_core::AvatarOutcome;
     let (picture_id, source) = match outcome {
         AvatarOutcome::Found { picture_id, source } => (picture_id.as_str(), source.as_deref()),
         AvatarOutcome::NotFound => {
@@ -138,9 +138,9 @@ pub fn resolve(
     // and picture id, and an unscoped key would let one account's cached
     // picture be served as the other's, and be billed to neither cleanly.
     let cache_key = crate::media::AccountMedia::new(hub.account_id())
-        .key(&oxidezap_core::avatar_cache_key(jid, &id));
+        .key(&velo_core::avatar_cache_key(jid, &id));
     if crate::media::has(&cache_key) {
-        oxidezap_session::spawn({
+        velo_session::spawn({
             let hub = Arc::clone(hub);
             let jid = jid.to_string();
             let recorder = recorder.clone();
@@ -189,7 +189,7 @@ pub fn resolve(
         return;
     }
     let source = source.to_string();
-    oxidezap_session::spawn({
+    velo_session::spawn({
         let hub = Arc::clone(hub);
         let jid = jid.to_string();
         let recorder = recorder.clone();
@@ -273,7 +273,7 @@ pub fn resolve(
 /// nothing newer has been recorded for the chat.
 fn remove(hub: &Arc<StateHub>, recorder: &AvatarRecorder, jid: &str) {
     let selection = record_selection(hub, jid, None, None);
-    oxidezap_session::spawn({
+    velo_session::spawn({
         let hub = Arc::clone(hub);
         let jid = jid.to_string();
         let recorder = recorder.clone();
@@ -298,7 +298,7 @@ fn remove(hub: &Arc<StateHub>, recorder: &AvatarRecorder, jid: &str) {
 }
 
 fn publish_ready(hub: &StateHub, jid: String, key: String) {
-    let event = oxidezap_core::UiEvent::AvatarReady { jid, key };
+    let event = velo_core::UiEvent::AvatarReady { jid, key };
     match serde_json::to_string(&DaemonMessage::Session {
         event: Box::new(event),
     }) {
@@ -316,7 +316,7 @@ fn publish_cleared(hub: &StateHub, jid: &str) {
 }
 
 fn publish_failed(hub: &StateHub, jid: &str, retryable: bool) {
-    let event = oxidezap_core::UiEvent::AvatarFailed {
+    let event = velo_core::UiEvent::AvatarFailed {
         jid: jid.to_string(),
         retryable,
     };
@@ -411,7 +411,7 @@ async fn fetch(url: &str, hub: &Arc<StateHub>) -> anyhow::Result<AvatarResponse>
     {
         let url = url.to_string();
         let hub = Arc::clone(hub);
-        let (status, body) = oxidezap_session::unblock(move || {
+        let (status, body) = velo_session::unblock(move || {
             anyhow::ensure!(hub.connection().is_connected(), "WhatsApp is offline");
             native::fetch(&url)
         })
@@ -434,26 +434,26 @@ fn accept(response: AvatarResponse) -> anyhow::Result<Vec<u8>> {
         anyhow::bail!("avatar response was empty");
     }
     // Named, not sniffed: only WhatsApp's four picture formats decode here,
-    // whatever the binary's `image` feature set — see `oxidezap_session::media`.
-    let format = oxidezap_session::media::allowed_image_format(&response.body)
+    // whatever the binary's `image` feature set — see `velo_session::media`.
+    let format = velo_session::media::allowed_image_format(&response.body)
         .ok_or_else(|| anyhow::anyhow!("avatar is in a format this build does not read"))?;
     let mut limits = image::Limits::default();
-    limits.max_image_width = Some(oxidezap_core::MAX_AVATAR_DIMENSION);
-    limits.max_image_height = Some(oxidezap_core::MAX_AVATAR_DIMENSION);
-    limits.max_alloc = Some(oxidezap_core::MAX_AVATAR_PIXELS * 4);
-    let (width, height) = oxidezap_session::media::dimensions(&response.body, format, limits)
+    limits.max_image_width = Some(velo_core::MAX_AVATAR_DIMENSION);
+    limits.max_image_height = Some(velo_core::MAX_AVATAR_DIMENSION);
+    limits.max_alloc = Some(velo_core::MAX_AVATAR_PIXELS * 4);
+    let (width, height) = velo_session::media::dimensions(&response.body, format, limits)
         .map_err(|e| anyhow::anyhow!("invalid avatar image: {e}"))?;
     let pixels = u64::from(width)
         .checked_mul(u64::from(height))
         .ok_or_else(|| anyhow::anyhow!("avatar dimensions overflow"))?;
-    if pixels > oxidezap_core::MAX_AVATAR_PIXELS {
+    if pixels > velo_core::MAX_AVATAR_PIXELS {
         anyhow::bail!("avatar has too many pixels");
     }
     let mut decode_limits = image::Limits::default();
-    decode_limits.max_image_width = Some(oxidezap_core::MAX_AVATAR_DIMENSION);
-    decode_limits.max_image_height = Some(oxidezap_core::MAX_AVATAR_DIMENSION);
-    decode_limits.max_alloc = Some(oxidezap_core::MAX_AVATAR_PIXELS * 4);
-    oxidezap_session::media::decode(&response.body, format, decode_limits)
+    decode_limits.max_image_width = Some(velo_core::MAX_AVATAR_DIMENSION);
+    decode_limits.max_image_height = Some(velo_core::MAX_AVATAR_DIMENSION);
+    decode_limits.max_alloc = Some(velo_core::MAX_AVATAR_PIXELS * 4);
+    velo_session::media::decode(&response.body, format, decode_limits)
         .map_err(|e| anyhow::anyhow!("invalid avatar image: {e}"))?;
     Ok(response.body)
 }

@@ -4,15 +4,15 @@ The crate map, the theme, and how the interface responds to viewport size.
 
 ## Crates
 
-- **oxidezap-core**: domain types (chats, messages, calls, UI events). No UI, no I/O.
-- **oxidezap-platform**: where a task runs and how it waits — spawning, sleeping,
+- **velo-core**: domain types (chats, messages, calls, UI events). No UI, no I/O.
+- **velo-platform**: where a task runs and how it waits — spawning, sleeping,
   racing a deadline, and whether a task may cross threads. Four things, and only
   four. Deliberately the bottom of the workspace: the session's `exec/` was the
   seam and the rule said to go through it, but `plugin-host` sits *beside* the
   session and cannot depend on it, so it grew its own copy of the same
   `setTimeout` and the window grew a third. A rule only one caller can obey is
   not a rule.
-- **oxidezap-audio**: capture, playback, Opus encoding, waveforms. cpal; no UI.
+- **velo-audio**: capture, playback, Opus encoding, waveforms. cpal; no UI.
   On the web the sound card and the codec are the browser's: playback is real
   (`decodeAudioData` takes exactly the bytes the daemon sends), so is
   recording, through WebAudio for the capture and `AudioEncoder` for the
@@ -23,18 +23,18 @@ The crate map, the theme, and how the interface responds to viewport size.
   route in: it produces a container the browser picks (WebM on Chrome, MP4 on
   Safari) where a voice note is Opus in OGG, so it would have meant a demuxer
   to undo it.
-- **oxidezap-chat-store**: materializes the library's event stream into chats,
+- **velo-chat-store**: materializes the library's event stream into chats,
   messages, receipts and an FTS5 search index. Owns its schema and migrations;
   consumes only the library's public event surface. Extracted from
   whatsapp-rust, where it was application logic living in a protocol repo.
-- **oxidezap-video**: camera capture and H.264 encoding for calls. cpal's
+- **velo-video**: camera capture and H.264 encoding for calls. cpal's
   opposite number, and now in both senses: a capture backend per platform
   behind one crate — nokhwa and OpenH264 on a desktop, `getUserMedia` and
   `VideoEncoder` in a browser — and the encoder the GUI already decodes with.
   The browser encoder is configured `avc: { format: "annexb" }`, so what comes
   out is what the library's video source already wants rather than AVCC to be
   converted. No UI, and no decode — decoding belongs to whoever draws.
-- **oxidezap-session**: the WhatsApp connection: events, sends, store hydration.
+- **velo-session**: the WhatsApp connection: events, sends, store hydration.
   Knows nothing about how anything is drawn, and nothing about IPC either —
   the daemon translates requests onto its methods. Four of its modules are
   platform splits rather than logic — `net/` is the transport and HTTP client
@@ -43,20 +43,20 @@ The crate map, the theme, and how the interface responds to viewport size.
   fifth, in `whatsapp/calls/`. Above them the session names no platform.
   Not `video/`: that is the frame plane both targets share, and the camera
   split it used to be named for lives in the `video` *crate*.
-- **oxidezap-ipc**: the wire protocol between the daemon and its front ends,
+- **velo-ipc**: the wire protocol between the daemon and its front ends,
   plus the blocking client end of the transport (`Endpoint`). No runtime: a
   front end needs one thread to read and a lock to serialize writes, and the
   daemon is the side with thousands of things happening at once. The domain
-  types in `oxidezap-core` *are* the wire format; this crate adds the framing
+  types in `velo-core` *are* the wire format; this crate adds the framing
   around them.
-- **oxidezap-logging**: how much the client says about itself, and where that
+- **velo-logging**: how much the client says about itself, and where that
   answer is kept. A crate rather than a function in each binary for two
   reasons. The level has to move while the process runs — `log`'s global
   maximum already does, but an `env_logger` filter built from `RUST_LOG` at
   startup does not, so a level raised in Settings was let through by the macro
   and dropped by the logger underneath, which is a failure with no symptom
   except silence. And both processes have to read one answer: the window and
-  `oxidezapd` log about one account, and a choice only the window remembered
+  `velod` log about one account, and a choice only the window remembered
   would leave the process holding the session — where nearly everything worth
   reading is written — at `info` for ever. So `env_logger` keeps the
   formatting and the per-module floors and the global level is an atomic this
@@ -64,7 +64,7 @@ The crate map, the theme, and how the interface responds to viewport size.
   page, and the precedence is stated once: an explicit `RUST_LOG` (or `?log=`)
   wins for the run it was given for, then the stored choice, then `info`.
   Choosing a level at runtime always applies, whatever started the process.
-- **oxidezap-daemon**: a library and the binary `oxidezapd` around it. The
+- **velo-daemon**: a library and the binary `velod` around it. The
   library is everything the daemon *does* — the state every front end
   observes, the bridge that turns their requests into session calls, and the
   protocol spoken down a byte stream — and it builds for
@@ -78,10 +78,10 @@ The crate map, the theme, and how the interface responds to viewport size.
   holds none. It is also the only way to keep the store: SQLite's persistent
   VFS on the web is OPFS through a synchronous access handle, which exists in
   a dedicated worker and nowhere else.
-- **oxidezap-plugin-abi**: the wasm ABI — its constants and the widget-tree
+- **velo-plugin-abi**: the wasm ABI — its constants and the widget-tree
   codec. No dependencies and `no_std`, because it is compiled into the daemon
   *and* into every plugin, including ones with no allocator.
-- **oxidezap-plugin-host**: runs `.wasm` plugins inside the daemon. Discovery,
+- **velo-plugin-host**: runs `.wasm` plugins inside the daemon. Discovery,
   the sandbox, and the host half of the ABI. One wasmi `Store` and one
   bounded queue per plugin, on an OS thread where there is one and on the
   page's own loop where there is not — `sched/` is that split and it is two
@@ -100,7 +100,7 @@ The crate map, the theme, and how the interface responds to viewport size.
   a reload that built a new one would leave every one of them routing presses
   into a set nobody is running. `Live` is the generation, one lock holds it,
   and `Plugins::reload` is the only thing that swaps it.
-- **oxidezap-plugin**: the Rust SDK a plugin is written against. Not a
+- **velo-plugin**: the Rust SDK a plugin is written against. Not a
   dependency of anything here; it exists to be built for wasm32. What it adds
   over the raw imports is what the compiler can check: two mask types so a
   capability cannot be passed where a set of event kinds goes, a `Setup` whose
@@ -123,7 +123,7 @@ The crate map, the theme, and how the interface responds to viewport size.
   table a test owns, which is the only way to run a handler without the
   daemon; `raw::Ptr` exists for it, because an address is an `i32` on wasm32
   and truncates to nothing anywhere else.
-- **oxidezap-gui**: GPUI front end, binary `oxidezap`. Talks to the daemon and
+- **velo-gui**: GPUI front end, binary `velo`. Talks to the daemon and
   starts one if none is listening. Owns video decode, which writes straight
   into `gpui::RenderImage` and is not reusable off GPUI.
   The same crate builds for `wasm32-unknown-unknown`, where `main` becomes the

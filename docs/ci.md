@@ -142,7 +142,7 @@ can stand down. It needs `pages: write` on the job, which is why `publish` and
 Native release archives are built and checked on pull requests through
 `release-check.yml`, using the same matrix and packager as tags and nightly.
 Linux ARM64 uses `ubuntu-22.04-arm`, builds `aarch64-unknown-linux-gnu`, and
-ships `oxidezap-<version>-linux-aarch64.tar.gz` with all three binaries and
+ships `velo-<version>-linux-aarch64.tar.gz` with all three binaries and
 the desktop installer. Each native runner checks the archive's complete member
 set, binary format, architecture and executable permissions, then runs the
 packaged CLI's help command. This smoke test does not exercise the GUI or a
@@ -179,7 +179,7 @@ compiler.
 
 ### Useful 1.100 changes and limits
 
-Cargo's new unused-dependency warning exposed `oxidezap-wire` in the WASM
+Cargo's new unused-dependency warning exposed `velo-wire` in the WASM
 session build. Its only session use is the native store's account-id
 validator, so it is now a native-target dependency. Desktop validation stays
 intact. No dev-dependency was removed: a single target's warnings do not

@@ -7,7 +7,7 @@
 //! # Why there are two copies of each
 //!
 //! A plugin is built for `wasm32-unknown-unknown`, where these resolve
-//! against the host's `oxidezap` module. Everywhere else there is no such
+//! against the host's `velo` module. Everywhere else there is no such
 //! module and a binary that linked them would not link at all — which would
 //! mean this crate could not be a workspace member, and so would never be
 //! compiled by CI. The stubs are what let `cargo clippy --workspace` check
@@ -16,7 +16,7 @@
 
 #![allow(clippy::missing_safety_doc)]
 
-use oxidezap_plugin_abi as abi;
+use velo_plugin_abi as abi;
 
 /// How an address crosses this ABI.
 ///
@@ -43,7 +43,7 @@ pub fn into(bytes: &mut [u8]) -> Ptr {
 }
 
 #[cfg(target_arch = "wasm32")]
-#[link(wasm_import_module = "oxidezap")]
+#[link(wasm_import_module = "velo")]
 unsafe extern "C" {
     #[link_name = "oxi_subscribe"]
     pub safe fn subscribe(mask: i64);
@@ -106,7 +106,7 @@ mod off_target {
     /// that fit from one that was cut.
     unsafe fn write_out(value: Option<String>, ptr: super::Ptr, cap: i32) -> i32 {
         let Some(value) = value else {
-            return oxidezap_plugin_abi::ABSENT;
+            return velo_plugin_abi::ABSENT;
         };
         let cap = usize::try_from(cap).unwrap_or(0);
         let wrote = value.len().min(cap);
@@ -214,7 +214,7 @@ mod off_target {
     /// somewhere there is no host, which nothing legitimate does — build with
     /// the `testing` feature to have these answered instead.
     fn nowhere() -> ! {
-        panic!("an oxidezap plugin's imports exist only inside the daemon's wasm host")
+        panic!("a Velo plugin's imports exist only inside the daemon's wasm host")
     }
 
     pub fn subscribe(_mask: i64) {

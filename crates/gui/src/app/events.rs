@@ -148,8 +148,7 @@ impl WhatsAppApp {
             // Metadata can arrive after newer readiness through the publisher.
             UiEvent::AvatarsResolved { resolutions } => {
                 for resolution in resolutions {
-                    if let oxidezap_core::AvatarOutcome::Found { picture_id, .. } =
-                        resolution.outcome
+                    if let velo_core::AvatarOutcome::Found { picture_id, .. } = resolution.outcome
                         && let Some(chat) = self.find_chat_mut(&resolution.jid)
                     {
                         chat.resolve_avatar(Some(picture_id));
@@ -262,7 +261,7 @@ impl WhatsAppApp {
                 cx.notify();
             }
             UiEvent::Error(msg) | UiEvent::SessionResyncRequired(msg) => {
-                self.connection_ended(oxidezap_core::Fault::unreachable(msg), cx);
+                self.connection_ended(velo_core::Fault::unreachable(msg), cx);
             }
             UiEvent::MessageReceived {
                 chat_jid,
@@ -586,9 +585,9 @@ mod avatar_tests {
             );
             app.handle_event(
                 UiEvent::AvatarsResolved {
-                    resolutions: vec![oxidezap_core::AvatarResolution {
+                    resolutions: vec![velo_core::AvatarResolution {
                         jid: jid.into(),
-                        outcome: oxidezap_core::AvatarOutcome::NotFound,
+                        outcome: velo_core::AvatarOutcome::NotFound,
                     }],
                 },
                 cx,

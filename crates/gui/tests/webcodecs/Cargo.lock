@@ -182,7 +182,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6790f58c7ff633d8771f42965289203411a5e5c68388703c06e14f24770b41e"
 
 [[package]]
-name = "oxidezap-webcodecs-tests"
+name = "velo-webcodecs-tests"
 version = "0.0.0"
 dependencies = [
  "image",

@@ -163,7 +163,7 @@ async fn inbound_commit_reports_sql_failure() {
         .expect_err("missing table must fail closed");
     assert!(matches!(
         error,
-        oxidezap_chat_store::ChatStoreError::WriteBatchFailed(_)
+        velo_chat_store::ChatStoreError::WriteBatchFailed(_)
     ));
 }
 
@@ -405,7 +405,7 @@ async fn flush_surfaces_a_failed_batch() {
     let err = chat_store.flush().await.expect_err("batch must fail");
     assert!(matches!(
         err,
-        oxidezap_chat_store::ChatStoreError::WriteBatchFailed(_)
+        velo_chat_store::ChatStoreError::WriteBatchFailed(_)
     ));
 
     // Restore and confirm the writer survived the failure.
@@ -651,7 +651,7 @@ async fn a_resolved_chat_name_broadcasts_only_on_real_change() {
 /// answer finishing later.
 #[tokio::test]
 async fn a_stale_metadata_answer_does_not_clobber_a_live_rename() {
-    use oxidezap_chat_store::ChatNameWrite;
+    use velo_chat_store::ChatNameWrite;
     let (_store, chat_store) = test_store().await;
     feed(
         &chat_store,
@@ -758,8 +758,8 @@ async fn a_stale_metadata_answer_does_not_clobber_a_live_rename() {
 /// started from older metadata cannot overwrite the newer stored relationship.
 #[tokio::test]
 async fn group_hierarchy_is_persisted_and_compare_and_swap_protected() {
-    use oxidezap_chat_store::GroupHierarchyWrite;
-    use oxidezap_core::{GroupHierarchy, SubgroupKind};
+    use velo_chat_store::GroupHierarchyWrite;
+    use velo_core::{GroupHierarchy, SubgroupKind};
 
     let (store, chat_store) = test_store().await;
     feed(
@@ -878,7 +878,7 @@ async fn group_hierarchy_is_persisted_and_compare_and_swap_protected() {
 /// write has no insert, so a gone row simply does not match.
 #[tokio::test]
 async fn a_metadata_answer_for_a_deleted_chat_writes_nothing() {
-    use oxidezap_chat_store::ChatNameWrite;
+    use velo_chat_store::ChatNameWrite;
     use wacore::types::events::DeleteChatUpdate;
     let (_store, chat_store) = test_store().await;
     feed(

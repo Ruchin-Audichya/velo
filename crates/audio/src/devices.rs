@@ -1,20 +1,20 @@
 //! Inventory never opens a stream. Ringtone owns only an output stream.
 use anyhow::Result;
-use oxidezap_core::{CallDevice, Ringtone};
+use velo_core::{CallDevice, Ringtone};
 
 pub use imp::{
     RingtonePlayback, enumerate_audio_devices, open_test_microphone, start_ringtone,
     start_ringtone_cancellable,
 };
 
-static CALL_PREFERENCES: std::sync::RwLock<(oxidezap_core::CallDevicePreferences, bool)> =
+static CALL_PREFERENCES: std::sync::RwLock<(velo_core::CallDevicePreferences, bool)> =
     std::sync::RwLock::new((
-        oxidezap_core::CallDevicePreferences {
+        velo_core::CallDevicePreferences {
             microphone: None,
             speaker: None,
             ringtone_output: None,
             camera: None,
-            camera_mode: oxidezap_core::CameraMode {
+            camera_mode: velo_core::CameraMode {
                 width: 640,
                 height: 480,
                 fps: 30,
@@ -24,21 +24,21 @@ static CALL_PREFERENCES: std::sync::RwLock<(oxidezap_core::CallDevicePreferences
         false,
     ));
 
-pub fn set_call_preferences(preferences: oxidezap_core::CallDevicePreferences) {
+pub fn set_call_preferences(preferences: velo_core::CallDevicePreferences) {
     *CALL_PREFERENCES.write().unwrap_or_else(|e| e.into_inner()) = (preferences, true);
 }
 
 /// Install launch defaults without replacing legacy input routing before the first save.
-pub fn set_call_preferences_from_defaults(preferences: oxidezap_core::CallDevicePreferences) {
+pub fn set_call_preferences_from_defaults(preferences: velo_core::CallDevicePreferences) {
     *CALL_PREFERENCES.write().unwrap_or_else(|e| e.into_inner()) = (preferences, false);
 }
 
-pub fn call_preferences() -> oxidezap_core::CallDevicePreferences {
+pub fn call_preferences() -> velo_core::CallDevicePreferences {
     call_preferences_with_origin().0
 }
 
 /// One consistent snapshot for consumers that distinguish launch defaults from saved choices.
-pub fn call_preferences_with_origin() -> (oxidezap_core::CallDevicePreferences, bool) {
+pub fn call_preferences_with_origin() -> (velo_core::CallDevicePreferences, bool) {
     CALL_PREFERENCES
         .read()
         .unwrap_or_else(|e| e.into_inner())

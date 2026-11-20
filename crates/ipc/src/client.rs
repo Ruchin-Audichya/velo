@@ -1,18 +1,18 @@
-//! Thin, synchronous client for communicating with the daemon using `oxidezap_wire`.
+//! Thin, synchronous client for communicating with the daemon using `velo_wire`.
 
 use std::collections::VecDeque;
 use std::io::{self, BufRead as _, BufReader, Write as _};
 use std::path::Path;
 
-use oxidezap_wire::envelope::{RequestEnvelope, ResponseEnvelope, ResponseResult};
-use oxidezap_wire::error::ApiError;
-use oxidezap_wire::event::DaemonEvent;
-use oxidezap_wire::request::ClientRequest;
-use oxidezap_wire::response::DaemonResponse;
+use velo_wire::envelope::{RequestEnvelope, ResponseEnvelope, ResponseResult};
+use velo_wire::error::ApiError;
+use velo_wire::event::DaemonEvent;
+use velo_wire::request::ClientRequest;
+use velo_wire::response::DaemonResponse;
 
 use crate::endpoint::{Endpoint, Hangup, Reader, Writer};
 
-/// A synchronous IPC client for the OxideZap daemon.
+/// A synchronous IPC client for the Velo daemon.
 pub struct IpcClient {
     reader: BufReader<Reader>,
     writer: Writer,
@@ -144,7 +144,7 @@ mod tests {
     /// asked anything.
     #[test]
     fn an_event_between_a_request_and_its_answer_is_not_lost() {
-        let dir = std::env::temp_dir().join(format!("oxidezap-ipc-events-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("velo-ipc-events-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("scratch directory");
         let path = dir.join("endpoint.sock");

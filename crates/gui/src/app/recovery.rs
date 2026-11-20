@@ -14,7 +14,7 @@
 //! countdown says exactly which entity it needs, and it is not this one.
 
 use gpui::{App, Context, Task, WeakEntity};
-use oxidezap_core::{Fault, Recovery};
+use velo_core::{Fault, Recovery};
 
 use super::*;
 
@@ -161,8 +161,8 @@ impl WhatsAppApp {
 
     pub(super) fn account_retired(
         &mut self,
-        account: oxidezap_core::AccountId,
-        successor: oxidezap_core::AccountId,
+        account: velo_core::AccountId,
+        successor: velo_core::AccountId,
         cx: &mut Context<Self>,
     ) {
         let Some(active) = self.account_selection.retire(account, successor) else {
@@ -444,7 +444,7 @@ mod tests {
         });
         app.update(cx, |app, cx| {
             let mut ringing = CallState::default();
-            ringing.set_incoming(oxidezap_core::IncomingCall {
+            ringing.set_incoming(velo_core::IncomingCall {
                 call_id: "BEFORE-DROP".into(),
                 caller_name: "Example".into(),
                 caller_jid: "999000@s.whatsapp.net".into(),

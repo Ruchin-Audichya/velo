@@ -6,7 +6,7 @@
 //! browser owns the loop — so nothing there ever asked, and the ordered
 //! teardown the daemon library carries was unreachable from a tab.
 //!
-//! [`shutdown::requested`]: oxidezap_daemon::shutdown::requested
+//! [`shutdown::requested`]: velo_daemon::shutdown::requested
 
 use gpui::App;
 
@@ -86,7 +86,7 @@ mod imp {
                 if event.persisted() {
                     return;
                 }
-                oxidezap_daemon::shutdown::request("the page is going away");
+                velo_daemon::shutdown::request("the page is going away");
             },
         );
         if window

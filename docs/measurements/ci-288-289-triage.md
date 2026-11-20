@@ -6,8 +6,8 @@ No production dependencies, fuel limits, test deadlines or assertions change.
 
 ## Web compilation failure
 
-The [#288 web job](https://github.com/oxidezap/client/actions/runs/40998832174/job/123878204949)
-and [#289 web job](https://github.com/oxidezap/client/actions/runs/41000719222/job/123884222100)
+The [#288 web job](https://github.com/Ruchin-Audichya/velo/actions/runs/40998832174/job/123878204949)
+and [#289 web job](https://github.com/Ruchin-Audichya/velo/actions/runs/41000719222/job/123884222100)
 fail before launching a browser. Both report the same errors:
 
 ```text
@@ -28,7 +28,7 @@ compilation reproduced all three errors with the same library-test target:
 
 ```sh
 RUSTFLAGS='--cfg web_sys_unstable_apis' \
-  cargo test -p oxidezap-daemon --lib --target wasm32-unknown-unknown --no-run
+  cargo test -p velo-daemon --lib --target wasm32-unknown-unknown --no-run
 ```
 
 The fix moves only the GUI decode function into `avatar/web_platform.rs`.
@@ -40,7 +40,7 @@ removed or stubbed, and the daemon gains no GUI dependency.
 
 ## Native fuel test flake
 
-The [#288 Check job](https://github.com/oxidezap/client/actions/runs/40998832174/job/123878205132)
+The [#288 Check job](https://github.com/Ruchin-Audichya/velo/actions/runs/40998832174/job/123878205132)
 passed workspace Clippy and then failed at:
 
 ```text
@@ -65,7 +65,7 @@ This establishes a load-sensitive baseline flake, not a SQL regression.
 Reproduction uses the test executable reported by Cargo:
 
 ```sh
-cargo test -p oxidezap-plugin-host --all-features --lib \
+cargo test -p velo-plugin-host --all-features --lib \
   tests::a_plugin_that_loops_forever_runs_out_of_fuel_and_is_stopped -- --exact
 # To reproduce contention, pin this executable and one CPU-busy process
 # to the same allowed CPU; always terminate that process after the test.
@@ -96,7 +96,7 @@ synthetic browser runs; no installed browser or user profile was modified.
 ```sh
 RUSTFLAGS='--cfg web_sys_unstable_apis' \
 CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-bindgen-test-runner \
-  cargo test -p oxidezap-daemon -p oxidezap-session --lib \
+  cargo test -p velo-daemon -p velo-session --lib \
     --target wasm32-unknown-unknown
 ```
 

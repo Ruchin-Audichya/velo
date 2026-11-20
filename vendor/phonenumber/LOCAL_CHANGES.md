@@ -66,7 +66,7 @@ avoiding collect-then-shrink reallocations. See
    build visitor and its 25 fault-injection positions. Add coverage for any new
    field. The two validators differ, so run the entire new XML through both.
 5. Update the targeted phonenumber lock entry. Run
-   `cargo test -p oxidezap-core --all-features`, Clippy, fmt, cargo-machete
+   `cargo test -p velo-core --all-features`, Clippy, fmt, cargo-machete
    and the WASM integration check in the measurement report. The normal workspace/CI tests include the `phone_metadata_build`
    integration target, which compiles this actual `build.rs` as a test binary.
 6. Compare base/head outputs for both probe corpora with identical probe source.

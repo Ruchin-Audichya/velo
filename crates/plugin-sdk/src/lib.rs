@@ -1,4 +1,4 @@
-//! Write an oxidezap plugin in Rust.
+//! Write a Velo plugin in Rust.
 //!
 //! The raw ABI is four read functions, a handful of commands and three
 //! exports; this crate is the thin, typed layer over it and nothing more.
@@ -7,7 +7,7 @@
 //! entire point of the ABI it wraps.
 //!
 //! ```ignore
-//! use oxidezap_plugin::{abi, fields, plugin, Caps, Declared, Event, Kinds, Setup, send_text};
+//! use velo_plugin::{abi, fields, plugin, Caps, Declared, Event, Kinds, Setup, send_text};
 //!
 //! plugin!(init = setup, event = handle);
 //!
@@ -60,7 +60,7 @@
 #[cfg(all(not(target_arch = "wasm32"), feature = "testing"))]
 extern crate std;
 
-pub use oxidezap_plugin_abi as abi;
+pub use velo_plugin_abi as abi;
 
 mod raw;
 
@@ -189,7 +189,7 @@ impl<const N: usize> Field<N> {
 /// and a widget's id is as long as the plugin's own names.
 pub mod fields {
     use super::Field;
-    use oxidezap_plugin_abi as abi;
+    use velo_plugin_abi as abi;
 
     /// The chat an event happened in.
     pub const CHAT_JID: Field<128> = Field::new(abi::fields::CHAT_JID);
@@ -1258,7 +1258,7 @@ pub mod kv {
 pub mod ui {
     use super::{Outcome, abi, set_ui};
 
-    pub use oxidezap_plugin_abi::ui::slot;
+    pub use velo_plugin_abi::ui::slot;
 
     /// A plugin's whole interface, under construction.
     pub struct Canvas<'a> {
@@ -1488,7 +1488,7 @@ macro_rules! log {
 /// place it is written.
 ///
 /// ```ignore
-/// oxidezap_plugin::plugin!(init = setup, event = handle);
+/// velo_plugin::plugin!(init = setup, event = handle);
 /// ```
 ///
 /// `init` is `fn(Setup) -> impl Declared` and `event` is `fn(&Event)`.
@@ -1498,7 +1498,7 @@ macro_rules! log {
 /// reasons a first build fails. A plugin that wants its own says so:
 ///
 /// ```ignore
-/// oxidezap_plugin::plugin!(init = setup, event = handle, panic = own);
+/// velo_plugin::plugin!(init = setup, event = handle, panic = own);
 /// ```
 #[macro_export]
 macro_rules! plugin {
@@ -1561,11 +1561,11 @@ mod tests {
     fn a_capability_is_not_an_event_kind() {
         assert_eq!(
             (Caps::SEND | Caps::UI).bits(),
-            oxidezap_plugin_abi::caps::SEND | oxidezap_plugin_abi::caps::UI
+            velo_plugin_abi::caps::SEND | velo_plugin_abi::caps::UI
         );
         assert_eq!(
             Kinds::MESSAGE.bits(),
-            oxidezap_plugin_abi::kinds::bit(oxidezap_plugin_abi::kinds::MESSAGE)
+            velo_plugin_abi::kinds::bit(velo_plugin_abi::kinds::MESSAGE)
         );
         // The two masks are the same integer here, and that is the point:
         // nothing but the type tells them apart.
@@ -1576,11 +1576,11 @@ mod tests {
     #[test]
     fn a_field_carries_the_room_it_needs() {
         let jid: Field<128> = fields::CHAT_JID;
-        assert_eq!(jid.id(), oxidezap_plugin_abi::fields::CHAT_JID);
+        assert_eq!(jid.id(), velo_plugin_abi::fields::CHAT_JID);
         // And a plugin that knows better says so, without changing which
         // field it is reading.
         let bigger: Field<4096> = fields::TEXT.sized::<4096>();
-        assert_eq!(bigger.id(), oxidezap_plugin_abi::fields::TEXT);
+        assert_eq!(bigger.id(), velo_plugin_abi::fields::TEXT);
     }
 
     /// `whole` is the question `as_str` does not ask.
@@ -1678,10 +1678,10 @@ mod tests {
 mod view_tests {
     use super::{CallEvent, Event, Media, ReceiptKind, State, Which};
     use crate::testing::{Event as In, Host};
-    use oxidezap_plugin_abi as abi;
     use std::cell::RefCell;
     use std::string::{String, ToString as _};
     use std::{thread_local, vec::Vec};
+    use velo_plugin_abi as abi;
 
     thread_local! {
         /// What the handler below saw, since a `fn` pointer cannot capture.

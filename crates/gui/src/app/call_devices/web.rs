@@ -6,7 +6,7 @@ pub(super) struct PreviewDecoder {}
 impl PreviewDecoder {
     pub(super) fn decode(
         &mut self,
-        _frame: &oxidezap_ipc::CameraPreviewFrame,
+        _frame: &velo_ipc::CameraPreviewFrame,
     ) -> Result<Option<Arc<RenderImage>>, String> {
         Err(crate::tr!(CameraPreviewDisplayIsUnavailableFromThisBrowserConnection).into())
     }

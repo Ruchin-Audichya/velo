@@ -35,9 +35,9 @@ mod messages;
 
 pub(crate) use messages::deliver;
 
-const OPEN_ID: &str = "oxidezap-open";
-const HIDE_ID: &str = "oxidezap-hide";
-const QUIT_ID: &str = "oxidezap-quit";
+const OPEN_ID: &str = "velo-open";
+const HIDE_ID: &str = "velo-hide";
+const QUIT_ID: &str = "velo-quit";
 
 /// Start the icon and keep it following the hub.
 ///
@@ -53,7 +53,7 @@ pub async fn start(hub: Arc<TrayHub>) -> Result<Box<dyn super::Tray>> {
     let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<Result<(), String>>();
 
     std::thread::Builder::new()
-        .name("oxidezap-tray".to_string())
+        .name("velo-tray".to_string())
         .spawn(move || run(hub, initial, state_rx, ready_tx))
         .context("starting the tray thread")?;
 
@@ -116,7 +116,7 @@ fn build(initial: &TrayState) -> Result<TrayIcon, String> {
         .map_err(|e| format!("building the tray menu: {e}"))?;
 
     TrayIconBuilder::new()
-        .with_id("oxidezap")
+        .with_id("velo")
         .with_menu_on_left_click(false)
         .with_tooltip(initial.single_line())
         .with_menu(Box::new(menu))

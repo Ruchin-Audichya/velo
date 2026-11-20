@@ -16,7 +16,7 @@ def main():
     destination = args.output.resolve()
     if destination.exists():
         parser.error(f"Refusing to overwrite existing measurement binary: {destination}")
-    command = ["cargo", "test", "-p", "oxidezap-daemon", "--release", "--lib",
+    command = ["cargo", "test", "-p", "velo-daemon", "--release", "--lib",
                "--no-run", "--message-format=json"]
     if args.instrument:
         command += ["--features", "memory-profiling"]
@@ -24,7 +24,7 @@ def main():
     artifacts = [json.loads(line) for line in built.stdout.splitlines() if line.startswith("{")]
     executables = [a["executable"] for a in artifacts
                    if a.get("reason") == "compiler-artifact" and a.get("executable")
-                   and a.get("target", {}).get("name") == "oxidezap_daemon"
+                   and a.get("target", {}).get("name") == "velo_daemon"
                    and a.get("profile", {}).get("test")]
     if len(executables) != 1:
         raise RuntimeError(f"Expected one daemon test binary, got {executables}")

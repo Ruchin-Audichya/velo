@@ -45,11 +45,9 @@ mod tests;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use oxidezap_ipc::{
-    ClientRequest, DaemonMessage, PROTOCOL_VERSION, ProtocolError, Request, RequestId,
-};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader, ReadHalf, WriteHalf};
 use tokio::sync::broadcast::error::RecvError;
+use velo_ipc::{ClientRequest, DaemonMessage, PROTOCOL_VERSION, ProtocolError, Request, RequestId};
 
 use crate::account::AccountRegistry;
 #[cfg(test)]
@@ -122,7 +120,7 @@ const OUTBOX_CAPACITY: usize = 64;
 pub(crate) async fn serve_client<S>(
     stream: S,
     hub: Arc<StateHub>,
-    plugins: Arc<oxidezap_plugin_host::Plugins>,
+    plugins: Arc<velo_plugin_host::Plugins>,
     commands: Commands,
 ) -> Result<()>
 where
@@ -177,7 +175,7 @@ pub(crate) async fn serve_client_with_registry(
     // a task and a descriptor and given nothing back. A peer that connects
     // and says nothing would otherwise sit here for as long as it liked, and
     // a reconnect loop doing it would take the listener down with it.
-    let mut attached = match oxidezap_session::with_timeout(
+    let mut attached = match velo_session::with_timeout(
         handshake(&mut reader, &mut writer, &mut buf),
         HANDSHAKE_TIMEOUT,
     )
@@ -199,12 +197,12 @@ pub(crate) async fn serve_client_with_registry(
     let mut retirements = registry.watch_retirements();
     if attached.is_wire && (attached.account_selection || attached.wire_account.is_some()) {
         match registry.resolve_wire_account(attached.wire_account) {
-            Ok(account) => attached.scope = oxidezap_ipc::ClientScope::Account { account },
+            Ok(account) => attached.scope = velo_ipc::ClientScope::Account { account },
             Err(detail) => {
-                let response = oxidezap_wire::envelope::ResponseEnvelope {
+                let response = velo_wire::envelope::ResponseEnvelope {
                     id: attached.wire_hello_id,
-                    result: oxidezap_wire::envelope::ResponseResult::Error {
-                        error: oxidezap_wire::error::ApiError::invalid_request(detail),
+                    result: velo_wire::envelope::ResponseResult::Error {
+                        error: velo_wire::error::ApiError::invalid_request(detail),
                     },
                 };
                 write_line(&mut writer, &serde_json::to_string(&response)?).await?;
@@ -214,10 +212,10 @@ pub(crate) async fn serve_client_with_registry(
     }
 
     let (hub, plugins, commands) = match attached.scope {
-        oxidezap_ipc::ClientScope::Control => {
+        velo_ipc::ClientScope::Control => {
             return serve_control_client(reader, writer, registry).await;
         }
-        oxidezap_ipc::ClientScope::Account { account } => {
+        velo_ipc::ClientScope::Account { account } => {
             if let Some(successor) = registry.retirement_target(account) {
                 if !attached.is_wire {
                     write_line(
@@ -315,15 +313,15 @@ pub(crate) async fn serve_client_with_registry(
     let (outbox, mut inbox) = tokio::sync::mpsc::channel::<String>(OUTBOX_CAPACITY);
 
     if attached.is_wire {
-        let resp = oxidezap_wire::envelope::ResponseEnvelope {
+        let resp = velo_wire::envelope::ResponseEnvelope {
             id: attached.wire_hello_id,
-            result: oxidezap_wire::envelope::ResponseResult::Ok {
+            result: velo_wire::envelope::ResponseResult::Ok {
                 payload: Box::new(if attached.account_selection {
-                    oxidezap_wire::response::DaemonResponse::AccountSelected {
+                    velo_wire::response::DaemonResponse::AccountSelected {
                         local_account: hub.account_id().get(),
                     }
                 } else {
-                    oxidezap_wire::response::DaemonResponse::Ack
+                    velo_wire::response::DaemonResponse::Ack
                 }),
             },
         };
@@ -518,15 +516,15 @@ pub(crate) async fn serve_client_with_registry(
             // Cancellation-safe: `read_frame` carries a partial frame in
             // `buf` across losing this race. See its documentation.
             frame = read_frame(&mut reader, &mut buf) => match frame? {
-                Some(oxidezap_ipc::FrameRead::Line(line)) => {
+                Some(velo_ipc::FrameRead::Line(line)) => {
                     if attached.is_wire {
-                        let env: oxidezap_wire::envelope::RequestEnvelope = match serde_json::from_str(&line) {
+                        let env: velo_wire::envelope::RequestEnvelope = match serde_json::from_str(&line) {
                             Ok(env) => env,
                             Err(e) => {
-                                let err_resp = oxidezap_wire::envelope::ResponseEnvelope {
+                                let err_resp = velo_wire::envelope::ResponseEnvelope {
                                     id: None,
-                                    result: oxidezap_wire::envelope::ResponseResult::Error {
-                                        error: oxidezap_wire::error::ApiError::invalid_request(e.to_string()),
+                                    result: velo_wire::envelope::ResponseResult::Error {
+                                        error: velo_wire::error::ApiError::invalid_request(e.to_string()),
                                     },
                                 };
                                 write_line(&mut writer, &serde_json::to_string(&err_resp)?).await?;
@@ -535,10 +533,10 @@ pub(crate) async fn serve_client_with_registry(
                         };
 
                         if attached.read_only && env.request.is_mutation() {
-                            let err_resp = oxidezap_wire::envelope::ResponseEnvelope {
+                            let err_resp = velo_wire::envelope::ResponseEnvelope {
                                 id: Some(env.id),
-                                result: oxidezap_wire::envelope::ResponseResult::Error {
-                                    error: oxidezap_wire::error::ApiError::permission_denied(
+                                result: velo_wire::envelope::ResponseResult::Error {
+                                    error: velo_wire::error::ApiError::permission_denied(
                                         "read-only connection cannot mutate state",
                                     ),
                                 },
@@ -625,16 +623,16 @@ pub(crate) async fn serve_client_with_registry(
                         return Ok(());
                     }
                 }
-                Some(oxidezap_ipc::FrameRead::NotUtf8) => {
+                Some(velo_ipc::FrameRead::NotUtf8) => {
                     write_line(&mut writer, &not_utf8()?).await?;
                 }
-                Some(oxidezap_ipc::FrameRead::TooLong) => {
+                Some(velo_ipc::FrameRead::TooLong) => {
                     // Unlike the other two this ends the connection: with no
                     // newline there is no way to know where the frame was meant
                     // to end, so the stream cannot be resynchronized.
                     let frame = malformed(&format!(
                     "frame exceeded {} bytes",
-                    oxidezap_ipc::MAX_REQUEST_BYTES
+                    velo_ipc::MAX_REQUEST_BYTES
                 ))?;
                     write_line(&mut writer, &frame).await?;
                     return Ok(());
@@ -710,7 +708,7 @@ where
                 write_line(&mut writer, &frame).await?;
             }
             frame = read_frame(&mut reader, &mut buf) => match frame? {
-                Some(oxidezap_ipc::FrameRead::Line(line)) => {
+                Some(velo_ipc::FrameRead::Line(line)) => {
                     let request: Request = match serde_json::from_str(&line) {
                         Ok(request) => request,
                         Err(error) => {
@@ -838,9 +836,9 @@ where
                         write_line(&mut writer, &response).await?;
                     }
                 }
-                Some(oxidezap_ipc::FrameRead::NotUtf8) => write_line(&mut writer, &not_utf8()?).await?,
-                Some(oxidezap_ipc::FrameRead::TooLong) => {
-                    write_line(&mut writer, &malformed(&format!("frame exceeded {} bytes", oxidezap_ipc::MAX_REQUEST_BYTES))?).await?;
+                Some(velo_ipc::FrameRead::NotUtf8) => write_line(&mut writer, &not_utf8()?).await?,
+                Some(velo_ipc::FrameRead::TooLong) => {
+                    write_line(&mut writer, &malformed(&format!("frame exceeded {} bytes", velo_ipc::MAX_REQUEST_BYTES))?).await?;
                     return Ok(());
                 }
                 None => return Ok(()),
@@ -864,10 +862,10 @@ fn answer_acted(id: Option<RequestId>) -> String {
 /// At `error` when the remembering fails, deliberately: the level has already
 /// taken effect, so a person quieting the daemon to `error` should still see
 /// the one line that says the choice was not stored.
-async fn set_log_level(id: Option<RequestId>, level: oxidezap_logging::LogLevel) -> String {
-    oxidezap_logging::apply(level);
+async fn set_log_level(id: Option<RequestId>, level: velo_logging::LogLevel) -> String {
+    velo_logging::apply(level);
     log::info!("logging at {level}, asked for by a control client");
-    match oxidezap_session::unblock(oxidezap_logging::remember).await {
+    match velo_session::unblock(velo_logging::remember).await {
         Ok(Ok(())) => answer_acted(id),
         Ok(Err(e)) => {
             log::error!("the log level was changed but not stored: {e}");
@@ -884,7 +882,7 @@ async fn set_log_level(id: Option<RequestId>, level: oxidezap_logging::LogLevel)
 ///
 /// Off the connection's loop: this is a thirty-two megabyte read, a listing, a
 /// write and two flushes, and the control loop also pushes `AccountsChanged`.
-fn install_plugin(id: Option<RequestId>, request: oxidezap_ipc::InstallPlugin, outbox: &Outbox) {
+fn install_plugin(id: Option<RequestId>, request: velo_ipc::InstallPlugin, outbox: &Outbox) {
     let Some(id) = id else {
         answer_later(
             outbox,
@@ -893,7 +891,7 @@ fn install_plugin(id: Option<RequestId>, request: oxidezap_ipc::InstallPlugin, o
         return;
     };
     let answer_to = outbox.clone();
-    oxidezap_session::spawn(async move {
+    velo_session::spawn(async move {
         let frame = match install(&request).await {
             Ok(plugin) => always(
                 Some(id),
@@ -909,7 +907,7 @@ fn install_plugin(id: Option<RequestId>, request: oxidezap_ipc::InstallPlugin, o
 /// Remove a module from the shared catalogue, answering on the outbox.
 fn remove_plugin(id: Option<RequestId>, plugin: String, outbox: &Outbox) {
     let answer_to = outbox.clone();
-    oxidezap_session::spawn(async move {
+    velo_session::spawn(async move {
         let removed = crate::plugins::uninstall(&plugin).await;
         let frame = match removed {
             Ok(()) => answer(id, Ok(())),
@@ -932,7 +930,7 @@ fn list_plugins(id: Option<RequestId>, outbox: &Outbox) {
         return;
     };
     let answer_to = outbox.clone();
-    oxidezap_session::spawn(async move {
+    velo_session::spawn(async move {
         let frame = match crate::plugins::names().await {
             Ok(plugins) => always(
                 Some(id),
@@ -1023,7 +1021,7 @@ async fn create_account(registry: &AccountRegistry, id: Option<RequestId>) -> Re
 async fn change_account(
     registry: &AccountRegistry,
     id: Option<RequestId>,
-    account: oxidezap_core::AccountId,
+    account: velo_core::AccountId,
     disposition: crate::session_bridge::AccountDisposition,
 ) -> Result<String> {
     #[cfg(not(target_family = "wasm"))]

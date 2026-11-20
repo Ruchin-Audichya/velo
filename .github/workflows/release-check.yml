@@ -23,7 +23,7 @@ jobs:
           sparse-checkout: .github/scripts
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: oxidezap-*
+          pattern: velo-*
           path: artifacts
           merge-multiple: true
       - name: Validate the downloaded set and checksums
@@ -34,7 +34,7 @@ jobs:
           for platform in linux-x86_64 linux-aarch64 macos-aarch64 windows-x86_64; do
             suffix=tar.gz
             if [ "$platform" = windows-x86_64 ]; then suffix=zip; fi
-            python3 .github/scripts/check-release.py "artifacts/oxidezap-$VERSION-$platform.$suffix" "$VERSION" "$platform"
+            python3 .github/scripts/check-release.py "artifacts/velo-$VERSION-$platform.$suffix" "$VERSION" "$platform"
           done
           test "$(find artifacts -type f | wc -l)" -eq 4
-          (cd artifacts && sha256sum oxidezap-* > checksums.sha256 && sha256sum -c checksums.sha256)
+          (cd artifacts && sha256sum velo-* > checksums.sha256 && sha256sum -c checksums.sha256)

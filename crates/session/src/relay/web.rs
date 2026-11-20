@@ -144,7 +144,7 @@ impl whatsapp_rust::wacore::voip::RelayTransportProvider for BrowserRelay {
 /// Whether the agent this page runs in defines `RTCPeerConnection`.
 ///
 /// Asked before a factory is handed back rather than at connect time, for the
-/// same reason `oxidezap_audio::can_record` is asked before the microphone is
+/// same reason `velo_audio::can_record` is asked before the microphone is
 /// offered: a control that is drawn and then always fails is worse than one
 /// that says no up front. Here the "control" is the call itself, and the
 /// refusal reaches the person as the reason the call was not placed.
@@ -186,7 +186,7 @@ impl RelayTransportFactory for BrowserRelayFactory {
 ///
 /// The closures are held because the browser calls into them: a `Closure`
 /// dropped while it is still referenced is a call into freed memory, which
-/// takes the tab. The same rule the recorder in `oxidezap-audio` follows, and
+/// takes the tab. The same rule the recorder in `velo-audio` follows, and
 /// for the same reason.
 struct Wiring {
     _on_message: Closure<dyn FnMut(web_sys::MessageEvent)>,

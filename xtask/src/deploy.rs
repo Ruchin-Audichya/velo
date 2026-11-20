@@ -377,19 +377,19 @@ mod tests {
     fn a_token_never_reaches_the_log() {
         let said = scrubbed(
             "fatal: could not read Username for \
-             'https://x-access-token:ghs_secret@github.com/oxidezap/client.git'",
+             'https://x-access-token:ghs_secret@github.com/Ruchin-Audichya/velo.git'",
         );
         assert!(!said.contains("ghs_secret"), "{said}");
         assert!(
-            said.contains("<credentials>@github.com/oxidezap/client.git"),
+            said.contains("<credentials>@github.com/Ruchin-Audichya/velo.git"),
             "{said}"
         );
 
         // A URL with nothing to hide survives intact, and so does ordinary
         // prose with an `@` in it.
         assert_eq!(
-            scrubbed("remote: see https://github.com/oxidezap/client/pull/1"),
-            "remote: see https://github.com/oxidezap/client/pull/1"
+            scrubbed("remote: see https://github.com/Ruchin-Audichya/velo/pull/1"),
+            "remote: see https://github.com/Ruchin-Audichya/velo/pull/1"
         );
         assert_eq!(scrubbed("ask me@example.com"), "ask me@example.com");
     }

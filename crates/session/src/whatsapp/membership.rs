@@ -1,14 +1,14 @@
 //! Resolve every event participant independently, using only local identity/contact data.
 use crate::names::NameBook;
-use oxidezap_core::{GroupMembership, NoticeParticipant};
 use std::sync::Arc;
+use velo_core::{GroupMembership, NoticeParticipant};
 use whatsapp_rust::client::Client;
 use whatsapp_rust::wacore_binary::jid::Jid;
 
 pub(super) async fn resolve(
     client: &Arc<Client>,
     names: &NameBook,
-    store: &oxidezap_chat_store::ChatStore,
+    store: &velo_chat_store::ChatStore,
     event: &mut GroupMembership,
 ) {
     let own = super::history::own_jids(client);
@@ -19,7 +19,7 @@ pub(super) async fn resolve(
 pub(super) async fn resolve_person(
     client: &Arc<Client>,
     names: &NameBook,
-    store: &oxidezap_chat_store::ChatStore,
+    store: &velo_chat_store::ChatStore,
     person: &mut NoticeParticipant,
     own: &[String],
 ) {
@@ -110,7 +110,7 @@ pub(super) async fn resolve_person(
                 .contact_jids
                 .iter()
                 .filter(|j| j.is_pn())
-                .find_map(|pn| oxidezap_core::format_phone_jid(&pn.to_string()))
+                .find_map(|pn| velo_core::format_phone_jid(&pn.to_string()))
                 .unwrap_or_else(|| person.fallback_label()),
         );
     }

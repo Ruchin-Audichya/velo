@@ -15,7 +15,7 @@ use crate::app::WhatsAppApp;
 use crate::components::avatar::Presence;
 use crate::responsive::ResponsiveLayout;
 use crate::theme::Metrics;
-use oxidezap_core::{Availability, Chat, GroupRoster, TypingSummary};
+use velo_core::{Availability, Chat, GroupRoster, TypingSummary};
 
 use super::{Avatar, ProductIcon, parts};
 
@@ -561,7 +561,7 @@ fn chat_action_items(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oxidezap_core::{ComposingKind, GroupMember, Typist};
+    use velo_core::{ComposingKind, GroupMember, Typist};
 
     /// A roster as the daemon answers one: `named` people with names, the
     /// rest addresses nobody has ever put a name to.

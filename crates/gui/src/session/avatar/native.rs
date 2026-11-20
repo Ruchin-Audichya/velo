@@ -1,12 +1,12 @@
 //! Native implementation of persistent avatar storage.
 //!
 //! Shares the filesystem with the daemon directly under the existing
-//! media cache directory (`oxidezap_ipc::media_path`). Reads and writes run off the UI
+//! media cache directory (`velo_ipc::media_path`). Reads and writes run off the UI
 //! thread via `smol::unblock`.
 
 use std::sync::RwLock;
 
-static ACTIVE_ACCOUNT: RwLock<Option<oxidezap_core::AccountId>> = RwLock::new(None);
+static ACTIVE_ACCOUNT: RwLock<Option<velo_core::AccountId>> = RwLock::new(None);
 
 #[cfg(test)]
 pub(super) static PERSISTENT_READS: portable_atomic::AtomicU64 = portable_atomic::AtomicU64::new(0);
@@ -15,29 +15,29 @@ pub(super) static DECODE_COMPLETED: portable_atomic::AtomicU64 = portable_atomic
 #[cfg(test)]
 pub(super) static DECODE_PERFORMED: portable_atomic::AtomicU64 = portable_atomic::AtomicU64::new(0);
 
-pub fn set_active_account(account: Option<oxidezap_core::AccountId>) {
+pub fn set_active_account(account: Option<velo_core::AccountId>) {
     if let Ok(mut lock) = ACTIVE_ACCOUNT.write() {
         *lock = account;
     }
 }
 
-pub fn active_account() -> Option<oxidezap_core::AccountId> {
+pub fn active_account() -> Option<velo_core::AccountId> {
     ACTIVE_ACCOUNT.read().ok().and_then(|lock| *lock)
 }
 
-pub fn rotate_account_scope() -> Option<oxidezap_core::AccountId> {
+pub fn rotate_account_scope() -> Option<velo_core::AccountId> {
     let old = active_account();
     set_active_account(None);
     old
 }
 
 #[allow(dead_code)]
-pub fn resolve_account(key: &str) -> Option<oxidezap_core::AccountId> {
-    oxidezap_ipc::account_id_of(key).or_else(active_account)
+pub fn resolve_account(key: &str) -> Option<velo_core::AccountId> {
+    velo_ipc::account_id_of(key).or_else(active_account)
 }
 
 pub async fn read_persistent(key: &str) -> Option<Vec<u8>> {
-    let path = oxidezap_ipc::media_path(key)?;
+    let path = velo_ipc::media_path(key)?;
     #[cfg(test)]
     PERSISTENT_READS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     smol::unblock(move || std::fs::read(path).ok()).await
@@ -151,7 +151,7 @@ pub(super) fn queued_decodes() -> usize {
 }
 
 pub async fn delete_persistent(key: &str) -> Result<(), String> {
-    if let Some(path) = oxidezap_ipc::media_path(key) {
+    if let Some(path) = velo_ipc::media_path(key) {
         let _ = smol::unblock(move || std::fs::remove_file(path)).await;
     }
     Ok(())
@@ -161,27 +161,25 @@ pub async fn delete_persistent(key: &str) -> Result<(), String> {
 pub async fn write_persistent(
     _key: &str,
     _bytes: &[u8],
-    _account: Option<oxidezap_core::AccountId>,
+    _account: Option<velo_core::AccountId>,
     _stamp: u64,
 ) -> Result<(), String> {
     // Daemon already persists media atomically; no redundant write needed on native.
     Ok(())
 }
 
-pub async fn delete_account_storage(
-    _account: Option<oxidezap_core::AccountId>,
-) -> Result<(), String> {
+pub async fn delete_account_storage(_account: Option<velo_core::AccountId>) -> Result<(), String> {
     // Daemon manages file deletion on account wipe
     Ok(())
 }
 
-pub async fn clear_cache_storage(_account: Option<oxidezap_core::AccountId>) -> Result<(), String> {
+pub async fn clear_cache_storage(_account: Option<velo_core::AccountId>) -> Result<(), String> {
     // Daemon manages file deletion on media cache clear
     Ok(())
 }
 
 #[allow(dead_code)]
-pub async fn avatar_cache_usage(_account: oxidezap_core::AccountId) -> (u64, u64) {
+pub async fn avatar_cache_usage(_account: velo_core::AccountId) -> (u64, u64) {
     (0, 0)
 }
 

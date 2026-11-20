@@ -95,7 +95,7 @@ fn validate_patterns(metadata: &[loader::Metadata]) {
     }
 }
 
-// Compiled by oxidezap-core's phone_metadata_build integration-test target.
+// Compiled by velo-core's phone_metadata_build integration-test target.
 // Reuse the public loader types; no copy of the production visitor is tested.
 #[cfg(test)]
 mod tests {

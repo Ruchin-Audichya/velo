@@ -1,4 +1,4 @@
-# oxidezap
+# Velo
 
 Unofficial WhatsApp client on top of [whatsapp-rust](https://github.com/oxidezap/whatsapp-rust).
 GPUI front end. The same tree builds a desktop app and a web front end for
@@ -83,13 +83,13 @@ for example in examples/*/; do
   cargo test --manifest-path "$example/Cargo.toml"
   cargo xtask plugin build "$example"
 done
-cargo test -p oxidezap-plugin-host --all-features -- --ignored
+cargo test -p velo-plugin-host --all-features -- --ignored
 ```
 
 `cargo xtask help` lists the repository's own tooling — prefer asking it to
 assuming, since tasks are added there. Running the client is the window and the
 daemon, and the window looks for the daemon beside itself; `cargo build
---release` then run the front-end binary. `oxidezap-cli` is a third binary, a
+--release` then run the front-end binary. `velo-cli` is a third binary, a
 front end onto the same daemon. The web build, plugin builds, the browser test
 runner and the profiling and source-map builds are in
 **[docs/building.md](docs/building.md)**.
@@ -142,7 +142,7 @@ which is why they are here and the inventories are not.
   `daemon/src/plugins/mod.rs` is the worked example.
 - **A page has no threads, and several std/tokio APIs compile for it and fail at
   run time** — `std::thread::spawn`, `tokio::time`, `spawn_blocking`. The
-  `oxidezap-platform` crate is the seam that answers them — it sits below
+  `velo-platform` crate is the seam that answers them — it sits below
   everything precisely so `plugin-host`, which must not depend on `session`, can
   reach it too; that rule used to name the session's `exec/` and the tree had
   quietly forked three copies of one browser timer because `plugin-host` could
@@ -150,7 +150,7 @@ which is why they are here and the inventories are not.
   than calling browser timers or runtime pools directly. Reading elapsed time
   is separate. Use `wacore::time::Instant`, as required by `clippy.toml`.
   The web startup registers its monotonic provider before the application runs;
-  `oxidezap-platform` does not expose a clock-reading API. What decides where
+  `velo-platform` does not expose a clock-reading API. What decides where
   work goes is what the work *is*, not where the code lives.
 - **A browser API never gets a view into wasm memory.** The module is built with
   `--shared-memory`, so the specs refuse a shared `ArrayBufferView`: copy before

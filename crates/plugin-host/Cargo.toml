@@ -1,5 +1,5 @@
 [package]
-name = "oxidezap-plugin-host"
+name = "velo-plugin-host"
 description = "Runs .wasm plugins inside the daemon: discovery, sandbox, and the host half of the ABI"
 version.workspace = true
 edition.workspace = true
@@ -20,13 +20,13 @@ futures-lite = "2.6.1"
 # (see /clippy.toml).
 portable-atomic = { workspace = true }
 log = { workspace = true }
-oxidezap-core = { workspace = true }
+velo-core = { workspace = true }
 # The browser's clock and the browser's loop, written once for the whole
 # workspace. This host sits beside the session rather than above it, so it
 # cannot reach the session's `exec` — which is exactly how it came to carry
 # its own copy of the same `setTimeout`, worker arm and drop guard and all.
-oxidezap-platform = { workspace = true }
-oxidezap-plugin-abi = { workspace = true, features = ["std"] }
+velo-platform = { workspace = true }
+velo-plugin-abi = { workspace = true, features = ["std"] }
 serde_json = { workspace = true, features = ["std"] }
 # The interpreter, deliberately: wasmi has no JIT, so nothing here generates
 # code inside the process that holds the account. It also has the two things
@@ -55,7 +55,7 @@ wasmi = { version = "2.0.0", default-features = false, features = ["std", "valid
 tokio = { workspace = true, features = ["sync"] }
 # A plugin's settings, which is the one browser object this crate still names
 # for itself. The timer that used to need `js-sys`, `wasm-bindgen` and a
-# `WorkerGlobalScope` feature beside it now comes from `oxidezap-platform`.
+# `WorkerGlobalScope` feature beside it now comes from `velo-platform`.
 web-sys = { version = "0.3.106", features = ["Storage", "Window"] }
 
 [target.'cfg(unix)'.dependencies]
@@ -67,7 +67,7 @@ rustix = { workspace = true }
 # mean a wasm toolchain there for the sake of six tests.
 chrono = { workspace = true, features = ["std", "clock"] }
 # The same synthetic chats and messages every crate above core tests against.
-oxidezap-core = { workspace = true, features = ["fixtures"] }
+velo-core = { workspace = true, features = ["fixtures"] }
 wat = "1.262.0"
 
 [lints]

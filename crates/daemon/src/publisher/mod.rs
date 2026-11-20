@@ -24,8 +24,8 @@ mod platform;
 
 pub(crate) use platform::{Handle, start};
 
-use oxidezap_core::UiEvent;
-use oxidezap_ipc::DaemonMessage;
+use velo_core::UiEvent;
+use velo_ipc::DaemonMessage;
 
 use crate::state::StateHub;
 

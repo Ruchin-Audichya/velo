@@ -14,7 +14,7 @@
 
 use gpui::{Context, Entity, Task, WeakEntity, Window};
 use gpui_component::input::InputState;
-use oxidezap_core::ChatMessage;
+use velo_core::ChatMessage;
 
 use super::WhatsAppApp;
 
@@ -439,7 +439,7 @@ fn matches(message: &ChatMessage, query: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oxidezap_core::fixtures;
+    use velo_core::fixtures;
 
     /// A [`Search`] with the conversation half open over `jid`, and no window
     /// behind it. What the tests below drive is the part that decides — when

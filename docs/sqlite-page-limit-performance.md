@@ -31,7 +31,7 @@ change is `1569e95`; `92ecea4` also selects portable profiling counters.
 Build both sequentially on the same runner using the ordinary Cargo cache:
 
 ```sh
-cargo test -p oxidezap-chat-store --release --all-features \
+cargo test -p velo-chat-store --release --all-features \
   --test page_limit_profile --no-run
 ```
 

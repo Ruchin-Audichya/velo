@@ -7,7 +7,7 @@ use gpui::{
 };
 use gpui_component::button::{Button, ButtonVariants as _};
 use gpui_component::{ActiveTheme as _, Disableable as _, Selectable as _, Sizable as _};
-use oxidezap_core::{CallDevice, CallDevicePreferences, CameraMode, Ringtone};
+use velo_core::{CallDevice, CallDevicePreferences, CameraMode, Ringtone};
 
 #[derive(Clone, Copy)]
 enum Kind {
@@ -139,7 +139,7 @@ fn choices(
 }
 
 fn supported_mode(mode: CameraMode) -> bool {
-    oxidezap_video::VideoQuality {
+    velo_video::VideoQuality {
         width: mode.width,
         height: mode.height,
         fps: mode.fps,

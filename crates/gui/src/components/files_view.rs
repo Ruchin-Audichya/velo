@@ -29,7 +29,7 @@ pub struct FilesView {
 
 /// One document from the index, with the chat it was shared in.
 struct SharedFile {
-    found: oxidezap_ipc::FileMatch,
+    found: velo_ipc::FileMatch,
     chat_name: String,
 }
 

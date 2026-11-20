@@ -398,7 +398,7 @@ async fn a_query_of_punctuation_is_an_invalid_query_not_a_storage_error() {
         assert!(
             matches!(
                 chat_store.search_messages(query, 10).await,
-                Err(oxidezap_chat_store::ChatStoreError::InvalidSearchQuery)
+                Err(velo_chat_store::ChatStoreError::InvalidSearchQuery)
             ),
             "{query:?} names no term to search for"
         );
@@ -458,7 +458,7 @@ async fn a_media_search_returns_a_full_page_of_media() {
     assert!(
         media
             .iter()
-            .all(|m| m.kind == oxidezap_chat_store::MessageKind::Image),
+            .all(|m| m.kind == velo_chat_store::MessageKind::Image),
         "a text row leaked into a media search"
     );
 }

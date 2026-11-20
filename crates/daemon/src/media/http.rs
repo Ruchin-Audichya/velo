@@ -28,10 +28,10 @@ use crate::listener::web::http::{percent_decode, respond};
 /// through here — a voice note or a photo, never a film.
 ///
 /// The number is the protocol's rather than this module's, because the front
-/// end has to know it before it reads a file: `oxidezap_ipc` is where the two
+/// end has to know it before it reads a file: `velo_ipc` is where the two
 /// ends meet, and a client that learned this from a `413` would have paid for
 /// the whole read to be told it.
-const MAX_UPLOAD_BYTES: u64 = oxidezap_ipc::MAX_STAGED_BYTES;
+const MAX_UPLOAD_BYTES: u64 = velo_ipc::MAX_STAGED_BYTES;
 
 /// How long a staged payload has to arrive once its head has been read.
 ///
@@ -65,7 +65,7 @@ static STAGING_SEQUENCE: portable_atomic::AtomicU64 = portable_atomic::AtomicU64
 /// from naming a file outside the cache.
 pub(crate) async fn serve(stream: &mut TcpStream, key: &str, origin: Option<&str>) -> Result<()> {
     let key = percent_decode(key);
-    let Some(path) = oxidezap_ipc::media_path(&key) else {
+    let Some(path) = velo_ipc::media_path(&key) else {
         return respond(
             stream,
             400,
@@ -157,7 +157,7 @@ pub(crate) async fn receive(
         )
         .await;
     }
-    let Some(path) = oxidezap_ipc::media_path(&key) else {
+    let Some(path) = velo_ipc::media_path(&key) else {
         return respond(
             stream.get_mut(),
             400,
@@ -328,7 +328,7 @@ pub(crate) async fn discard(stream: &mut TcpStream, key: &str, origin: Option<&s
         )
         .await;
     }
-    if let Some(path) = oxidezap_ipc::media_path(&key) {
+    if let Some(path) = velo_ipc::media_path(&key) {
         match tokio::fs::remove_file(&path).await {
             Ok(()) => log::debug!("discarded the staged payload {key}"),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
@@ -348,7 +348,7 @@ pub(crate) async fn discard(stream: &mut TcpStream, key: &str, origin: Option<&s
 /// the key it wants and this endpoint cannot know which account a page is
 /// bound to.
 fn is_staged(key: &str) -> bool {
-    oxidezap_ipc::is_staged_key(key)
+    velo_ipc::is_staged_key(key)
 }
 
 /// Why this staging request may not proceed, if it may not.
@@ -427,7 +427,7 @@ mod tests {
 
         fn scratch(name: &str) -> std::path::PathBuf {
             let dir = std::env::temp_dir().join(format!(
-                "oxidezap-media-http-{}-{:?}-{name}",
+                "velo-media-http-{}-{:?}-{name}",
                 std::process::id(),
                 std::thread::current().id()
             ));

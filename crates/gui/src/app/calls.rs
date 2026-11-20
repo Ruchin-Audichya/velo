@@ -1,6 +1,6 @@
 //! Where the call card sits, and whether it is collapsed.
 //!
-//! The call itself lives in [`oxidezap_core::CallState`], because the daemon
+//! The call itself lives in [`velo_core::CallState`], because the daemon
 //! owns the session and hands a window the whole thing on attach. What stays
 //! here is the part a second window must *not* inherit: this window's own
 //! placement of the card. The card floats over the app rather than blocking

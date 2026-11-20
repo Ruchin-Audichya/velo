@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 use gpui::{App, AppContext as _, Context, Entity, Window};
 use gpui_component::input::{InputEvent, InputState};
-use oxidezap_core::{PluginNode, PluginSlot, PluginSurface, PluginWidget};
+use velo_core::{PluginNode, PluginSlot, PluginSurface, PluginWidget};
 
 use super::WhatsAppApp;
 
@@ -674,7 +674,7 @@ impl WhatsAppApp {
     ///
     /// Every front end may ask, and that is not a loose end: the folder is
     /// the daemon's, so a desktop window asking is somebody who has just
-    /// dropped a `.wasm` beside `oxidezapd`, and a tab that holds no session
+    /// dropped a `.wasm` beside `velod`, and a tab that holds no session
     /// asking is somebody who installed one into an origin whose host is
     /// another tab. Neither could do anything about it before but restart the
     /// thing holding the account.

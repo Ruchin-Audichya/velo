@@ -23,8 +23,8 @@
 
 use std::sync::Arc;
 
-use oxidezap_core::AccountId;
-use oxidezap_plugin_host::{Commands, Outcome, Plugins, Reloaded, Sink};
+use velo_core::AccountId;
+use velo_plugin_host::{Commands, Outcome, Plugins, Reloaded, Sink};
 
 #[cfg(not(target_family = "wasm"))]
 mod native;
@@ -58,22 +58,22 @@ pub async fn start(hub: &Arc<StateHub>, commands: SessionCommands) -> Arc<Plugin
 
 /// This account's slice of the plugin state root.
 ///
-/// `None` wherever [`oxidezap_plugin_host::default_state_dir`] is: there is
+/// `None` wherever [`velo_plugin_host::default_state_dir`] is: there is
 /// no per-user directory to scope. Every plugin's recorded approval and every
 /// plugin's settings file are this account's data, never the daemon's as a
 /// whole — a `.wasm` module is shared (the plan calls it a global catalog),
 /// but what it may do and what it remembers are not, so a second account on
 /// the same machine must never inherit or overwrite the first's. Every path
-/// this module hands to a `Plugins` host, or to [`oxidezap_plugin_host::forget_approvals`],
+/// this module hands to a `Plugins` host, or to [`velo_plugin_host::forget_approvals`],
 /// goes through here rather than through `default_state_dir` directly.
 ///
 /// Native only: a page's plugin state lives in `localStorage` behind
-/// [`oxidezap_plugin_host::Origin`], which is not yet keyed by account (see
+/// [`velo_plugin_host::Origin`], which is not yet keyed by account (see
 /// the multi-account plan, section 13.3) and has no path to scope.
 #[cfg(not(target_family = "wasm"))]
 #[must_use]
 pub fn account_state_dir(account_id: AccountId) -> Option<std::path::PathBuf> {
-    oxidezap_plugin_host::default_state_dir().map(|root| root.join(account_id.get().to_string()))
+    velo_plugin_host::default_state_dir().map(|root| root.join(account_id.get().to_string()))
 }
 
 /// Move a pre-multi-account `plugin-state/` into the legacy account's slot.
@@ -91,7 +91,7 @@ pub fn account_state_dir(account_id: AccountId) -> Option<std::path::PathBuf> {
 /// this one.
 #[cfg(not(target_family = "wasm"))]
 pub fn migrate_legacy_state(account_id: AccountId) {
-    let Some(root) = oxidezap_plugin_host::default_state_dir() else {
+    let Some(root) = velo_plugin_host::default_state_dir() else {
         return;
     };
     migrate_legacy_state_in(&root, account_id);
@@ -223,7 +223,7 @@ pub fn reload_in_background(plugins: &Arc<Plugins>, account_id: AccountId) {
 /// Put a module in this daemon's plugin folder, and answer the id it claimed.
 ///
 /// The folder belongs to whatever runs the plugins, which is this process on
-/// either platform — a directory beside `oxidezapd`, or the page's own origin
+/// either platform — a directory beside `velod`, or the page's own origin
 /// storage. So a front end asks for this rather than writing the folder: it
 /// may share no filesystem with the daemon, and on the one target where it
 /// did share an address space it reached past the protocol to do it.
@@ -289,7 +289,7 @@ fn plugin_id(file_name: &str) -> Option<String> {
         let (stem, ext) = file_name.rsplit_once('.')?;
         ext.eq_ignore_ascii_case("wasm").then_some(stem)
     })?;
-    oxidezap_plugin_host::plugin_id_is_usable(stem).then(|| stem.to_owned())
+    velo_plugin_host::plugin_id_is_usable(stem).then(|| stem.to_owned())
 }
 
 /// Record what somebody answered about a plugin's permissions.
@@ -334,7 +334,7 @@ struct Bridge {
 
 impl Commands for Bridge {
     fn send_text(&self, jid: &str, text: &str, quoted: Option<&str>) -> Outcome {
-        self.ask(Action::SendText(oxidezap_ipc::SendText {
+        self.ask(Action::SendText(velo_ipc::SendText {
             jid: jid.to_owned(),
             text: text.to_owned(),
             // The daemon invents one. A plugin has no bubble to rename, so a
@@ -347,7 +347,7 @@ impl Commands for Bridge {
             // an empty body, and in a group it names no author. Filling that
             // in means a lookup the daemon has no store to make; see the
             // note in docs/roadmap.md.
-            quoted: quoted.map(|id| oxidezap_core::QuotedMessage {
+            quoted: quoted.map(|id| velo_core::QuotedMessage {
                 message_id: id.to_owned(),
                 sender: String::new(),
                 sender_name: String::new(),
@@ -358,14 +358,14 @@ impl Commands for Bridge {
     }
 
     fn mark_read(&self, jid: &str, message_id: Option<&str>) -> Outcome {
-        self.ask(Action::MarkRead(oxidezap_ipc::MarkRead {
+        self.ask(Action::MarkRead(velo_ipc::MarkRead {
             jid: jid.to_owned(),
             through_message_id: message_id.map(str::to_owned),
         }))
     }
 
     fn typing(&self, jid: &str, composing: bool) -> Outcome {
-        self.ask(Action::Typing(oxidezap_ipc::Typing {
+        self.ask(Action::Typing(velo_ipc::Typing {
             jid: jid.to_owned(),
             composing,
         }))

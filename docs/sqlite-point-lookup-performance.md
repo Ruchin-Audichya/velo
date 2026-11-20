@@ -25,7 +25,7 @@ Build each version, copying the executable Cargo reports aside before the
 next build:
 
 ```sh
-cargo test -p oxidezap-chat-store --release --test point_lookup_profile --no-run
+cargo test -p velo-chat-store --release --test point_lookup_profile --no-run
 python3 scripts/measure-sqlite-point-lookup.py /tmp/point-base /tmp/point-head \
   --iterations 200 --samples 7 --cpu 0 \
   --output docs/measurements/sqlite-point-lookup.csv

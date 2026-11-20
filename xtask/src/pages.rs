@@ -155,7 +155,7 @@ pub fn run(job: &Job, remote: &Remote) -> Result<()> {
             return Ok(());
         }
 
-        let work = TempDir::new("oxidezap-pages")?;
+        let work = TempDir::new("velo-pages")?;
         match attempt_once(job, work.path(), remote, &target, &slug)? {
             Outcome::Nothing => return Ok(()),
             Outcome::Pushed(commit) => {
@@ -384,7 +384,7 @@ fn publish_target(job: &Job, work: &Path, target: &str, source: &str) -> Result<
 /// from the URL, because the page deciding by its own path is a rule that
 /// breaks the first time somebody serves this somewhere else.
 fn mark_as_preview(index: &Path) -> Result<()> {
-    const TAG: &str = r#"<meta name="oxidezap-build" content="preview" />"#;
+    const TAG: &str = r#"<meta name="velo-build" content="preview" />"#;
     let html =
         fs::read_to_string(index).map_err(|e| err!("could not read {}: {e}", index.display()))?;
 
@@ -488,7 +488,7 @@ mod tests {
         fs::write(&index, "<html><head><title>x</title></head></html>").unwrap();
         mark_as_preview(&index).unwrap();
         let marked = fs::read_to_string(&index).unwrap();
-        assert!(marked.contains(r#"<meta name="oxidezap-build" content="preview" />"#));
+        assert!(marked.contains(r#"<meta name="velo-build" content="preview" />"#));
         assert!(marked.contains("<title>x</title>"));
 
         // The three shapes the shell's `sed` would have passed silently.

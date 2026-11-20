@@ -1,6 +1,6 @@
 #![cfg(target_family = "wasm")]
 
-use oxidezap_webcodecs_tests::{decoder, feed};
+use velo_webcodecs_tests::{decoder, feed};
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::*;

@@ -156,7 +156,7 @@ async fn production_call_audio_releases_every_track_and_callback() {
             mode
         });
         if matches!(mode, "cancel" | "permission" | "timeout") {
-            let mut opening = Box::pin(oxidezap_audio::open_call_audio());
+            let mut opening = Box::pin(velo_audio::open_call_audio());
             for _ in 0..20 {
                 assert!(
                     futures_lite::future::poll_once(&mut opening)
@@ -179,7 +179,7 @@ async fn production_call_audio_releases_every_track_and_callback() {
                 permission(&p);
             }
         } else {
-            let result = oxidezap_audio::open_call_audio().await;
+            let result = velo_audio::open_call_audio().await;
             if matches!(mode, "speaker" | "mic") {
                 let (mic, speaker, _) = result.unwrap();
                 let frame = futures_lite::future::or(async { mic.recv().await.unwrap() }, async {

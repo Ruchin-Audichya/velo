@@ -178,7 +178,7 @@ fn is_a_token(value: &str) -> bool {
 ///
 /// No per-user directory, or the file could not be read or written.
 pub fn web_token() -> Result<String> {
-    let path = oxidezap_ipc::web_token_path().context("no per-user directory for the web token")?;
+    let path = velo_ipc::web_token_path().context("no per-user directory for the web token")?;
 
     if let Some(existing) = read_private(&path)? {
         let existing = existing.trim();
@@ -394,10 +394,8 @@ mod tests {
     use std::os::unix::fs::PermissionsExt as _;
 
     fn scratch(name: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!(
-            "oxidezap-private-dir-{}-{name}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("velo-private-dir-{}-{name}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         dir
     }
@@ -476,7 +474,7 @@ mod token_tests {
     fn a_token_file_that_is_not_ours_is_refused() {
         use std::os::unix::fs::PermissionsExt as _;
 
-        let dir = std::env::temp_dir().join(format!("oxidezap-token-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("velo-token-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("a directory to test in");
 

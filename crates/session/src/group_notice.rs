@@ -9,7 +9,7 @@
 
 use std::collections::HashMap;
 
-use oxidezap_core::fallback_chat_name;
+use velo_core::fallback_chat_name;
 use whatsapp_rust::wacore::stanza::groups::{GroupNotificationAction, GroupParticipantInfo};
 use whatsapp_rust::wacore_binary::jid::{Jid, JidExt as _};
 

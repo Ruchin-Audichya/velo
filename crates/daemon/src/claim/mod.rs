@@ -1,7 +1,7 @@
 //! One session per user, enforced where the copies can appear.
 //!
 //! The binary answers this with a file lock taken before anything touches the
-//! account: a second `oxidezapd` fails fast rather than racing the first over
+//! account: a second `velod` fails fast rather than racing the first over
 //! one SQLite file. A page has the same problem in a different shape — two
 //! tabs on one origin are two of everything, and nothing about opening a
 //! second tab tells the first — and the browser has the same answer, which is

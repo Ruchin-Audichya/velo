@@ -2,8 +2,8 @@
 
 use std::sync::Arc;
 
-use oxidezap_core::UiEvent;
 use tokio::sync::mpsc::UnboundedReceiver;
+use velo_core::UiEvent;
 
 use crate::state::StateHub;
 
@@ -16,7 +16,7 @@ impl Handle {
     /// On a blocking thread, because joining one is: a runtime worker parked
     /// in a join is a worker not driving anything else.
     pub(crate) async fn join(self) {
-        if let Err(e) = oxidezap_session::unblock(move || self.0.join()).await {
+        if let Err(e) = velo_session::unblock(move || self.0.join()).await {
             log::error!("the publish thread did not finish: {e}");
         }
     }
@@ -25,7 +25,7 @@ impl Handle {
 /// Start draining `queue` into `hub`.
 pub(crate) fn start(hub: Arc<StateHub>, mut queue: UnboundedReceiver<UiEvent>) -> Handle {
     let thread = std::thread::Builder::new()
-        .name("oxidezap-publish".to_string())
+        .name("velo-publish".to_string())
         .spawn(move || {
             while let Some(event) = queue.blocking_recv() {
                 super::publish_one(&hub, event);

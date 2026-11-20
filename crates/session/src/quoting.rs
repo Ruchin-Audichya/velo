@@ -6,7 +6,7 @@
 //! actually ever sent as. Anything outside that set simply renders without a
 //! quote bar, which is the same thing that happens when the field is absent.
 
-use oxidezap_core::{QuotedKind, QuotedMessage};
+use velo_core::{QuotedKind, QuotedMessage};
 use whatsapp_rust::wacore::proto_helpers::MessageExt as _;
 use whatsapp_rust::waproto::whatsapp as wa;
 
@@ -26,7 +26,7 @@ pub fn quoted_from(message: &wa::Message) -> Option<QuotedMessage> {
     let base = context
         .quoted_message
         .as_option()
-        .map(oxidezap_chat_store::normalized_message);
+        .map(velo_chat_store::normalized_message);
 
     let sender = context.participant.clone().unwrap_or_default();
     Some(QuotedMessage {
@@ -39,9 +39,9 @@ pub fn quoted_from(message: &wa::Message) -> Option<QuotedMessage> {
         sender,
         preview: base
             .and_then(|base| {
-                oxidezap_chat_store::business_content(base)
+                velo_chat_store::business_content(base)
                     .map(|b| b.summary())
-                    .or_else(|| oxidezap_chat_store::sticker_pack_text(base))
+                    .or_else(|| velo_chat_store::sticker_pack_text(base))
                     .or_else(|| {
                         base.text_content()
                             .or_else(|| base.get_caption())
@@ -87,15 +87,15 @@ fn context_info(message: &wa::Message) -> Option<&wa::ContextInfo> {
         sticker_pack_message,
     )
     .or_else(|| {
-        oxidezap_chat_store::business_contexts(message)
+        velo_chat_store::business_contexts(message)
             .find(|context| context.stanza_id.is_some())
-            .or_else(|| oxidezap_chat_store::business_contexts(message).next())
+            .or_else(|| velo_chat_store::business_contexts(message).next())
     })
 }
 
 fn quoted_kind(message: &wa::Message) -> Option<QuotedKind> {
-    if let Some(media) = oxidezap_chat_store::business_media(message) {
-        use oxidezap_chat_store::BusinessMedia;
+    if let Some(media) = velo_chat_store::business_media(message) {
+        use velo_chat_store::BusinessMedia;
         return match media {
             BusinessMedia::Image(_) | BusinessMedia::Thumbnail(_) => Some(QuotedKind::Image),
             BusinessMedia::Video(_) => Some(QuotedKind::Video),

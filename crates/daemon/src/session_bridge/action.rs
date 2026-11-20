@@ -4,16 +4,16 @@
 //! here and no state is written. What carrying one out looks like is
 //! [`super::act`].
 
-use oxidezap_ipc::{CallAction, RequestId};
+use velo_ipc::{CallAction, RequestId};
 
 /// Something a client asked the session to do.
 ///
-/// Deliberately narrower than [`oxidezap_ipc::ClientRequest`]: requests the
+/// Deliberately narrower than [`velo_ipc::ClientRequest`]: requests the
 /// session has no part in (a snapshot, a window) never reach here, so this
 /// enum is exactly the set of actions that touch the account.
 ///
 /// Where a request and an action carry the same fields they carry the *same
-/// struct* — the ones `oxidezap_ipc` declares — and the server moves it across
+/// struct* — the ones `velo_ipc` declares — and the server moves it across
 /// rather than copying it out field by field into a second spelling nothing
 /// checked. The variants that are not a move say why in their own right: a
 /// download and a page also carry the id and the connection their answer goes
@@ -23,24 +23,24 @@ use oxidezap_ipc::{CallAction, RequestId};
 /// being folded into the shared payload.
 #[derive(Debug)]
 pub enum Action {
-    SendText(oxidezap_ipc::SendText),
+    SendText(velo_ipc::SendText),
     EditMessage {
         id: RequestId,
-        request: oxidezap_ipc::EditMessage,
+        request: velo_ipc::EditMessage,
         answer_to: Outbox,
     },
     RevokeMessage {
         id: RequestId,
-        request: oxidezap_ipc::RevokeMessage,
+        request: velo_ipc::RevokeMessage,
         answer_to: Outbox,
     },
-    SendAudio(oxidezap_ipc::SendAudio),
-    SendMedia(oxidezap_ipc::SendMedia),
-    SendReaction(oxidezap_ipc::SendReaction),
-    MarkRead(oxidezap_ipc::MarkRead),
-    MarkAudioPlayed(oxidezap_ipc::MarkAudioPlayed),
-    MarkStatusWatched(oxidezap_ipc::MarkStatusWatched),
-    Typing(oxidezap_ipc::Typing),
+    SendAudio(velo_ipc::SendAudio),
+    SendMedia(velo_ipc::SendMedia),
+    SendReaction(velo_ipc::SendReaction),
+    MarkRead(velo_ipc::MarkRead),
+    MarkAudioPlayed(velo_ipc::MarkAudioPlayed),
+    MarkStatusWatched(velo_ipc::MarkStatusWatched),
+    Typing(velo_ipc::Typing),
     Call(CallAction),
     LoadCallHistory {
         id: RequestId,
@@ -56,7 +56,7 @@ pub enum Action {
     ChatAction {
         id: RequestId,
         jid: String,
-        action: oxidezap_ipc::ChatAction,
+        action: velo_ipc::ChatAction,
         answer_to: Outbox,
     },
     ListContacts {
@@ -86,18 +86,18 @@ pub enum Action {
     },
     CallDevices {
         id: RequestId,
-        request: oxidezap_ipc::CallDeviceAction,
+        request: velo_ipc::CallDeviceAction,
         answer_to: Outbox,
     },
     /// A vote on a poll, by option index. Answered like typing: accepted
     /// means the session took it, and a vote it cannot cast (unknown poll,
     /// bad index, missing secret) is a log line rather than a state change.
-    VotePoll(oxidezap_ipc::VotePoll),
+    VotePoll(velo_ipc::VotePoll),
     /// Fetch media and answer on `answer_to` rather than through the command's
     /// own reply, which resolves in microseconds while this takes seconds.
     Download {
         id: RequestId,
-        request: oxidezap_ipc::Download,
+        request: velo_ipc::Download,
         answer_to: Outbox,
     },
     /// Reload the whole history, for a front end that has just attached and
@@ -113,7 +113,7 @@ pub enum Action {
     RefreshAvatars,
     /// A front end that draws video has attached: let the session publish
     /// again, and ask the cameras for a point its decoders can start from.
-    /// See [`oxidezap_session::WhatsAppClient::set_video_publishing`].
+    /// See [`velo_session::WhatsAppClient::set_video_publishing`].
     RefreshVideo,
     /// One page of a chat's messages, answered on `answer_to`.
     ///
@@ -121,13 +121,13 @@ pub enum Action {
     /// in one front end's view of one conversation.
     LoadMessages {
         id: RequestId,
-        request: oxidezap_ipc::LoadMessages,
+        request: velo_ipc::LoadMessages,
         answer_to: Outbox,
     },
     /// One page of the chat list, answered on `answer_to`.
     LoadChats {
         id: RequestId,
-        request: oxidezap_ipc::LoadChats,
+        request: velo_ipc::LoadChats,
         answer_to: Outbox,
     },
     /// Who is in a group, answered on `answer_to`.
@@ -136,7 +136,7 @@ pub enum Action {
     /// it is what one window needs for the conversation it has open.
     GroupMembers {
         id: RequestId,
-        request: oxidezap_ipc::GroupMembers,
+        request: velo_ipc::GroupMembers,
         answer_to: Outbox,
     },
     /// Wipe local state so the user can pair again, or retire the account for
@@ -145,11 +145,11 @@ pub enum Action {
     /// behind.
     ForgetSession(AccountDisposition),
     /// Demand profile pictures for visible rows or overscan.
-    EnsureAvatars(Vec<oxidezap_core::AvatarDemand>),
+    EnsureAvatars(Vec<velo_core::AvatarDemand>),
     /// Asynchronous request from the new wire protocol.
     Wire {
         id: u64,
-        request: oxidezap_wire::request::ClientRequest,
+        request: velo_wire::request::ClientRequest,
         answer_to: Outbox,
     },
 }
@@ -298,7 +298,7 @@ impl Action {
 
 /// Whether carrying a wire request out needs the account's connection.
 ///
-/// Independent of [`ClientRequest::access`](oxidezap_wire::ClientRequest::access):
+/// Independent of [`ClientRequest::access`](velo_wire::ClientRequest::access):
 /// that answers "is this a write" for the read-only gate, and this answers
 /// "does this reach WhatsApp" for the live-connection gate. A local mutation
 /// (a tag, a cache wipe) needs no connection, and a network read (a profile,
@@ -309,8 +309,8 @@ impl Action {
 /// that work fine offline, and let network reads through to fail deeper down
 /// with a session error instead of the `not_connected` the gate would have
 /// given them. A variant added here fails to compile until it says which it is.
-fn wire_needs_network(request: &oxidezap_wire::request::ClientRequest) -> bool {
-    use oxidezap_wire::request::ClientRequest as R;
+fn wire_needs_network(request: &velo_wire::request::ClientRequest) -> bool {
+    use velo_wire::request::ClientRequest as R;
     match request {
         // Local, or the handshake itself.
         R::Hello { .. }
@@ -451,19 +451,19 @@ mod device_action_tests {
     use super::*;
     #[test]
     fn device_preferences_and_preview_cleanup_are_available_offline() {
-        use oxidezap_ipc::CallDeviceAction;
+        use velo_ipc::CallDeviceAction;
         let (answer_to, _rx) = tokio::sync::mpsc::channel(4);
         for request in [
             CallDeviceAction::Preferences,
             CallDeviceAction::Inventory,
             CallDeviceAction::StartPreview {
-                preview_id: oxidezap_core::CameraPreviewId(1),
+                preview_id: velo_core::CameraPreviewId(1),
             },
             CallDeviceAction::PreviewFrame {
-                preview_id: oxidezap_core::CameraPreviewId(1),
+                preview_id: velo_core::CameraPreviewId(1),
             },
             CallDeviceAction::CancelPreview {
-                preview_id: oxidezap_core::CameraPreviewId(1),
+                preview_id: velo_core::CameraPreviewId(1),
             },
             CallDeviceAction::TestMicrophone,
         ] {

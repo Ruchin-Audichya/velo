@@ -15,7 +15,7 @@ fn directory_from(
         xdg.and_then(nonempty)
             .or_else(|| home.and_then(nonempty).map(|p| p.join(".config")))
     }?;
-    Some(base.join("oxidezap"))
+    Some(base.join("velo"))
 }
 fn directory() -> Result<PathBuf, String> {
     directory_from(
@@ -56,7 +56,7 @@ fn persist_at(directory: &Path, p: &CallDevicePreferences) -> Result<(), String>
 }
 
 pub(super) async fn test_microphone() -> Result<Reply, String> {
-    let mic = oxidezap_audio::devices::open_test_microphone()
+    let mic = velo_audio::devices::open_test_microphone()
         .await
         .map_err(|e| e.to_string())?;
     measure_microphone(mic).await
@@ -65,9 +65,7 @@ pub(super) async fn test_microphone() -> Result<Reply, String> {
 async fn measure_microphone(mic: async_channel::Receiver<Vec<i16>>) -> Result<Reply, String> {
     let mut peak = 0u16;
     for _ in 0..25 {
-        match oxidezap_session::with_timeout(mic.recv(), std::time::Duration::from_millis(200))
-            .await
-        {
+        match velo_session::with_timeout(mic.recv(), std::time::Duration::from_millis(200)).await {
             Some(Ok(frame)) => {
                 peak = peak.max(frame.into_iter().map(i16::unsigned_abs).max().unwrap_or(0));
             }
@@ -125,7 +123,7 @@ mod tests {
     fn fixture_directory() -> PathBuf {
         static NEXT: super::super::AtomicU64 = super::super::AtomicU64::new(0);
         let path = std::env::temp_dir().join(format!(
-            "oxidezap-call-devices-test-{}-{}",
+            "velo-call-devices-test-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
@@ -139,7 +137,7 @@ mod tests {
         std::fs::write(&path, b"{broken").unwrap();
         assert!(read_at(&path).is_err());
         let repaired = CallDevicePreferences {
-            ringtone: oxidezap_core::Ringtone::Silent,
+            ringtone: velo_core::Ringtone::Silent,
             microphone: Some("fixture-repaired".into()),
             ..Default::default()
         };
@@ -158,15 +156,15 @@ mod tests {
                 Some("/persistent/config".into()),
                 Some("/home/test".into())
             ),
-            Some(PathBuf::from("/persistent/config/oxidezap"))
+            Some(PathBuf::from("/persistent/config/velo"))
         );
         assert_eq!(
             directory_from(false, None, None, Some("/home/test".into())),
-            Some(PathBuf::from("/home/test/.config/oxidezap"))
+            Some(PathBuf::from("/home/test/.config/velo"))
         );
         assert_eq!(
             directory_from(true, Some("C:/Users/test/AppData/Local".into()), None, None),
-            Some(PathBuf::from("C:/Users/test/AppData/Local/oxidezap"))
+            Some(PathBuf::from("C:/Users/test/AppData/Local/velo"))
         );
     }
     #[test]
@@ -174,7 +172,7 @@ mod tests {
         let path = fixture_directory();
         let first = CallDevicePreferences {
             microphone: Some("fixture-input".into()),
-            ringtone: oxidezap_core::Ringtone::Silent,
+            ringtone: velo_core::Ringtone::Silent,
             ..Default::default()
         };
         persist_at(&path, &first).unwrap();

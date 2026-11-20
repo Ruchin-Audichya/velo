@@ -13,7 +13,7 @@ use gpui::SharedString;
 use gpui_component::ActiveTheme as _;
 use gpui_component::FocusTrapElement as _;
 use gpui_component::button::{Button, ButtonVariants as _};
-use oxidezap_ipc::ChatAction;
+use velo_ipc::ChatAction;
 
 /// Pin or unpin a chat to the top of the list.
 #[derive(Clone, PartialEq, gpui::Action)]

@@ -1,5 +1,5 @@
 use super::*;
-use oxidezap_session::{StoredAccount, same_account_identity};
+use velo_session::{StoredAccount, same_account_identity};
 
 impl AccountRegistry {
     pub fn has_retirement(&self, id: AccountId) -> bool {
@@ -139,7 +139,7 @@ impl AccountRegistry {
         loop {
             tokio::select! {
                 () = crate::shutdown::requested() => return,
-                () = oxidezap_session::sleep(std::time::Duration::from_secs(1)) => {},
+                () = velo_session::sleep(std::time::Duration::from_secs(1)) => {},
             }
             if let Err(error) = self.consolidate_relinks(&stores).await {
                 log::warn!("relink consolidation will retry: {error}");
@@ -168,7 +168,7 @@ impl AccountRegistry {
         F: Fn(AccountId, Arc<StateHub>) -> Fut,
         Fut: std::future::Future<Output = session_bridge::AccountExit>,
     {
-        if !oxidezap_session::store_is_durable() {
+        if !velo_session::store_is_durable() {
             return Ok(());
         }
         let _relink = self.relink.lock().await;
@@ -341,7 +341,7 @@ fn live_identity_matches(runtime: &AccountRuntime, stored: &StoredAccount) -> bo
 #[cfg(all(test, not(target_family = "wasm")))]
 mod tests {
     use super::*;
-    use oxidezap_ipc::{AccountIdentity, ConnectionState, DaemonEvent};
+    use velo_ipc::{AccountIdentity, ConnectionState, DaemonEvent};
     use wacore::store::{Device, traits::DeviceStore as _};
 
     struct Fixture {
@@ -359,7 +359,7 @@ mod tests {
             loop {
                 let sequence = SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 let path = std::env::temp_dir().join(format!(
-                    "oxidezap-relink-{tag}-{}-{sequence}.db",
+                    "velo-relink-{tag}-{}-{sequence}.db",
                     std::process::id()
                 ));
                 match std::fs::OpenOptions::new()
@@ -394,7 +394,7 @@ mod tests {
             let old = stores.create_account().await.unwrap();
             let backend = stores.store(old).await.unwrap();
             stores.prepare_chat_schema(&backend).await.unwrap();
-            let history = oxidezap_chat_store::ChatStore::new_prepared(&backend)
+            let history = velo_chat_store::ChatStore::new_prepared(&backend)
                 .await
                 .unwrap();
             let peer: wacore_binary::Jid = "900001@s.whatsapp.net".parse().unwrap();
@@ -454,7 +454,7 @@ mod tests {
 
         async fn retains_history(&self) -> bool {
             let backend = self.stores.store(self.old).await.unwrap();
-            let history = oxidezap_chat_store::ChatStore::new_prepared(&backend)
+            let history = velo_chat_store::ChatStore::new_prepared(&backend)
                 .await
                 .unwrap();
             let peer: wacore_binary::Jid = "900001@s.whatsapp.net".parse().unwrap();
@@ -465,7 +465,7 @@ mod tests {
 
         async fn relink_new(&self, pn: &str, lid: &str) -> AccountId {
             let backend = self.stores.store(self.new).await.unwrap();
-            let history = oxidezap_chat_store::ChatStore::new_prepared(&backend)
+            let history = velo_chat_store::ChatStore::new_prepared(&backend)
                 .await
                 .unwrap();
             history
@@ -522,9 +522,7 @@ mod tests {
             Arc::new(AccountRuntime::new_with_registry(
                 id,
                 StateHub::for_account(id),
-                Arc::new(oxidezap_plugin_host::Plugins::nothing_loaded(Arc::new(
-                    |_| {},
-                ))),
+                Arc::new(velo_plugin_host::Plugins::nothing_loaded(Arc::new(|_| {}))),
                 commands,
                 stores,
             ))
@@ -1040,9 +1038,9 @@ mod tests {
             Box::new(native_server),
             Arc::clone(&f.registry),
         ));
-        let hello = oxidezap_ipc::Request::bare(oxidezap_ipc::ClientRequest::Hello {
-            protocol: oxidezap_ipc::PROTOCOL_VERSION,
-            scope: oxidezap_ipc::ClientScope::Account { account: f.old },
+        let hello = velo_ipc::Request::bare(velo_ipc::ClientRequest::Hello {
+            protocol: velo_ipc::PROTOCOL_VERSION,
+            scope: velo_ipc::ClientScope::Account { account: f.old },
             session_events: false,
             owns_window: false,
             call_video: false,
@@ -1055,8 +1053,8 @@ mod tests {
         let mut line = String::new();
         native.read_line(&mut line).await.unwrap();
         assert!(matches!(
-            serde_json::from_str::<oxidezap_ipc::DaemonMessage>(&line).unwrap(),
-            oxidezap_ipc::DaemonMessage::Hello { .. }
+            serde_json::from_str::<velo_ipc::DaemonMessage>(&line).unwrap(),
+            velo_ipc::DaemonMessage::Hello { .. }
         ));
 
         let (mut wire, wire_server) = tokio::io::duplex(64 * 1024);
@@ -1064,10 +1062,10 @@ mod tests {
             Box::new(wire_server),
             Arc::clone(&f.registry),
         ));
-        let hello = oxidezap_wire::envelope::RequestEnvelope {
+        let hello = velo_wire::envelope::RequestEnvelope {
             id: 1,
-            request: oxidezap_wire::request::ClientRequest::Hello {
-                protocol: oxidezap_wire::envelope::CURRENT_PROTOCOL_VERSION,
+            request: velo_wire::request::ClientRequest::Hello {
+                protocol: velo_wire::envelope::CURRENT_PROTOCOL_VERSION,
                 client_name: "synthetic".into(),
                 local_account: Some(f.old.get()),
                 account_selection: true,
@@ -1101,8 +1099,8 @@ mod tests {
         .unwrap()
         .unwrap();
         assert!(
-            matches!(serde_json::from_str::<oxidezap_ipc::DaemonMessage>(&line).unwrap(),
-            oxidezap_ipc::DaemonMessage::AccountRetired { account, successor } if account == f.old && successor == f.new)
+            matches!(serde_json::from_str::<velo_ipc::DaemonMessage>(&line).unwrap(),
+            velo_ipc::DaemonMessage::AccountRetired { account, successor } if account == f.old && successor == f.new)
         );
         line.clear();
         assert_eq!(

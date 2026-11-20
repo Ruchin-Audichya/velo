@@ -50,7 +50,7 @@ const REQUIRED: &[(&str, &str)] = &[
 /// `relocatable` is the archive's extra question, and it is one the Pages
 /// build must not ask: a deployment knows its own directory and names its
 /// assets from the origin root, while a bundle somebody unpacks into whatever
-/// hosting they have cannot. An asset named `/oxidezap-abc123.js` is one that
+/// hosting they have cannot. An asset named `/velo-abc123.js` is one that
 /// build would fetch from a domain's root wherever it was put, which is the
 /// single way a `--public-url=./` build can silently come out non-relative.
 /// Asserted rather than assumed, because it is a property of trunk's handling
@@ -220,7 +220,7 @@ mod tests {
     #[test]
     fn an_asset_named_from_the_origin_root_is_only_refused_for_an_archive() {
         let dir = scratch("absolute");
-        bundle(&dir, "/client/oxidezap-abc123.js");
+        bundle(&dir, "/client/velo-abc123.js");
         // The Pages build names them this way on purpose.
         check(&dir, false).unwrap();
         let refused = check(&dir, true).unwrap_err().to_string();
@@ -234,7 +234,7 @@ mod tests {
     fn a_bundle_missing_a_copied_file_is_refused() {
         for (name, _) in super::REQUIRED {
             let dir = scratch(&format!("missing-{name}"));
-            bundle(&dir, "./oxidezap-abc123.js");
+            bundle(&dir, "./velo-abc123.js");
             fs::remove_file(dir.join(name)).unwrap();
             let refused = check(&dir, false).unwrap_err().to_string();
             assert!(refused.contains(name), "{refused}");
@@ -245,7 +245,7 @@ mod tests {
     #[test]
     fn a_relative_bundle_passes_both_questions() {
         let dir = scratch("relative");
-        bundle(&dir, "./oxidezap-abc123.js");
+        bundle(&dir, "./velo-abc123.js");
         check(&dir, false).unwrap();
         check(&dir, true).unwrap();
         let _ = fs::remove_dir_all(&dir);
@@ -254,10 +254,10 @@ mod tests {
     #[test]
     fn only_the_bundle_s_own_references_are_collected() {
         let html = r##"
-            <link rel="preload" href="/client/oxidezap-abc123_bg.wasm" as="fetch">
+            <link rel="preload" href="/client/velo-abc123_bg.wasm" as="fetch">
             <link rel="stylesheet" href="https://fonts.example/x.css">
             <script src="//cdn.example/y.js"></script>
-            <script src="/client/oxidezap-abc123.js"></script>
+            <script src="/client/velo-abc123.js"></script>
             <a href="#top">top</a>
             <img src="data:image/png;base64,AAAA">
         "##;
@@ -266,8 +266,8 @@ mod tests {
         assert_eq!(
             assets,
             vec![
-                "/client/oxidezap-abc123.js".to_string(),
-                "/client/oxidezap-abc123_bg.wasm".to_string(),
+                "/client/velo-abc123.js".to_string(),
+                "/client/velo-abc123_bg.wasm".to_string(),
             ]
         );
     }
@@ -275,8 +275,8 @@ mod tests {
     #[test]
     fn a_reference_resolves_to_the_flat_file_trunk_emitted() {
         assert_eq!(
-            basename("/client/pr/12/oxidezap-abc_bg.wasm"),
-            "oxidezap-abc_bg.wasm"
+            basename("/client/pr/12/velo-abc_bg.wasm"),
+            "velo-abc_bg.wasm"
         );
         assert_eq!(basename("coi-serviceworker.js?v=2"), "coi-serviceworker.js");
         assert_eq!(basename("index.html#top"), "index.html");

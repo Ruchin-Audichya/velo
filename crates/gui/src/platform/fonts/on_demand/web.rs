@@ -5,7 +5,7 @@ use std::{borrow::Cow, cell::RefCell, rc::Rc, time::Duration};
 use wasm_bindgen::{JsCast as _, JsValue, closure::Closure};
 use wasm_bindgen_futures::JsFuture;
 
-const CACHE: &str = "oxidezap-script-fonts-v1";
+const CACHE: &str = "velo-script-fonts-v1";
 const DEADLINE: Duration = Duration::from_secs(15);
 const STORAGE_DEADLINE: Duration = Duration::from_secs(2);
 
@@ -46,11 +46,10 @@ pub(crate) fn install(cx: &mut gpui::App) {
 fn start(id: usize, loader: Rc<RefCell<Loader>>, cx: &mut gpui::App) {
     cx.spawn(async move |cx| {
         let asset = &CATALOG[id];
-        let result =
-            match oxidezap_platform::with_timeout(load(&BrowserStore, asset), DEADLINE).await {
-                Some(result) => result,
-                None => Err("font load timed out".into()),
-            };
+        let result = match velo_platform::with_timeout(load(&BrowserStore, asset), DEADLINE).await {
+            Some(result) => result,
+            None => Err("font load timed out".into()),
+        };
         let result = cx.update(|cx| {
             let bytes = result?;
             cx.text_system()
@@ -128,7 +127,7 @@ impl Store for BrowserStore {
             let response = response.dyn_into::<web_sys::Response>().map_err(js)?;
             read_response(response, asset).await.map(Some)
         };
-        oxidezap_platform::with_timeout(read, STORAGE_DEADLINE)
+        velo_platform::with_timeout(read, STORAGE_DEADLINE)
             .await
             .unwrap_or_else(|| Err("font cache read timed out".into()))
     }
@@ -141,7 +140,7 @@ impl Store for BrowserStore {
                 .map_err(js)?;
             Ok::<_, String>(())
         };
-        let _ = oxidezap_platform::with_timeout(remove, STORAGE_DEADLINE).await;
+        let _ = velo_platform::with_timeout(remove, STORAGE_DEADLINE).await;
     }
 
     async fn fetch(&self, asset: &Asset) -> Result<Vec<u8>, String> {
@@ -173,7 +172,7 @@ impl Store for BrowserStore {
                 .map_err(js)?;
             Ok(())
         };
-        oxidezap_platform::with_timeout(write, STORAGE_DEADLINE)
+        velo_platform::with_timeout(write, STORAGE_DEADLINE)
             .await
             .unwrap_or_else(|| Err("font cache write timed out".into()))
     }
@@ -189,7 +188,7 @@ struct CancelOnDrop(web_sys::ReadableStreamDefaultReader);
 impl Drop for CancelOnDrop {
     fn drop(&mut self) {
         let cancel = self.0.cancel();
-        oxidezap_platform::spawn(async move {
+        velo_platform::spawn(async move {
             let _ = JsFuture::from(cancel).await;
         });
     }

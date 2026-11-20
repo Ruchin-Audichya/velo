@@ -1,12 +1,12 @@
 //! The Settings device controls and a preview that never enters call state.
 use super::WhatsAppApp;
 use gpui::{App, AppContext as _, Context, RenderImage};
-use oxidezap_core::{
-    CallDeviceInventory, CallDevicePreferences, CameraMode, CameraPreviewId, PreviewAdmission,
-};
-use oxidezap_ipc::{CallDeviceAction as Action, CallDeviceReply as Reply};
 use std::sync::Arc;
 use std::time::Duration;
+use velo_core::{
+    CallDeviceInventory, CallDevicePreferences, CameraMode, CameraPreviewId, PreviewAdmission,
+};
+use velo_ipc::{CallDeviceAction as Action, CallDeviceReply as Reply};
 
 #[cfg(not(target_family = "wasm"))]
 #[path = "call_devices/native.rs"]

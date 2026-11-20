@@ -22,7 +22,7 @@
 //!
 //! # Where this works
 //!
-//! Attached to an `oxidezapd`, which is where calls happen at all: a page
+//! Attached to an `velod`, which is where calls happen at all: a page
 //! holding its own session cannot answer one, so the frames this decodes are
 //! the ones a daemon is already sending it.
 
@@ -31,8 +31,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::RenderImage;
-use oxidezap_core::{CallVideoFrame, VideoStream};
 use smallvec::SmallVec;
+use velo_core::{CallVideoFrame, VideoStream};
 
 use super::recovery::h264::{MAX_PIXELS, nal_unit_type, split_annexb};
 
@@ -104,7 +104,7 @@ impl LatestFrames {
     }
 
     /// Leave pictures whose enabling state has not reached the UI in their slots.
-    pub fn take_for(&self, calls: &oxidezap_core::CallState) -> SmallVec<[CallFrame; 2]> {
+    pub fn take_for(&self, calls: &velo_core::CallState) -> SmallVec<[CallFrame; 2]> {
         let mut ready = SmallVec::new();
         let Some(call) = calls.active() else {
             return ready;

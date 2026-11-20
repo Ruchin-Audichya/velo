@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use oxidezap_core::VideoStream;
+use velo_core::VideoStream;
 use wacore::time::Instant;
 
 #[path = "h264.rs"]

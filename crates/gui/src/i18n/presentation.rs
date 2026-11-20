@@ -1,6 +1,6 @@
 //! Localized projections of domain facts. Stored messages and wire types stay unchanged.
 use super::Language;
-use oxidezap_core::{
+use velo_core::{
     CallOutcome, CallRecord, ComposingKind, GroupMembership, MembershipAction, NoticeParticipant,
     QuotedKind, QuotedMessage, TypingSummary, format_duration,
 };
@@ -8,7 +8,7 @@ use oxidezap_core::{
 impl Language {
     /// Faults currently carry developer-owned static prose rather than a kind.
     /// Unknown future faults retain their original text as an English fallback.
-    pub fn fault_labels(self, fault: &oxidezap_core::Fault) -> (&'static str, &'static str) {
+    pub fn fault_labels(self, fault: &velo_core::Fault) -> (&'static str, &'static str) {
         use super::TextKey;
         match fault.headline {
             "Can't reach WhatsApp" => (
@@ -31,9 +31,9 @@ impl Language {
         }
     }
 
-    pub fn log_note(self, level: oxidezap_core::LogLevel) -> &'static str {
+    pub fn log_note(self, level: velo_core::LogLevel) -> &'static str {
         use super::TextKey;
-        use oxidezap_core::LogLevel;
+        use velo_core::LogLevel;
         self.text(match level {
             LogLevel::Off => TextKey::LogOffNote,
             LogLevel::Error => TextKey::LogErrorNote,
@@ -44,9 +44,9 @@ impl Language {
         })
     }
 
-    pub fn outgoing_status(self, state: oxidezap_core::OutgoingCallState) -> &'static str {
+    pub fn outgoing_status(self, state: velo_core::OutgoingCallState) -> &'static str {
         use super::TextKey;
-        use oxidezap_core::OutgoingCallState;
+        use velo_core::OutgoingCallState;
         self.text(match state {
             OutgoingCallState::Initiating => TextKey::OutgoingCalling,
             OutgoingCallState::Ringing => TextKey::OutgoingRinging,
@@ -220,11 +220,11 @@ impl Language {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oxidezap_core::Typist;
+    use velo_core::Typist;
 
     #[test]
     fn every_outgoing_call_state_uses_the_selected_language() {
-        use oxidezap_core::OutgoingCallState::*;
+        use velo_core::OutgoingCallState::*;
         for (state, english, portuguese) in [
             (Initiating, "calling", "chamando"),
             (Ringing, "ringing", "tocando"),
@@ -256,7 +256,7 @@ mod tests {
 
     #[test]
     fn translated_faults_follow_the_domain_constructors() {
-        use oxidezap_core::Fault;
+        use velo_core::Fault;
         for fault in [
             Fault::unreachable("synthetic"),
             Fault::fell_behind("synthetic"),
@@ -275,7 +275,7 @@ mod tests {
             headline: "A future failure",
             body: "Keep this fallback",
             detail: String::new(),
-            recovery: oxidezap_core::Recovery::Nothing,
+            recovery: velo_core::Recovery::Nothing,
         };
         assert_eq!(
             Language::Portuguese.fault_labels(&unknown),
@@ -285,7 +285,7 @@ mod tests {
 
     #[test]
     fn diagnostic_guidance_tracks_every_log_level() {
-        for level in oxidezap_core::LogLevel::ALL {
+        for level in velo_core::LogLevel::ALL {
             assert_eq!(Language::English.log_note(level), level.note());
             assert_ne!(Language::Portuguese.log_note(level), level.note());
         }

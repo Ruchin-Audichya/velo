@@ -44,16 +44,12 @@ pub(super) async fn lock() -> Result<Guard, String> {
         })
     }) as Box<dyn FnMut(JsValue) -> js_sys::Promise>);
     let result = request
-        .call2(
-            &locks,
-            &"oxidezap-avatar-cache-v2".into(),
-            callback.as_ref(),
-        )
+        .call2(&locks, &"velo-avatar-cache-v2".into(), callback.as_ref())
         .map_err(|_| "Web Lock request failed")?
         .dyn_into::<js_sys::Promise>()
         .map_err(|_| "Web Lock request was not a promise")?;
     // The callback must stay alive through both acquisition and release.
-    oxidezap_platform::spawn(async move {
+    velo_platform::spawn(async move {
         let result = wasm_bindgen_futures::JsFuture::from(result).await;
         if let Some(acquire) = acquire.borrow_mut().take() {
             let _ = acquire.send(Err(format!(

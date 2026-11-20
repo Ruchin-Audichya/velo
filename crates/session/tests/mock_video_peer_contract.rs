@@ -8,7 +8,7 @@
 //! can produce that peer. This test states exactly what the mock must do,
 //! step by step, and fails until it does. It stays `ignore`d so CI is green
 //! while the mock lane builds the peer; run it with
-//! `MOCK_SERVER_URL=ws://127.0.0.1:8080/ws/chat cargo test -p oxidezap-session
+//! `MOCK_SERVER_URL=ws://127.0.0.1:8080/ws/chat cargo test -p velo-session
 //! --test mock_video_peer_contract -- --ignored`.
 
 use std::io::{Read, Write};

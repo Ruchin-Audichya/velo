@@ -32,7 +32,7 @@ use wasm_bindgen_futures::JsFuture;
 ///
 /// One per origin, which is one per account: everything this protects — the
 /// database, the media, the Signal state — is origin-scoped too.
-const LOCK: &str = "oxidezap-session";
+const LOCK: &str = "velo-session";
 
 thread_local! {
     /// The lock this tab was handed after waiting for it.
@@ -50,7 +50,7 @@ thread_local! {
     /// tab that has it — so it is not idle, and taking over is what keeps it
     /// showing rather than a surprise. The first ask is still `ifAvailable`,
     /// because whether this tab is the leader has to be answered *now*.
-    static PROMOTED: RefCell<Option<Rc<oxidezap_ipc::web_locks::Hold>>> =
+    static PROMOTED: RefCell<Option<Rc<velo_ipc::web_locks::Hold>>> =
         const { RefCell::new(None) };
 
     /// Everyone waiting to be promoted, and whether anyone is asking yet.
@@ -106,8 +106,7 @@ pub(crate) enum Claim {
     /// another one until that tab closed. The lock is the same lock; only the
     /// way it was come by differs, and nothing above this cares which.
     Promoted(
-        #[expect(dead_code, reason = "a token; the Rc is the point")]
-        Rc<oxidezap_ipc::web_locks::Hold>,
+        #[expect(dead_code, reason = "a token; the Rc is the point")] Rc<velo_ipc::web_locks::Hold>,
     ),
 }
 
@@ -350,7 +349,7 @@ pub(crate) async fn promotion() -> Result<Promotion, String> {
         // time it reconnects — and a grant that arrives after its asker has
         // gone is still this tab's grant.
         wasm_bindgen_futures::spawn_local(async move {
-            let answer = match oxidezap_ipc::web_locks::hold(LOCK).await {
+            let answer = match velo_ipc::web_locks::hold(LOCK).await {
                 // Kept for the life of the tab, exactly as a first-tab grant
                 // is: the account did not stop being this tab's when the
                 // session that opened it ended. Releasing it between two of

@@ -10,7 +10,7 @@
 //!
 //! # Who decides a row is far off screen
 //!
-//! Not this crate. `oxidezap-core` is domain types with no viewport, no
+//! Not this crate. `velo-core` is domain types with no viewport, no
 //! frame and no idea which conversation is on screen, and putting one here
 //! would be a front end hiding inside the wire format. What lives here is the
 //! *arithmetic*: given an order and a budget, which rows have to let go. The

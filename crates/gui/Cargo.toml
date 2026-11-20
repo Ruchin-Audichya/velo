@@ -1,5 +1,5 @@
 [package]
-name = "oxidezap-gui"
+name = "velo-gui"
 description = "Unofficial WhatsApp client: GPUI front end"
 version.workspace = true
 edition.workspace = true
@@ -13,7 +13,7 @@ repository.workspace = true
 # the same `main` becomes the module's start function, which is what trunk
 # builds from `web/index.html`.
 [[bin]]
-name = "oxidezap"
+name = "velo"
 path = "src/main.rs"
 
 [build-dependencies]
@@ -27,7 +27,7 @@ embed-resource = "3.0.12"
 # for `web_sys::VideoDecoder` now, and the container was never the problem
 # there — the codec was. So they are shared, and they are real bytes in the
 # bundle rather than something LTO removes, which is the cost of the feature.
-# Voice notes are Opus and live in `oxidezap-audio`, so only the AAC codec and
+# Voice notes are Opus and live in `velo-audio`, so only the AAC codec and
 # the ISO-MP4 reader are ever reachable; every other format symphonia can
 # register is dead weight in the probe tables.
 mp4 = "0.14.0"
@@ -46,16 +46,16 @@ image = { version = "0.25.10", default-features = false, features = ["png", "jpe
 indexmap = "2.14.2"
 log = { workspace = true }
 
-oxidezap-audio = { workspace = true }
+velo-audio = { workspace = true }
 # Settings validates advertised modes using the capture capability's exact codec limits.
-oxidezap-video = { workspace = true }
-oxidezap-core = { workspace = true }
+velo-video = { workspace = true }
+velo-core = { workspace = true }
 # The daemon's protocol, not the session itself: this front end has not owned
 # a WhatsApp connection since the daemon took it over.
-oxidezap-ipc = { workspace = true, features = ["legacy-protocol"] }
+velo-ipc = { workspace = true, features = ["legacy-protocol"] }
 # The log level: one place decides where it is kept and how it is changed
 # while the process runs, because the daemon reads the same answer.
-oxidezap-logging = { workspace = true }
+velo-logging = { workspace = true }
 portable-atomic = { workspace = true }
 # `image` and nothing else. The crate's defaults add two more renderers this
 # file has never asked for — an SVG one and a `pic`/troff one — and the whole
@@ -100,7 +100,7 @@ gpui_platform = { package = "gpui-fast-platform", version = "0.1.13", features =
 openh264 = "0.9.9" # H.264 software decoder
 
 [target.'cfg(windows)'.dependencies]
-oxidezap-platform = { workspace = true }
+velo-platform = { workspace = true }
 raw-window-handle = "0.6.2"
 windows-sys = { version = "0.61.2", features = [
     "Win32_Graphics_Dwm",
@@ -130,14 +130,14 @@ objc2-user-notifications = { version = "0.3.2", default-features = false, featur
 # running in this address space — so the rule this looks like it breaks holds
 # exactly as before. There is one session per user, and the window owns none
 # of it.
-oxidezap-daemon = { workspace = true }
+velo-daemon = { workspace = true }
 # One tab has to be able to tell itself apart from another; see `front_end_id`.
 getrandom = { workspace = true }
 # `setTimeout`, as a future, with the worker fallback the window's own copy
 # never had. Web only: the desktop half of `platform::clock` is `smol`'s
 # timer, which needs no runtime, and the shared one waits on a Tokio wheel the
 # window has nowhere to put.
-oxidezap-platform = { workspace = true }
+velo-platform = { workspace = true }
 # The oneshot behind "wait for the file dialog to end"; see `platform/plugins.rs`.
 futures-channel = "0.3.34"
 js-sys = "0.3.106"
@@ -216,7 +216,7 @@ web-sys = { version = "0.3.106", features = [
 gpui = { package = "gpui-fast", version = "0.1.13", features = ["test-support"] }
 gpui_wgpu = { package = "gpui-fast-wgpu", version = "0.1.13" }
 # The same synthetic chats and messages every crate above core tests against.
-oxidezap-core = { workspace = true, features = ["fixtures"] }
+velo-core = { workspace = true, features = ["fixtures"] }
 
 [lints]
 workspace = true

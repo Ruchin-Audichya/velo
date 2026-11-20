@@ -3,7 +3,7 @@
 //! A photo is megabytes and the socket carries newline-delimited JSON, so
 //! media never travels as a frame: whoever has the bytes writes them here and
 //! the other side reads the file. Both sides derive the directory from
-//! [`oxidezap_ipc::media_path`], so they cannot disagree about where it is.
+//! [`velo_ipc::media_path`], so they cannot disagree about where it is.
 //!
 //! Keys are content-addressed wherever the content already has an address — a
 //! message id, or the encrypted media's SHA-256 — so writing the same payload
@@ -90,7 +90,7 @@ pub fn put_evictable(key: &str, bytes: &[u8]) -> Result<String> {
 ///
 /// Returns the key, so a caller can hand it straight to the peer.
 pub fn put(key: &str, bytes: &[u8]) -> Result<String> {
-    let path = oxidezap_ipc::media_path(key).context("no media cache to write into")?;
+    let path = velo_ipc::media_path(key).context("no media cache to write into")?;
     let dir = path.parent().context("media path has no parent")?;
     // Before the hit below and not after it. `metadata` follows a symlink, and
     // a key here is derived from content the account has already published, so
@@ -149,7 +149,7 @@ pub fn put(key: &str, bytes: &[u8]) -> Result<String> {
 /// For payloads a client staged rather than the daemon cached: their bytes
 /// never counted toward the sweep, so nothing else would ever clear them.
 pub fn take(key: &str) -> Option<Vec<u8>> {
-    let path = oxidezap_ipc::media_path(key)?;
+    let path = velo_ipc::media_path(key)?;
     let bytes = std::fs::read(&path).ok()?;
     if let Err(e) = std::fs::remove_file(&path) {
         log::warn!(
@@ -199,7 +199,7 @@ fn write_ticket() -> String {
 
 /// Whether `key` is already cached, without reading it.
 pub fn has(key: &str) -> bool {
-    oxidezap_ipc::media_path(key).is_some_and(|path| path.exists())
+    velo_ipc::media_path(key).is_some_and(|path| path.exists())
 }
 
 /// The cache directory carries a copy of every photo the account has shown,
@@ -283,10 +283,10 @@ pub(crate) fn prepare_dir(dir: &std::path::Path) -> Result<()> {
 /// symlink. A `media` planted by another local account would otherwise be
 /// walked — and unlinked in — before anything asked whose it was.
 async fn reclaim_abandoned_writes() {
-    let Some(dir) = oxidezap_ipc::media_dir() else {
+    let Some(dir) = velo_ipc::media_dir() else {
         return;
     };
-    let walked = oxidezap_session::unblock(move || {
+    let walked = velo_session::unblock(move || {
         prepare_dir(&dir)?;
         let _wipe = super::WIPE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         sweep(&dir)
@@ -323,7 +323,7 @@ const RECLAIM_INTERVAL: std::time::Duration = std::time::Duration::from_secs(15 
 pub async fn reclaim_abandoned_writes_periodically() {
     loop {
         reclaim_abandoned_writes().await;
-        oxidezap_session::sleep(RECLAIM_INTERVAL).await;
+        velo_session::sleep(RECLAIM_INTERVAL).await;
     }
 }
 
@@ -467,7 +467,7 @@ pub fn cache_usage() -> (u64, u64) {
 /// the same operation [`delete_for`] does, so a wiped account's usage and a
 /// measured account's usage agree about what is theirs.
 pub fn usage_for(prefix: &str) -> (u64, u64) {
-    let Some(dir) = oxidezap_ipc::media_dir() else {
+    let Some(dir) = velo_ipc::media_dir() else {
         return (0, 0);
     };
     let Ok(entries) = std::fs::read_dir(&dir) else {
@@ -495,7 +495,7 @@ pub fn usage_for(prefix: &str) -> (u64, u64) {
 /// file must not abandon the rest. The lock and the epoch belong to
 /// [`super::wipe_for`], which is the only caller.
 pub(super) fn delete_unscoped(scope: Wipe) -> Result<()> {
-    let Some(dir) = oxidezap_ipc::media_dir() else {
+    let Some(dir) = velo_ipc::media_dir() else {
         return Ok(());
     };
     let entries = match std::fs::read_dir(&dir) {
@@ -511,7 +511,7 @@ pub(super) fn delete_unscoped(scope: Wipe) -> Result<()> {
         }
         let name = entry.file_name();
         let name = name.to_string_lossy();
-        if oxidezap_ipc::account_prefix_of(&name).is_some() {
+        if velo_ipc::account_prefix_of(&name).is_some() {
             continue;
         }
         // A bare staged key is the daemon's now, not this account's: plugin
@@ -520,7 +520,7 @@ pub(super) fn delete_unscoped(scope: Wipe) -> Result<()> {
         // account's install is still going to consume. A pre-multi-account
         // *send* payload shares the spelling and cannot be told apart, so it is
         // left until its owning lifecycle consumes or explicitly removes it.
-        if oxidezap_ipc::is_global_staged_key(&name) {
+        if velo_ipc::is_global_staged_key(&name) {
             continue;
         }
         if !scope.takes(&name) {
@@ -539,7 +539,7 @@ pub(super) fn delete_unscoped(scope: Wipe) -> Result<()> {
 
 /// Delete only files in one account namespace when `prefix` is non-empty.
 pub(super) fn delete_for(prefix: &str, scope: Wipe) -> Result<()> {
-    let Some(dir) = oxidezap_ipc::media_dir() else {
+    let Some(dir) = velo_ipc::media_dir() else {
         return Ok(());
     };
     let entries = match std::fs::read_dir(&dir) {
@@ -662,10 +662,8 @@ mod tests {
             [2, 0, 1],
             [2, 1, 0],
         ] {
-            let dir = std::env::temp_dir().join(format!(
-                "oxidezap-eviction-{}-{order:?}",
-                std::process::id()
-            ));
+            let dir = std::env::temp_dir()
+                .join(format!("velo-eviction-{}-{order:?}", std::process::id()));
             std::fs::create_dir_all(&dir).unwrap();
             let specs = [
                 ("f-newest", 3, 30),
@@ -717,8 +715,7 @@ mod tests {
     #[test]
     fn an_open_reader_survives_eviction_while_new_opens_miss() {
         use std::io::Read as _;
-        let dir =
-            std::env::temp_dir().join(format!("oxidezap-delete-pending-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("velo-delete-pending-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("f-pending");
         std::fs::write(&path, b"complete cached payload").unwrap();
@@ -740,7 +737,7 @@ mod tests {
     #[test]
     fn readers_observe_complete_payloads_or_cache_misses_during_replacement_and_eviction() {
         let dir = std::env::temp_dir().join(format!(
-            "oxidezap-read-evict-{}-{:?}",
+            "velo-read-evict-{}-{:?}",
             std::process::id(),
             std::thread::current().id()
         ));
@@ -785,7 +782,7 @@ mod tests {
     #[test]
     fn bounded_sweep_preserves_saved_staged_and_arriving_bytes() {
         let dir = std::env::temp_dir().join(format!(
-            "oxidezap-budget-{}-{:?}",
+            "velo-budget-{}-{:?}",
             std::process::id(),
             std::thread::current().id()
         ));
@@ -832,7 +829,7 @@ mod tests {
     #[test]
     fn aged_active_write_is_preserved_then_reclaimed_after_its_owner_retires() {
         let dir = std::env::temp_dir().join(format!(
-            "oxidezap-active-write-{}-{:?}",
+            "velo-active-write-{}-{:?}",
             std::process::id(),
             std::thread::current().id()
         ));
@@ -873,15 +870,15 @@ mod tests {
         // Through the entry point, so what is counted is a real cache write
         // with the wipe lock and all: `put` resolves the directory from the
         // environment and there is no seam to hand it a temporary one.
-        let Some(dir) = oxidezap_ipc::media_dir() else {
+        let Some(dir) = velo_ipc::media_dir() else {
             return; // Nowhere to write, so nothing to count.
         };
         // `put` creates the last component and only that, privately, which
         // is the right shape for a daemon whose enclosing directory is made
         // by whoever logged the user in. A CI runner has no login session and
         // has never run this daemon, so the parent of the media directory is
-        // simply absent -- `/run/user/<uid>/oxidezap` on Linux,
-        // `$TMPDIR/oxidezap-<uid>` on macOS -- and the single `mkdir` answers
+        // simply absent -- `/run/user/<uid>/velo` on Linux,
+        // `$TMPDIR/velo-<uid>` on macOS -- and the single `mkdir` answers
         // `ENOENT`, which is about the machine and not about the walk being
         // counted. Make the parents or say there is nowhere to write; the
         // leaf is still `put`'s to create with 700.
@@ -894,7 +891,7 @@ mod tests {
         let keys: Vec<String> = (0..16).map(|i| format!("f-3EB0WALKCOUNT{i:02}")).collect();
         let forget = || {
             for key in &keys {
-                if let Some(path) = oxidezap_ipc::media_path(key) {
+                if let Some(path) = velo_ipc::media_path(key) {
                     let _ = std::fs::remove_file(path);
                 }
             }
@@ -936,7 +933,7 @@ mod tests {
     #[test]
     fn preparing_the_directory_never_walks_it() {
         let dir = std::env::temp_dir().join(format!(
-            "oxidezap-media-prepare-{}-{:?}",
+            "velo-media-prepare-{}-{:?}",
             std::process::id(),
             std::thread::current().id()
         ));
@@ -968,7 +965,7 @@ mod tests {
         // The same shape the tests below use: a named directory rather than
         // a crate added for one case.
         let dir = std::env::temp_dir().join(format!(
-            "oxidezap-media-stale-{}-{:?}",
+            "velo-media-stale-{}-{:?}",
             std::process::id(),
             std::thread::current().id()
         ));
@@ -1022,7 +1019,7 @@ mod tests {
     #[test]
     fn a_partial_upload_is_kept_while_fresh_and_reclaimed_when_abandoned() {
         let dir = std::env::temp_dir().join(format!(
-            "oxidezap-media-partial-{}-{:?}",
+            "velo-media-partial-{}-{:?}",
             std::process::id(),
             std::thread::current().id()
         ));
@@ -1066,7 +1063,7 @@ mod tests {
     /// rename left a file that nothing on this machine would ever delete.
     #[test]
     fn a_write_whose_process_is_gone_is_reclaimed() {
-        let dir = std::env::temp_dir().join(format!("oxidezap-orphan-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("velo-orphan-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
 
@@ -1107,7 +1104,7 @@ mod tests {
         #[test]
         fn repairing_the_cache_keeps_a_recording_waiting_to_be_sent() {
             let dir = std::env::temp_dir().join(format!(
-                "oxidezap-media-repair-{}-{:?}",
+                "velo-media-repair-{}-{:?}",
                 std::process::id(),
                 std::thread::current().id()
             ));
@@ -1137,7 +1134,7 @@ mod tests {
         #[test]
         fn a_planted_link_is_not_a_cache_hit() {
             let base = std::env::temp_dir().join(format!(
-                "oxidezap-media-plant-{}-{:?}",
+                "velo-media-plant-{}-{:?}",
                 std::process::id(),
                 std::thread::current().id()
             ));

@@ -1,6 +1,6 @@
 use diesel::prelude::*;
 use diesel::sql_types::{BigInt, Integer, Nullable, Text};
-use oxidezap_core::CallHistoryEntry;
+use velo_core::CallHistoryEntry;
 use wacore::types::events::Event;
 use wacore_binary::{Jid, JidExt as _};
 use waproto::whatsapp::{CallLogRecord, call_log_record::CallResult};

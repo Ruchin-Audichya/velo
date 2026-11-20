@@ -44,7 +44,7 @@ mod media;
 mod socket;
 
 // One module to the front end, whatever it is divided into here: these names
-// are `oxidezap_ipc::web::*`, which front ends outside this workspace compile
+// are `velo_ipc::web::*`, which front ends outside this workspace compile
 // against, so the division above is not allowed to be visible in them.
 pub use address::{
     NamedDaemon, endpoint_url, is_preview, named_daemon, session_allowed_here, without_secrets,

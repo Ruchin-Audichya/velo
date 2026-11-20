@@ -20,11 +20,11 @@ use super::{TrySend, Wake};
 ///
 /// It used to be written out here, worker arm and drop guard and all, because
 /// this host cannot depend on the session that had already written it. That
-/// is what `oxidezap-platform` is for. Parking where no timer can be armed is
+/// is what `velo-platform` is for. Parking where no timer can be armed is
 /// its behaviour as well as this one's, and for the same reason: every caller
 /// here is a wait inside a loop, so returning at once turns one into a spin
 /// that never yields and takes the tab with it.
-pub use oxidezap_platform::sleep;
+pub use velo_platform::sleep;
 
 /// A bounded queue on the page's loop.
 #[must_use]
@@ -100,7 +100,7 @@ pub async fn breathe() {
 /// None here, and the signature keeps the `Result` because the interface is
 /// one interface: a page has one loop and `spawn_local` finds it.
 pub fn spawn(_name: &str, work: impl super::Work) -> std::io::Result<Task> {
-    oxidezap_platform::spawn(work);
+    velo_platform::spawn(work);
     Ok(Task)
 }
 

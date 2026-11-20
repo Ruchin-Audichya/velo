@@ -249,7 +249,7 @@ async fn local_amendments_do_not_mutate_a_colliding_peer_message() {
 
     assert!(matches!(
         chat_store.message(&chat, "COLLIDING-ID").await,
-        Err(oxidezap_chat_store::ChatStoreError::AmbiguousMessageId)
+        Err(velo_chat_store::ChatStoreError::AmbiguousMessageId)
     ));
     let rows = chat_store.messages(&chat, None, 100).await.unwrap();
     let copies: Vec<_> = rows.iter().filter(|row| row.id == "COLLIDING-ID").collect();
@@ -507,7 +507,7 @@ async fn cross_sender_id_reuse_cannot_rewrite_a_message() {
 
     assert!(matches!(
         chat_store.message(&chat, "MSG-VIC").await,
-        Err(oxidezap_chat_store::ChatStoreError::AmbiguousMessageId)
+        Err(velo_chat_store::ChatStoreError::AmbiguousMessageId)
     ));
     let msg = chat_store
         .messages(&chat, None, 10)
@@ -824,11 +824,11 @@ async fn local_admin_revoke_leaves_a_colliding_member_message_intact() {
     );
     assert_eq!(
         chats[0].last_message_kind,
-        Some(oxidezap_chat_store::MessageKind::Text)
+        Some(velo_chat_store::MessageKind::Text)
     );
     assert!(matches!(
         chat_store.message(&chat, "MEMBER-COLLISION").await,
-        Err(oxidezap_chat_store::ChatStoreError::AmbiguousMessageId)
+        Err(velo_chat_store::ChatStoreError::AmbiguousMessageId)
     ));
 }
 

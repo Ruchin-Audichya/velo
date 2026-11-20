@@ -10,7 +10,7 @@ use chrono::{Local, TimeZone as _};
 use gpui::{prelude::*, *};
 use gpui_component::button::{Button, ButtonVariants as _};
 use gpui_component::{ActiveTheme as _, Disableable as _, Icon, IconName, Sizable as _};
-use oxidezap_core::{CallHistoryEntry, format_duration};
+use velo_core::{CallHistoryEntry, format_duration};
 
 use crate::app::WhatsAppApp;
 use crate::components::{Avatar, ProductIcon, parts};

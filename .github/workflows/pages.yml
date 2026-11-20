@@ -1,7 +1,7 @@
 # The web front end, built to a static bundle and published to GitHub Pages.
 #
 # The bundle needs no server to be *hosted*: it either attaches to an
-# `oxidezapd` the visitor runs themselves, or runs the whole client — session,
+# `velod` the visitor runs themselves, or runs the whole client — session,
 # store and window — in the page.
 #
 # Two things are published from one branch, `gh-pages`:

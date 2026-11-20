@@ -42,9 +42,9 @@ impl UserOnly {
     pub fn new() -> io::Result<Self> {
         // The same token the endpoint's name is derived from, so the pipe and
         // the entry that guards it name one identity rather than two.
-        let token = oxidezap_ipc::windows_user::token()?;
+        let token = velo_ipc::windows_user::token()?;
         // SAFETY: the buffer came from that call and outlives every use below.
-        let sid = unsafe { oxidezap_ipc::windows_user::sid_of(&token) };
+        let sid = unsafe { velo_ipc::windows_user::sid_of(&token) };
 
         let mut access = EXPLICIT_ACCESS_W {
             grfAccessPermissions: FILE_ALL_ACCESS,

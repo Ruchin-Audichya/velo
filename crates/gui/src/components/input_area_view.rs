@@ -79,7 +79,7 @@ pub struct ReplyDraft {
     /// The preview is a label a human reads; this is what the recipient's
     /// client draws. Dropped here, the kind-aware quote builder in the
     /// session had nothing to be aware of.
-    pub kind: Option<oxidezap_core::QuotedKind>,
+    pub kind: Option<velo_core::QuotedKind>,
 }
 
 impl ReplyDraft {
@@ -92,7 +92,7 @@ impl ReplyDraft {
     }
 }
 
-impl From<ReplyDraft> for oxidezap_core::QuotedMessage {
+impl From<ReplyDraft> for velo_core::QuotedMessage {
     /// One conversion, so the two send paths cannot disagree about what a
     /// reply quotes. They each built this by hand and both hard-coded the
     /// kind away, which left the kind-aware quote builder in the session
@@ -209,7 +209,7 @@ impl InputAreaView {
             // Where it does, every arrangement a page can be in has somewhere
             // to send what it encodes: a daemon over the bridge, the tab
             // holding the account, or the page's own session.
-            can_record: oxidezap_audio::can_record(),
+            can_record: velo_audio::can_record(),
         }
     }
 
@@ -962,7 +962,7 @@ mod tests {
         };
         assert_eq!(draft.sender_label(Language::Portuguese), "Você");
         assert_eq!(draft.sender_label(Language::English), "You");
-        let quote: oxidezap_core::QuotedMessage = draft.clone().into();
+        let quote: velo_core::QuotedMessage = draft.clone().into();
         assert_eq!(quote.sender_name, "Account owner");
         draft.sender_is_self = false;
         draft.sender_name = "Você".into();

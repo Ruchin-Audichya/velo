@@ -1,5 +1,5 @@
 [package]
-name = "oxidezap-audio"
+name = "velo-audio"
 description = "Capture, playback and Opus encoding for voice messages and calls"
 version.workspace = true
 edition.workspace = true
@@ -9,7 +9,7 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
-oxidezap-core = { workspace = true }
+velo-core = { workspace = true }
 anyhow = { workspace = true }
 async-channel = "2.5.0"
 # Portable, because `call_ending` is: the rule it states is about which half of
@@ -56,10 +56,10 @@ js-sys = "0.3.106"
 # The page's loop, which is the only executor there is here. Web only: the
 # desktop half of this crate spawns nothing — a capture runs on the device
 # thread cpal gives it. See `src/web/mod.rs`.
-oxidezap-platform = { workspace = true }
+velo-platform = { workspace = true }
 wasm-bindgen = "0.2.129"
 # `JsFuture`, for the promises the encoder and the decoder hand back. The
-# spawn beside it comes from `oxidezap-platform`.
+# spawn beside it comes from `velo-platform`.
 wasm-bindgen-futures = "0.4.79"
 web-sys = { version = "0.3.106", features = [
     "AudioBuffer",

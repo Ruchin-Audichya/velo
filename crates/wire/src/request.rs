@@ -1,4 +1,4 @@
-//! Client requests for the OxideZap wire protocol.
+//! Client requests for the Velo wire protocol.
 
 use serde::{Deserialize, Serialize};
 

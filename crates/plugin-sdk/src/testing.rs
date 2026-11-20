@@ -1,7 +1,7 @@
 //! A host to test a plugin's handlers against, without a daemon.
 //!
 //! A plugin's imports resolve against the sandbox, so its handlers can only
-//! run inside `oxidezapd` — which means the only way to see whether one
+//! run inside `velod` — which means the only way to see whether one
 //! answers the right message was to build for wasm32, copy a file and read a
 //! log. That is a long way to go to find out that a keyword match is
 //! case-sensitive.
@@ -14,7 +14,7 @@
 //! writes: which field it reads, what it decides, and what it asks for.
 //!
 //! ```ignore
-//! use oxidezap_plugin::testing::{Event as In, Host};
+//! use velo_plugin::testing::{Event as In, Host};
 //!
 //! let mut host = Host::new();
 //! host.init(setup);
@@ -30,7 +30,7 @@ use std::string::String;
 use std::thread_local;
 use std::vec::Vec;
 
-use oxidezap_plugin_abi as abi;
+use velo_plugin_abi as abi;
 
 /// One command a plugin asked for.
 #[derive(Debug, Clone, PartialEq, Eq)]

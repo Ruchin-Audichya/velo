@@ -39,7 +39,7 @@ use web_sys::{
     FileSystemWritableFileStream,
 };
 
-use oxidezap_plugin_host::{Backing, MAX_PLUGINS, Module, Origin, Outcome, Plugins, Reloaded};
+use velo_plugin_host::{Backing, MAX_PLUGINS, Module, Origin, Outcome, Plugins, Reloaded};
 
 use super::{Bridge, plugin_id, publishing_to};
 use crate::session_bridge::{Action, Commands as SessionCommands, SessionCommand};
@@ -50,7 +50,7 @@ use crate::state::StateHub;
 /// A page's plugins come out of its own origin: the modules from OPFS, the
 /// approvals and each plugin's settings from `localStorage`. What a page
 /// gives a plugin instead of a thread is a task on its own loop; see
-/// `oxidezap_plugin_host::sched`. There is nothing to move off a worker here
+/// `velo_plugin_host::sched`. There is nothing to move off a worker here
 /// and nowhere to move it to, so the whole of it is awaited inline.
 pub(super) async fn start(hub: &Arc<StateHub>, commands: SessionCommands) -> Arc<Plugins> {
     let sink = publishing_to(hub);
@@ -68,10 +68,7 @@ pub(super) async fn start(hub: &Arc<StateHub>, commands: SessionCommands) -> Arc
 
 /// See [`super::reload`].
 ///
-pub(super) async fn reload(
-    plugins: &Arc<Plugins>,
-    account_id: oxidezap_core::AccountId,
-) -> Reloaded {
+pub(super) async fn reload(plugins: &Arc<Plugins>, account_id: velo_core::AccountId) -> Reloaded {
     // Handed over as a future rather than as values, and that is not style:
     // `Origin::storage()` *stamps* the origin's storage, retiring every
     // handle taken before it. `Plugins::reload` refuses a second reload while
@@ -189,7 +186,7 @@ const MAX_TOTAL_BYTES: usize = 32 * 1024 * 1024;
 /// Without `if_available`, deliberately: the second installation should
 /// *wait* rather than be told to try again. Somebody who pressed Add twice
 /// wants both files.
-const INSTALL_LOCK: &str = "oxidezap-plugins-install";
+const INSTALL_LOCK: &str = "velo-plugins-install";
 
 /// Everything installed, ready to hand to the host.
 ///

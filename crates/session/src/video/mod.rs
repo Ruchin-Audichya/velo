@@ -7,7 +7,7 @@
 //! the comment above it said a page could not send a picture at all.
 //!
 //! It can. `getUserMedia` is the device and `VideoEncoder` is the codec, and
-//! [`oxidezap_video`] now answers with either behind one name. What was a
+//! [`velo_video`] now answers with either behind one name. What was a
 //! platform split here is a platform split one crate down, which is where the
 //! platform actually is.
 //!

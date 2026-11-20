@@ -4,7 +4,7 @@
 mod common;
 
 use common::*;
-use oxidezap_chat_store::ChatArchiveFilter;
+use velo_chat_store::ChatArchiveFilter;
 
 const CHATS: i64 = 1_032;
 const CONTACTS: i64 = 1_653;

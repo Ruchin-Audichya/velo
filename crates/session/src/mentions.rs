@@ -14,8 +14,8 @@
 
 use std::sync::Arc;
 
-use oxidezap_chat_store::StoredMessage;
-use oxidezap_core::ChatMessage;
+use velo_chat_store::StoredMessage;
+use velo_core::ChatMessage;
 use whatsapp_rust::client::Client;
 use whatsapp_rust::wacore_binary::jid::Jid;
 use whatsapp_rust::waproto::whatsapp as wa;
@@ -137,7 +137,7 @@ pub(crate) fn mentioned_jids(message: Option<&wa::Message>) -> Vec<String> {
         sticker_message,
     );
     jids.extend(
-        oxidezap_chat_store::business_contexts(base)
+        velo_chat_store::business_contexts(base)
             .flat_map(|context| context.mentioned_jid.iter().cloned()),
     );
     jids.sort();
@@ -220,7 +220,7 @@ pub(crate) fn apply_to(pairs: &[(String, String)], text: String) -> String {
         .iter()
         .map(|(user, name)| (user.as_str(), name.as_str()))
         .collect();
-    oxidezap_core::format_mentions(&text, &refs)
+    velo_core::format_mentions(&text, &refs)
 }
 
 /// What each mentioned JID is called, as `(user part, display name)` pairs.
@@ -270,7 +270,7 @@ async fn mention_names(
 
 pub(crate) fn apply_business_to(
     pairs: &[(String, String)],
-    business: &mut oxidezap_core::BusinessContent,
+    business: &mut velo_core::BusinessContent,
     body: &str,
 ) {
     business.body = body.to_owned();
@@ -294,7 +294,7 @@ fn nested_quoted(message: Option<&wa::Message>) -> Option<&wa::Message> {
                 && let Some(context) = body.context_info.as_option()
                 && let Some(quoted) = context.quoted_message.as_option()
             {
-                return Some(oxidezap_chat_store::normalized_message(quoted));
+                return Some(velo_chat_store::normalized_message(quoted));
             }
         )+};
     }
@@ -309,9 +309,9 @@ fn nested_quoted(message: Option<&wa::Message>) -> Option<&wa::Message> {
         document_message,
         sticker_message,
     );
-    oxidezap_chat_store::business_contexts(base)
+    velo_chat_store::business_contexts(base)
         .find_map(|context| context.quoted_message.as_option())
-        .map(oxidezap_chat_store::normalized_message)
+        .map(velo_chat_store::normalized_message)
 }
 
 /// The message under its envelopes.
@@ -320,7 +320,7 @@ fn nested_quoted(message: Option<&wa::Message>) -> Option<&wa::Message> {
 /// inside one is still a mention, and the mention list lives on the inner
 /// body's context rather than the envelope's.
 fn peel(message: &wa::Message) -> &wa::Message {
-    oxidezap_chat_store::normalized_message(message)
+    velo_chat_store::normalized_message(message)
 }
 
 #[cfg(test)]

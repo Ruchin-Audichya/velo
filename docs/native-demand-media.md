@@ -72,9 +72,9 @@ cancellation rules are separate from this ownership controller.
 
 ```sh
 python3 scripts/measure-demand-media.py 6253f38 WORKTREE > comparison.csv
-cargo test -p oxidezap-gui --all-features media_materialization
-cargo test -p oxidezap-gui --all-features deferred_frames
-cargo test -p oxidezap-gui --all-features deferred_file_reads
+cargo test -p velo-gui --all-features media_materialization
+cargo test -p velo-gui --all-features deferred_frames
+cargo test -p velo-gui --all-features deferred_file_reads
 ```
 
 The performance probe compares #280's production fill helpers with the deferred
@@ -158,7 +158,7 @@ The GUI group passed 613 tests with 8 ignored measurements. Workspace
 all-target/all-feature Clippy with `-D warnings`, formatting and diff checks
 passed. A lifecycle regression releases the app entity before the queued
 worker runs and asserts that the cache receives no read. The GUI web target also type-checked with
-`cargo +nightly-2026-10-29 check -p oxidezap-gui --all-features --target wasm32-unknown-unknown -Z build-std=std,panic_abort`,
+`cargo +nightly-2026-10-29 check -p velo-gui --all-features --target wasm32-unknown-unknown -Z build-std=std,panic_abort`,
 with atomics and dead-code/unused-import warnings in unmodified paths. A first
 stable attempt stopped in `wasm_thread`, which requires nightly; it did not
 establish a source regression. This is a type check, not a browser runtime test.

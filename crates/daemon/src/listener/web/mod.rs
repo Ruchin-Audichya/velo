@@ -56,13 +56,13 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use base64::Engine as _;
 use futures_util::{SinkExt as _, StreamExt as _};
-use oxidezap_ipc::{WEB_MEDIA_PATH, WEB_SOCKET_PATH};
 use sha1::{Digest as _, Sha1};
 use tokio::io::{AsyncBufReadExt as _, AsyncWriteExt as _, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::WebSocketStream;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::tungstenite::protocol::{Role, WebSocketConfig};
+use velo_ipc::{WEB_MEDIA_PATH, WEB_SOCKET_PATH};
 
 use self::http::{HEAD_TIMEOUT, Request, preflight, read_head, respond};
 use crate::account::AccountRegistry;
@@ -157,7 +157,7 @@ pub async fn run(config: Config, registry: Arc<AccountRegistry>, slots: ClientSl
     // restricted channel already — `0600`, in the user's own directory — so
     // saying where it is tells the person who may read it everything and
     // tells a log reader nothing.
-    if let Some(path) = oxidezap_ipc::web_token_path() {
+    if let Some(path) = velo_ipc::web_token_path() {
         log::info!(
             "point a page at #daemon=ws://{}{WEB_SOCKET_PATH}?token=<token>, \
              where <token> is the contents of {}",
@@ -292,8 +292,7 @@ async fn serve(
 
     if let Some(key) = request.path.strip_prefix(&format!("{WEB_MEDIA_PATH}/")) {
         let decoded = http::percent_decode(key);
-        let account =
-            oxidezap_ipc::account_id_of(&decoded).unwrap_or(oxidezap_core::AccountId::LEGACY);
+        let account = velo_ipc::account_id_of(&decoded).unwrap_or(velo_core::AccountId::LEGACY);
         let Some(runtime) = registry.get(account) else {
             return respond(
                 stream.get_mut(),
@@ -345,7 +344,7 @@ async fn serve(
         // Only the read-only download may be cancelled as a whole. Upload
         // and discard must finish their disk operations while holding the
         // lease; their socket responses have their own bounded writes.
-        return oxidezap_session::with_timeout(
+        return velo_session::with_timeout(
             crate::media::http::serve(stream.get_mut(), key, origin.as_deref()),
             std::time::Duration::from_secs(30),
         )
@@ -406,8 +405,8 @@ async fn upgrade(
     // will accept before the server got to refuse it — the allocation is the
     // cost, and it happens here.
     let config = WebSocketConfig::default()
-        .max_message_size(Some(oxidezap_ipc::MAX_REQUEST_BYTES))
-        .max_frame_size(Some(oxidezap_ipc::MAX_REQUEST_BYTES));
+        .max_message_size(Some(velo_ipc::MAX_REQUEST_BYTES))
+        .max_frame_size(Some(velo_ipc::MAX_REQUEST_BYTES));
     Ok(WebSocketStream::from_raw_socket(stream.into_inner(), Role::Server, Some(config)).await)
 }
 
@@ -543,17 +542,15 @@ mod tests {
     async fn a_bind_off_the_loopback_is_refused() {
         let exposed = Config {
             addr: "0.0.0.0:0".parse().expect("a literal address"),
-            allowed_origins: vec!["https://oxidezap.github.io".to_string()],
+            allowed_origins: vec!["https://ruchin-audichya.github.io".to_string()],
             token: http::tests::TEST_TOKEN.to_string(),
         };
         let hub = StateHub::new();
         let (commands, _rx) = tokio::sync::mpsc::channel(1);
-        let plugins = Arc::new(oxidezap_plugin_host::Plugins::nothing_loaded(Arc::new(
-            |_| {},
-        )));
+        let plugins = Arc::new(velo_plugin_host::Plugins::nothing_loaded(Arc::new(|_| {})));
         let registry = AccountRegistry::new();
         assert!(registry.insert(Arc::new(AccountRuntime::new(
-            oxidezap_core::AccountId::LEGACY,
+            velo_core::AccountId::LEGACY,
             hub,
             plugins,
             commands,

@@ -15,7 +15,7 @@ import subprocess
 import tempfile
 
 SOURCE = r'''
-use oxidezap_ipc::{framing, DaemonMessage};
+use velo_ipc::{framing, DaemonMessage};
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 use std::hint::black_box;
@@ -66,7 +66,7 @@ fn main() {
     let message = DaemonMessage::Messages {
         id: 1,
         jid: "synthetic@s.whatsapp.net".into(),
-        messages: vec![oxidezap_core::ChatMessage::new_incoming(
+        messages: vec![velo_core::ChatMessage::new_incoming(
             "synthetic-id".into(), "synthetic@s.whatsapp.net".into(), "x".repeat(size),
         )],
         next: None,
@@ -115,7 +115,7 @@ def main():
         root = Path(directory)
         (root / "src").mkdir()
         (root / "Cargo.lock").write_text((workspace / "Cargo.lock").read_text())
-        (root / "Cargo.toml").write_text('[package]\nname="framing-profile"\nversion="0.0.0"\nedition="2024"\n[features]\ncount=[]\n[dependencies]\nserde_json="=1.0.154"\n' + f'oxidezap-ipc={{path="{workspace / "crates/ipc"}"}}\noxidezap-core={{path="{workspace / "crates/core"}"}}\n')
+        (root / "Cargo.toml").write_text('[package]\nname="framing-profile"\nversion="0.0.0"\nedition="2024"\n[features]\ncount=[]\n[dependencies]\nserde_json="=1.0.154"\n' + f'velo-ipc={{path="{workspace / "crates/ipc"}"}}\nvelo-core={{path="{workspace / "crates/core"}"}}\n')
         manifest = root / "Cargo.toml"
         with manifest.open("a") as output:
             output.write(f'\n[patch.crates-io]\nphonenumber={{path="{workspace / "vendor/phonenumber"}"}}\n')

@@ -88,12 +88,12 @@ impl Executor {
         let Some(handle) = self.worker.take() else {
             return true;
         };
-        oxidezap_session_join(handle, timeout).await
+        velo_session_join(handle, timeout).await
     }
 }
 
 /// The blocking half of [`Executor::join`], off the runtime.
-async fn oxidezap_session_join(handle: std::thread::JoinHandle<()>, timeout: Duration) -> bool {
+async fn velo_session_join(handle: std::thread::JoinHandle<()>, timeout: Duration) -> bool {
     unblock(move || {
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {

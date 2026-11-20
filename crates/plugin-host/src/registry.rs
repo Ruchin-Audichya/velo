@@ -9,8 +9,8 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
-use oxidezap_core::{PluginNode, PluginRoot, PluginSlot, PluginSurface, PluginWidget};
-use oxidezap_plugin_abi as abi;
+use velo_core::{PluginNode, PluginRoot, PluginSlot, PluginSurface, PluginWidget};
+use velo_plugin_abi as abi;
 
 use crate::approvals::Approvals;
 
@@ -327,7 +327,7 @@ fn describe(caps: i64) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oxidezap_core::{PluginNode, PluginSlot, PluginWidget};
+    use velo_core::{PluginNode, PluginSlot, PluginWidget};
 
     fn recorder() -> (Registry, Arc<Mutex<Vec<Vec<PluginSurface>>>>) {
         let log: Arc<Mutex<Vec<Vec<PluginSurface>>>> = Arc::new(Mutex::new(Vec::new()));

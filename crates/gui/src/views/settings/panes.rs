@@ -13,7 +13,7 @@ use gpui_component::ActiveTheme as _;
 use gpui_component::button::{Button, ButtonVariants as _};
 use gpui_component::{Disableable as _, Icon, IconName, Selectable as _, Sizable as _};
 
-use oxidezap_core::LogLevel;
+use velo_core::LogLevel;
 
 use crate::app::{SettingsSection, WhatsAppApp};
 use crate::components::ProductIcon;
@@ -220,7 +220,7 @@ fn empty(what: &'static str, metrics: Metrics, cx: &App) -> impl IntoElement + u
 /// folder belongs to whichever daemon is running the plugins, and adding to
 /// it and re-reading it are things every front end asks that daemon for. A
 /// desktop window's Reload is also for somebody who has just dropped a
-/// `.wasm` beside `oxidezapd` by hand; a follower tab's is for somebody whose
+/// `.wasm` beside `velod` by hand; a follower tab's is for somebody whose
 /// host is another tab.
 ///
 /// With a line saying what Reload does, because "reload" over a list of
@@ -868,13 +868,13 @@ fn files(count: u64) -> String {
 /// not have, and one a page has never had at all. What is drawn now takes
 /// effect in this window and in the daemon at once, and is remembered.
 fn advanced(entity: Entity<WhatsAppApp>, metrics: Metrics, cx: &App) -> AnyElement {
-    let active = oxidezap_logging::current();
+    let active = velo_logging::current();
     // A level given for this run from outside — `RUST_LOG` on a desktop,
     // `?log=` in a page — is what the process *started* at. Said rather than
     // hidden: without it, a stored choice that a launch argument overrode
     // looks like a control that did not work.
-    let forced = oxidezap_logging::forced();
-    let kept = oxidezap_logging::location();
+    let forced = velo_logging::forced();
+    let kept = velo_logging::location();
 
     let diagnostics = group(
         label(crate::tr!(Diagnostics), metrics, cx),
@@ -923,7 +923,7 @@ fn advanced(entity: Entity<WhatsAppApp>, metrics: Metrics, cx: &App) -> AnyEleme
                     (crate::tr!(Renderer).to_string(), "GPUI".to_string()),
                     (
                         "Version".to_string(),
-                        match option_env!("OXIDEZAP_REV").filter(|rev| !rev.is_empty()) {
+                        match option_env!("VELO_REV").filter(|rev| !rev.is_empty()) {
                             Some(rev) => format!("Velo {} ({rev})", env!("CARGO_PKG_VERSION")),
                             None => format!("Velo {}", env!("CARGO_PKG_VERSION")),
                         },
@@ -940,7 +940,7 @@ fn advanced(entity: Entity<WhatsAppApp>, metrics: Metrics, cx: &App) -> AnyEleme
                         .child(format!(
                             "{} asked for {forced} when this started; the level above is \
                              what is in force now.",
-                            oxidezap_logging::forced_by(),
+                            velo_logging::forced_by(),
                         )),
                 )
             }),

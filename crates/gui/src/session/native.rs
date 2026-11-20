@@ -14,7 +14,7 @@ use std::io::BufReader;
 use std::sync::Arc;
 
 use log::info;
-use oxidezap_ipc::{Endpoint, Link};
+use velo_ipc::{Endpoint, Link};
 
 use super::attach;
 use super::frames::Frames;
@@ -37,7 +37,7 @@ const READER_PATIENCE: std::time::Duration = std::time::Duration::from_secs(2);
 /// Returns the events it will publish. The daemon reloads history for a
 /// client that asks for events, so the chats arrive without being asked
 /// for separately.
-pub(super) fn connect(account: oxidezap_core::AccountId) -> std::io::Result<(Session, Events)> {
+pub(super) fn connect(account: velo_core::AccountId) -> std::io::Result<(Session, Events)> {
     connect_over_account(connect_or_start()?, account)
 }
 
@@ -81,12 +81,12 @@ pub(super) fn connect_control() -> std::io::Result<(Session, Events)> {
 /// thing that was never in doubt.
 #[cfg(test)]
 fn connect_over(endpoint: Endpoint) -> std::io::Result<(Session, Events)> {
-    connect_over_account(endpoint, oxidezap_core::AccountId::LEGACY)
+    connect_over_account(endpoint, velo_core::AccountId::LEGACY)
 }
 
 fn connect_over_account(
     endpoint: Endpoint,
-    account: oxidezap_core::AccountId,
+    account: velo_core::AccountId,
 ) -> std::io::Result<(Session, Events)> {
     let (reader, writer) = endpoint.split()?;
     // Taken before the reader is handed to its thread, because after that
@@ -139,12 +139,12 @@ fn connect_over_account(
 /// may wait for room.
 #[allow(clippy::too_many_arguments)]
 fn start_reader(
-    reader: oxidezap_ipc::Reader,
+    reader: velo_ipc::Reader,
     sink: ReaderSink,
     pending: Pending,
     pictures: crate::video::LatestFrames,
     recover: crate::video::RecoverySink,
-    hangup: oxidezap_ipc::Hangup,
+    hangup: velo_ipc::Hangup,
     session: &mut Session,
 ) -> std::io::Result<()> {
     let (alive, until_gone) = std::sync::mpsc::channel::<()>();
@@ -152,7 +152,7 @@ fn start_reader(
     // connection with nobody reading it, which the caller must not be handed
     // as a working session.
     std::thread::Builder::new()
-        .name("oxidezap-ipc".to_string())
+        .name("velo-ipc".to_string())
         .spawn(move || {
             let _alive = alive;
             read_frames(reader, &sink, &pending, &pictures, recover);
@@ -167,7 +167,7 @@ fn start_reader(
         // still tearing down. The wait only reaps the reader, so it keeps a
         // thread of its own the way `reap` keeps one for the child.
         let _ = std::thread::Builder::new()
-            .name("oxidezap-ipc-wait".to_string())
+            .name("velo-ipc-wait".to_string())
             .spawn(move || {
                 let _ = until_gone.recv_timeout(READER_PATIENCE);
             });
@@ -191,7 +191,7 @@ fn start_reader(
 /// window that still reads as connected, with no events arriving, every send
 /// spinning on an answer nothing will produce, and no reconnect scheduled.
 fn read_frames(
-    stream: oxidezap_ipc::Reader,
+    stream: velo_ipc::Reader,
     events: &ReaderSink,
     pending: &Pending,
     pictures: &crate::video::LatestFrames,
@@ -209,7 +209,7 @@ fn read_frames(
     frames.finish();
 }
 
-fn read_loop(stream: oxidezap_ipc::Reader, frames: &mut Frames<'_>) {
+fn read_loop(stream: velo_ipc::Reader, frames: &mut Frames<'_>) {
     let mut reader = BufReader::new(stream);
     // Bounded, through the same framing the daemon's own reader is bounded
     // by: reading a frame into a `String` with nothing stopping it means a
@@ -217,32 +217,32 @@ fn read_loop(stream: oxidezap_ipc::Reader, frames: &mut Frames<'_>) {
     // killed.
     let mut buf = Vec::new();
     loop {
-        let frame = oxidezap_ipc::read_frame_with(
+        let frame = velo_ipc::read_frame_with(
             &mut reader,
             &mut buf,
-            oxidezap_ipc::MAX_DAEMON_FRAME_BYTES,
+            velo_ipc::MAX_DAEMON_FRAME_BYTES,
             |line| {
                 super::frames::parse(line).is_some_and(|message| frames.apply(message).is_break())
             },
         );
         let stop = match frame {
-            Ok(Some(oxidezap_ipc::FrameResult::Line(stop))) => stop,
-            Ok(Some(oxidezap_ipc::FrameResult::NotUtf8)) => {
+            Ok(Some(velo_ipc::FrameResult::Line(stop))) => stop,
+            Ok(Some(velo_ipc::FrameResult::NotUtf8)) => {
                 log::warn!("the daemon sent a frame that is not text; ignoring it");
                 continue;
             }
-            Ok(Some(oxidezap_ipc::FrameResult::TooLong)) => {
+            Ok(Some(velo_ipc::FrameResult::TooLong)) => {
                 // Named rather than left to the outage screen: this ending
                 // arms no countdown, because the frame that overran is one
                 // the daemon rebuilds on every attach and reconnecting meets
                 // the same one.
                 log::error!(
                     "the daemon sent a frame past {} bytes with no end to it",
-                    oxidezap_ipc::MAX_DAEMON_FRAME_BYTES
+                    velo_ipc::MAX_DAEMON_FRAME_BYTES
                 );
-                frames.fault(oxidezap_core::Fault::oversized(format!(
+                frames.fault(velo_core::Fault::oversized(format!(
                     "the background service sent a frame larger than {} bytes",
-                    oxidezap_ipc::MAX_DAEMON_FRAME_BYTES
+                    velo_ipc::MAX_DAEMON_FRAME_BYTES
                 )));
                 break;
             }
@@ -265,7 +265,7 @@ const START_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 /// How long to leave a daemon we started to take its lock and bind.
 const START_ATTEMPT: std::time::Duration = std::time::Duration::from_secs(2);
 
-/// Connect, starting `oxidezapd` for as long as nothing is listening.
+/// Connect, starting `velod` for as long as nothing is listening.
 ///
 /// The front end no longer owns a session, so there has to be one: a first run
 /// on a fresh machine would otherwise show an error where it should show a QR
@@ -282,7 +282,7 @@ const START_ATTEMPT: std::time::Duration = std::time::Duration::from_secs(2);
 fn connect_or_start() -> std::io::Result<Endpoint> {
     // Only for the message: connecting is the endpoint's business, and on
     // Windows this is a pipe name rather than anything on disk.
-    let path = oxidezap_ipc::endpoint_path()
+    let path = velo_ipc::endpoint_path()
         .ok_or_else(|| std::io::Error::other("no per-user directory to look for the daemon in"))?;
     let program = daemon_program().ok_or_else(|| {
         std::io::Error::other(
@@ -376,7 +376,7 @@ fn reap(child: Option<std::process::Child>) {
         return;
     };
     let _ = std::thread::Builder::new()
-        .name("oxidezap-daemon-wait".to_string())
+        .name("velo-daemon-wait".to_string())
         .spawn(move || {
             let _ = child.wait();
         });
@@ -390,14 +390,10 @@ fn reap(child: Option<std::process::Child>) {
 /// `None` rather than a bare name, which `PATH` would resolve — the same
 /// reason the daemon's `front_end_program` gives for the other direction: a
 /// window started from an arranged environment would start whatever that
-/// environment calls `oxidezapd`, and there is no session more sensitive
+/// environment calls `velod`, and there is no session more sensitive
 /// than the one that holds the account.
 fn daemon_program() -> Option<std::path::PathBuf> {
-    const NAME: &str = if cfg!(windows) {
-        "oxidezapd.exe"
-    } else {
-        "oxidezapd"
-    };
+    const NAME: &str = if cfg!(windows) { "velod.exe" } else { "velod" };
     std::env::current_exe()
         .ok()
         .and_then(|exe| exe.parent().map(|dir| dir.join(NAME)))
@@ -442,7 +438,7 @@ fn detached_command(program: &std::path::Path) -> std::process::Command {
 /// What dropping a connection does to the daemon at the other end.
 ///
 /// Unix, and that is a statement about this box rather than about the code:
-/// the endpoint's platform split is `oxidezap_ipc`'s, a listener of our own is
+/// the endpoint's platform split is `velo_ipc`'s, a listener of our own is
 /// a `UnixListener` here and a named pipe there, and CI's `cross` job is what
 /// runs the pipe. What these prove is the half that is written *here* — that
 /// the owner ends the connection, that a handle does not, and in which order
@@ -454,7 +450,7 @@ mod tests {
     use std::sync::Arc;
     use std::sync::mpsc::{Receiver, RecvTimeoutError, channel};
 
-    use oxidezap_ipc::{ClientRequest, Endpoint, Link};
+    use velo_ipc::{ClientRequest, Endpoint, Link};
 
     use super::Teardown;
     use super::{Session, connect_over};
@@ -482,10 +478,8 @@ mod tests {
     impl Peer {
         /// Listen, accept one client, and report every line until it ends.
         fn listening(name: &str) -> std::io::Result<Self> {
-            let path = std::env::temp_dir().join(format!(
-                "oxidezap-session-{}-{name}.sock",
-                std::process::id()
-            ));
+            let path = std::env::temp_dir()
+                .join(format!("velo-session-{}-{name}.sock", std::process::id()));
             let _ = std::fs::remove_file(&path);
             let listener = std::os::unix::net::UnixListener::bind(&path)?;
             let (told, heard) = channel();
@@ -607,13 +601,13 @@ mod tests {
         let (old, _events) = old_peer.client().unwrap();
         old_peer.hello();
         let recover = super::super::recovery::sink(old.conn.wire.clone()).unwrap();
-        assert!(recover("original-call", oxidezap_core::VideoStream::Remote));
+        assert!(recover("original-call", velo_core::VideoStream::Remote));
         let line = old_peer.heard.recv_timeout(SOON).unwrap().unwrap();
-        let request: oxidezap_ipc::Request = serde_json::from_str(&line).unwrap();
+        let request: velo_ipc::Request = serde_json::from_str(&line).unwrap();
         assert!(matches!(
             request.request,
-            ClientRequest::Call(oxidezap_ipc::CallAction::RequestVideoKeyframe { call_id, stream })
-                if call_id == "original-call" && stream == oxidezap_core::VideoStream::Remote
+            ClientRequest::Call(velo_ipc::CallAction::RequestVideoKeyframe { call_id, stream })
+                if call_id == "original-call" && stream == velo_core::VideoStream::Remote
         ));
         drop(old);
         assert!(old_peer.ended());
@@ -621,7 +615,7 @@ mod tests {
         let new_peer = Peer::listening("recovery-new").unwrap();
         let (_new, _events) = new_peer.client().unwrap();
         new_peer.hello();
-        let _ = recover("original-call", oxidezap_core::VideoStream::Local);
+        let _ = recover("original-call", velo_core::VideoStream::Local);
         assert!(new_peer.quiet());
     }
 
@@ -635,7 +629,7 @@ mod tests {
         let (sent, received) = channel();
         std::thread::spawn(move || {
             let admitted = (0..16)
-                .filter(|_| recover("busy-call", oxidezap_core::VideoStream::Remote))
+                .filter(|_| recover("busy-call", velo_core::VideoStream::Remote))
                 .count();
             let _ = sent.send(admitted);
         });

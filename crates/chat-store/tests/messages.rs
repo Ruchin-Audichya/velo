@@ -18,7 +18,7 @@ async fn channel_sticker_pack_keeps_metadata_and_proto_after_storage() {
     pack.caption = Some("Example caption".into());
     let mut proto = wa::Message::default();
     proto.sticker_pack_message = MessageField::some(pack);
-    let expected = oxidezap_chat_store::sticker_pack_text(&proto).unwrap();
+    let expected = velo_chat_store::sticker_pack_text(&proto).unwrap();
     feed(
         &chat_store,
         [message_event(

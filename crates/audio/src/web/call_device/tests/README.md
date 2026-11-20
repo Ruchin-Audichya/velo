@@ -6,9 +6,9 @@ helpers. CI runs `stats` in `Check` and ordinary and shared `browser` builds in
 the audio crate's `call_audio_lifecycle` integration test in both browser builds.
 Run from the repository root.
 
-The manifest's cargo-machete exception covers only `oxidezap-platform`.
+The manifest's cargo-machete exception covers only `velo-platform`.
 `browser.rs` imports `../diagnostics.rs` through `#[path]`, outside the directory
-cargo-machete scans, and that helper calls `oxidezap_platform::sleep`.
+cargo-machete scans, and that helper calls `velo_platform::sleep`.
 
 ```bash
 CARGO_TARGET_DIR=target/call-playout-tests cargo test \
@@ -22,7 +22,7 @@ CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-bindgen-test-runner \
 
 RUSTFLAGS='--cfg web_sys_unstable_apis' \
 CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-bindgen-test-runner \
-  cargo test -p oxidezap-audio --target wasm32-unknown-unknown --test call_audio_lifecycle
+  cargo test -p velo-audio --target wasm32-unknown-unknown --test call_audio_lifecycle
 
 # Inherits the root atomics/shared-memory flags and rebuilds std with them.
 rustup toolchain install nightly-2026-10-29 --profile minimal --component rust-src --target wasm32-unknown-unknown
@@ -34,7 +34,7 @@ CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-bindgen-test-runner \
 
 CARGO_TARGET_DIR=target/call-audio-shared \
 CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-bindgen-test-runner \
-  cargo +nightly-2026-10-29 test -p oxidezap-audio --target wasm32-unknown-unknown \
+  cargo +nightly-2026-10-29 test -p velo-audio --target wasm32-unknown-unknown \
   -Z build-std=std,panic_abort --test call_audio_lifecycle
 ```
 

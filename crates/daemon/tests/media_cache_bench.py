@@ -59,8 +59,8 @@ def definitions(ref):
                   if line.startswith("pub const WEB_MEDIA_BUDGET_BYTES:"))
     return r'''#![allow(dead_code)]
 extern crate self as anyhow;
-extern crate self as oxidezap_core;
-extern crate self as oxidezap_ipc;
+extern crate self as velo_core;
+extern crate self as velo_ipc;
 extern crate self as log;
 pub type Result<T> = std::result::Result<T, String>;
 #[macro_export] macro_rules! info {

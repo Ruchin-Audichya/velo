@@ -237,10 +237,8 @@ mod tests {
 
     #[test]
     fn a_dropped_file_enters_the_shared_picker_result() {
-        let path = std::env::temp_dir().join(format!(
-            "oxidezap-drop-test-{}-upload.bin",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("velo-drop-test-{}-upload.bin", std::process::id()));
         let expected_name = path
             .file_name()
             .expect("test path has a file name")
@@ -254,7 +252,7 @@ mod tests {
         assert_eq!(chosen.files.len(), 1);
         assert_eq!(chosen.files[0].file_name, expected_name);
         assert_eq!(chosen.files[0].bytes, b"test payload");
-        assert_eq!(chosen.files[0].kind, oxidezap_core::OutgoingMedia::Document);
+        assert_eq!(chosen.files[0].kind, velo_core::OutgoingMedia::Document);
     }
 
     #[test]

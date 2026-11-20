@@ -18,9 +18,9 @@ use tray_icon::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIc
 use super::TrayHub;
 use crate::state::TrayState;
 
-const OPEN_ID: &str = "oxidezap-open";
-const HIDE_ID: &str = "oxidezap-hide";
-const QUIT_ID: &str = "oxidezap-quit";
+const OPEN_ID: &str = "velo-open";
+const HIDE_ID: &str = "velo-hide";
+const QUIT_ID: &str = "velo-quit";
 
 /// A menu-bar presence, owned by the main thread and no other.
 ///
@@ -108,7 +108,7 @@ fn build(initial: &TrayState) -> Result<TrayIcon, String> {
         .map_err(|e| format!("building the tray menu: {e}"))?;
 
     TrayIconBuilder::new()
-        .with_id("oxidezap")
+        .with_id("velo")
         .with_menu_on_left_click(false)
         .with_tooltip(initial.single_line())
         .with_menu(Box::new(menu))

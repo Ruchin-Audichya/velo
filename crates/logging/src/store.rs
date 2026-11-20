@@ -1,10 +1,10 @@
 //! Where the chosen level is kept, so a restart makes the same choice.
 //!
 //! A file beside the theme on a desktop and the origin's own store in a page
-//! — the same two answers `oxidezap-gui`'s `platform::prefs` gives for
+//! — the same two answers `velo-gui`'s `platform::prefs` gives for
 //! `theme.json`, and for the same reasons. It is written here rather than
 //! borrowed from there because both processes read this one: the window and
-//! `oxidezapd` are two processes logging about one account, and a level set
+//! `velod` are two processes logging about one account, and a level set
 //! in Settings that only the window remembered would leave the process
 //! holding the session — where nearly everything worth reading is written —
 //! at `info` for ever.
@@ -13,7 +13,7 @@
 //! may well open it, and a document with a schema invites a second field
 //! that would then need a migration.
 
-use oxidezap_core::LogLevel;
+use velo_core::LogLevel;
 
 /// Where the choice lives, in words a person can act on.
 ///
@@ -76,7 +76,7 @@ mod imp {
                         .map(|home| home.join(".config"))
                 })?
         };
-        Some(dir.join("oxidezap").join("log-level"))
+        Some(dir.join("velo").join("log-level"))
     }
 
     pub(super) fn location() -> Option<String> {
@@ -154,7 +154,7 @@ mod imp {
 
     #[cfg(test)]
     mod tests {
-        use oxidezap_core::LogLevel;
+        use velo_core::LogLevel;
 
         /// The file is one word with a newline after it, and it reads back
         /// as the level that was written — including through the trim, which
@@ -162,7 +162,7 @@ mod imp {
         #[test]
         fn a_level_written_is_the_level_read() {
             let dir = std::env::temp_dir().join(format!(
-                "oxidezap-log-level-{}-{:?}",
+                "velo-log-level-{}-{:?}",
                 std::process::id(),
                 std::thread::current().id()
             ));
@@ -187,7 +187,7 @@ mod imp {
     /// Namespaced, because a page shares its origin's storage with anything
     /// else served from it — which on a Pages deployment is every other
     /// project the same account publishes.
-    const KEY: &str = "oxidezap.log_level";
+    const KEY: &str = "velo.log_level";
 
     /// The browser's own per-origin store, if this page is allowed one.
     fn storage() -> Option<web_sys::Storage> {
