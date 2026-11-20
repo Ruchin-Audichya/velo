@@ -10034,7 +10034,7 @@ checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
 name = "velo-audio"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -10062,7 +10062,7 @@ dependencies = [
 
 [[package]]
 name = "velo-chat-store"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "buffa",
  "chrono",
@@ -10087,7 +10087,7 @@ dependencies = [
 
 [[package]]
 name = "velo-cli"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -10099,7 +10099,7 @@ dependencies = [
 
 [[package]]
 name = "velo-core"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -10115,7 +10115,7 @@ dependencies = [
 
 [[package]]
 name = "velo-daemon"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -10165,7 +10165,7 @@ dependencies = [
 
 [[package]]
 name = "velo-gui"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "anyhow",
  "block2 0.6.2",
@@ -10219,7 +10219,7 @@ dependencies = [
 
 [[package]]
 name = "velo-ipc"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "futures-channel",
  "futures-lite",
@@ -10241,7 +10241,7 @@ dependencies = [
 
 [[package]]
 name = "velo-logging"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "env_logger",
  "log",
@@ -10252,7 +10252,7 @@ dependencies = [
 
 [[package]]
 name = "velo-platform"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "futures-channel",
  "futures-lite",
@@ -10269,21 +10269,21 @@ dependencies = [
 
 [[package]]
 name = "velo-plugin"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "velo-plugin-abi",
 ]
 
 [[package]]
 name = "velo-plugin-abi"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "velo-plugin-abi",
 ]
 
 [[package]]
 name = "velo-plugin-host"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -10304,7 +10304,7 @@ dependencies = [
 
 [[package]]
 name = "velo-session"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -10342,7 +10342,7 @@ dependencies = [
 
 [[package]]
 name = "velo-setup"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "embed-resource",
  "flate2",
@@ -10359,7 +10359,7 @@ dependencies = [
 
 [[package]]
 name = "velo-video"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -10384,7 +10384,7 @@ dependencies = [
 
 [[package]]
 name = "velo-wire"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "serde",
  "serde_json",
