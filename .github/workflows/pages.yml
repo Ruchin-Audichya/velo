@@ -41,12 +41,9 @@
 name: Pages
 
 on:
-  push:
-    branches: ["main"]
-  # Buildable and previewable from a pull request: the build is the part that
-  # breaks, and finding out at merge time is finding out late.
-  pull_request:
-    types: [opened, synchronize, reopened, closed, ready_for_review, converted_to_draft]
+  # Manual only: releases are published from a Windows machine with
+  # packaging/windows/build-release.ps1, and nothing here may create,
+  # replace or delete a release (or a site) on a push.
   workflow_dispatch:
 
 permissions:

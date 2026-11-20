@@ -3,8 +3,9 @@
 name: Nightly
 
 on:
-  push:
-    branches: ["main"]
+  # Manual only: releases are published from a Windows machine with
+  # packaging/windows/build-release.ps1, and nothing here may create,
+  # replace or delete a release (or a site) on a push.
   workflow_dispatch:
 
 concurrency:
