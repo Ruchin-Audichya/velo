@@ -11,7 +11,7 @@ use wacore_binary::Jid;
 
 use crate::schema;
 
-const ORDER_FLOOR: &str = "__oxidezap_avatar_order_floor__";
+const ORDER_FLOOR: &str = "__velo_avatar_order_floor__";
 const MAX_TOMBSTONES: i64 = 256;
 
 /// A fixed watermark protects compacted removals. An older insert for an

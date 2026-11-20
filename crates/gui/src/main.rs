@@ -44,7 +44,13 @@ use crate::app::{WhatsAppApp, init_app_bindings};
 /// function — which is why the platform differences below are `cfg`s inside
 /// it rather than two entry points that would drift.
 fn main() {
+    // Before logging, which reads its stored level from the data folder and
+    // would otherwise create that folder under the new name first.
+    let renamed = velo_platform::legacy_names::migrate();
     crate::platform::logging();
+    for line in renamed {
+        log::info!("{line}");
+    }
     // Before anything reads it: the first read is what settles the default.
     crate::platform::clocks();
     // Before the session exists, so the ask cannot be missed: `shutdown` keeps

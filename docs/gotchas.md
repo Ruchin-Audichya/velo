@@ -174,6 +174,27 @@ Non-obvious behaviour, and the reasoning behind it. Read the entry before changi
   shutdown; a second one while it drains exits on 128-plus-signal-number
   rather than waiting it out, because the teardown has joins without a
   deadline and a repeated signal is somebody saying the wait is the problem.
+- **The old name lives in one module, and it runs before logging.** 1.0
+  shipped as `oxidezap` wherever a user could not see it — the data folder
+  (`%LOCALAPPDATA%\oxidezap`, holding the sign-in), `Downloads\OxideZap`,
+  `HKCU\Software\OxideZap`, the `Run` value and the notification app ID.
+  `velo_platform::legacy_names::migrate` renames each into Velo's name, and
+  only when that name is free: nothing is merged or overwritten, so a stray
+  new folder made by a development build wins and the old one stays put. The
+  window and the daemon call it as their first line, *before* logging,
+  because the logger reads its stored level under the data folder and would
+  create the new folder first — which is exactly the case that blocks the
+  move and signs the user out. It returns what it did for the caller to log
+  afterwards. The installer calls it too, once the old processes are gone
+  (they listen on the old pipe name, so it ends them by image name), then
+  deletes 1.0's executables and re-aims taskbar pins still pointing at them.
+  The avatar sentinel row moved by a diesel migration instead, since it lives
+  in the store. Elsewhere the old name is only credit: the upstream
+  `whatsapp-rust` and `whatspec` URLs, and the MIT attribution in `LICENSE`.
+  Plugins built against 1.0 import from `oxidezap` and no longer link; the
+  module is `velo` now.
+  The web build's browser storage keys (`velo.theme`, `velo.log_level`,
+  `velo.plugin.*`) moved without a bridge: Velo 1.0 shipped no web build.
 - **The front end owns no session.** `velo` starts `velod` when none is
   listening and speaks to it; the two ship together and the release packages
   them in one directory. A front end that cannot reach the daemon has no

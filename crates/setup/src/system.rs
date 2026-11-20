@@ -23,6 +23,11 @@ const APP_ID: &str = "io.github.RuchinAudichya.Velo";
 const WINDOW_EXE: &str = "velo.exe";
 const DAEMON_EXE: &str = "velod.exe";
 const UNINSTALLER: &str = "uninstall.exe";
+/// What 1.0 called the programs, before Velo used its own names. An update
+/// stops and deletes them and repoints any shortcut still aimed at one; the
+/// folders and registry values they used are moved by
+/// `velo_platform::legacy_names`, which every Velo program also runs.
+const LEGACY_EXES: [&str; 3] = ["oxidezap.exe", "oxidezapd.exe", "oxidezap-cli.exe"];
 /// No console window flashing up for the helpers this runs.
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 const DETACHED_PROCESS: u32 = 0x0000_0008;
@@ -63,7 +68,11 @@ pub fn installed_version() -> Option<String> {
 /// Whether this PC already holds a Velo sign-in, kept from an earlier
 /// install — the finish screen then says so instead of asking for a QR scan.
 pub fn has_existing_sign_in() -> bool {
-    local_app_data().join("velo").join("whatsapp.db").is_file()
+    // 1.0 kept it under its old name; the update moves it before the new
+    // version starts.
+    ["velo", "oxidezap"]
+        .iter()
+        .any(|name| local_app_data().join(name).join("whatsapp.db").is_file())
 }
 
 /// Whether this process is the copy that lives beside the program — the one
@@ -87,6 +96,11 @@ pub fn install(options: Options, progress: &dyn Fn(Step)) -> Result<(), String> 
     }
     progress(Step::Stopping);
     stop_velo();
+    // With nothing of 1.0 running to hold a file open: its data folder (the
+    // sign-in and chats), downloads folder and registry values take Velo's
+    // names now, so the new version starts signed in. What it did is not
+    // shown; a folder it could not move is moved by the program on start.
+    let _ = velo_platform::legacy_names::migrate();
 
     let dir = install_dir();
     std::fs::create_dir_all(&dir)
@@ -111,8 +125,13 @@ pub fn install(options: Options, progress: &dyn Fn(Step)) -> Result<(), String> 
         }
     }
 
+    for old in LEGACY_EXES {
+        let _ = std::fs::remove_file(dir.join(old));
+    }
+
     progress(Step::Shortcuts);
     let window = dir.join(WINDOW_EXE);
+    repoint_pins(&dir, &window);
     shortcut(&start_menu_link(), &window)?;
     if options.desktop_shortcut {
         shortcut(&desktop_link(), &window)?;
@@ -166,9 +185,13 @@ pub fn uninstall(remove_data: bool, progress: &dyn Fn(Step)) -> Result<(), Strin
         // The store, the media, the sign-in: one directory, deleted whole
         // so nothing is left orphaned behind a new device. Then Velo's own
         // preferences and its notification registration.
-        let _ = std::fs::remove_dir_all(local_app_data().join("velo"));
-        if let Some(roaming) = std::env::var_os("APPDATA") {
-            let _ = std::fs::remove_dir_all(PathBuf::from(roaming).join("velo"));
+        // Under 1.0's name as well, for an install never started since the
+        // update.
+        for name in ["velo", "oxidezap"] {
+            let _ = std::fs::remove_dir_all(local_app_data().join(name));
+            if let Some(roaming) = std::env::var_os("APPDATA") {
+                let _ = std::fs::remove_dir_all(PathBuf::from(roaming).join(name));
+            }
         }
         let _ = CURRENT_USER.remove_tree(r"Software\Velo");
         let _ = CURRENT_USER.remove_tree(format!(r"Software\Classes\AppUserModelId\{APP_ID}"));
@@ -222,7 +245,9 @@ fn stop_velo() {
             std::thread::sleep(Duration::from_millis(250));
         }
     }
-    for image in [WINDOW_EXE, DAEMON_EXE] {
+    // 1.0's programs listen on a pipe of their old name, which the request
+    // above cannot reach; they are ended outright, once.
+    for image in [WINDOW_EXE, DAEMON_EXE, LEGACY_EXES[0], LEGACY_EXES[1]] {
         let _ = std::process::Command::new("taskkill")
             .args(["/F", "/T", "/IM", image])
             .creation_flags(CREATE_NO_WINDOW)
@@ -286,6 +311,28 @@ fn desktop_link() -> PathBuf {
     PathBuf::from(std::env::var_os("USERPROFILE").unwrap_or_default())
         .join("Desktop")
         .join("Velo.lnk")
+}
+
+/// A taskbar pin made from 1.0's running window is named after that program
+/// and aimed at it, and the update deletes it. Each such pin is aimed at the
+/// new window in place, under the same file name, so the pin keeps its spot.
+fn repoint_pins(dir: &Path, window: &Path) {
+    let pins = PathBuf::from(std::env::var_os("APPDATA").unwrap_or_default())
+        .join(r"Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar");
+    let Ok(read) = std::fs::read_dir(pins) else {
+        return;
+    };
+    for link in read.flatten().map(|entry| entry.path()) {
+        let is_old = link_target(&link).is_some_and(|target| {
+            target.parent().is_some_and(|parent| same_path(parent, dir))
+                && target.file_name().is_some_and(|name| {
+                    LEGACY_EXES.iter().any(|old| name.eq_ignore_ascii_case(old))
+                })
+        });
+        if is_old {
+            let _ = shortcut(&link, window);
+        }
+    }
 }
 
 /// Remove a shortcut only if it is ours: a "Velo.lnk" the user made to

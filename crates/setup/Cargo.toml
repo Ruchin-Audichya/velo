@@ -28,6 +28,7 @@ gpui-component = { git = "https://github.com/longbridge/gpui-kit.git", features 
 gpui-kit-assets = { git = "https://github.com/longbridge/gpui-kit.git", features = ["gpui-fast"] }
 gpui_platform = { package = "gpui-fast-platform", version = "0.1.13", features = ["font-kit", "x11", "wayland", "runtime_shaders"] }
 velo-ipc = { path = "../ipc" }
+velo-platform = { workspace = true }
 velo-wire = { path = "../wire" }
 windows-registry = "0.6.1"
 windows = { version = "0.62.2", features = [

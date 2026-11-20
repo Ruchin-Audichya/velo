@@ -32,6 +32,9 @@ fn main() -> Result<()> {
         );
         return Ok(());
     }
+    // Before anything opens a file: the store, the lock and the log all live
+    // under the folders this renames. Logged once logging is up, below.
+    let renamed = velo_platform::legacy_names::migrate();
 
     // A named account profile owns its socket, lock, database and media
     // cache; without one this is the default profile on the historic paths.
@@ -87,6 +90,9 @@ fn main() -> Result<()> {
     // output the moment a tray is connected.
     velo_logging::install(&["zbus", "tracing"]);
     velo_logging::activate();
+    for line in renamed {
+        log::info!("{line}");
+    }
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()

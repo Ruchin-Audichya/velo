@@ -32,6 +32,8 @@ mod platform;
 #[cfg(windows)]
 pub mod windows_desktop;
 
+pub mod legacy_names;
+
 pub use platform::{sleep, spawn, try_sleep};
 
 /// [`Send`], where the platform's executor asks for it.
