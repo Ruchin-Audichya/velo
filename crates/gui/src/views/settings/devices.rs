@@ -138,6 +138,73 @@ fn choices(
     )
 }
 
+/// What the camera settings offer instead of every mode a camera lists: a
+/// webcam such as the C920 reports dozens, most of which a call cannot use or
+/// nobody would choose between.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Preset {
+    /// Small and light: the least bandwidth and CPU, for a weak connection.
+    Saver,
+    /// VGA, the default, and what every webcam can do.
+    Standard,
+    /// 720p, the most a WhatsApp call carries.
+    Hd,
+}
+
+impl Preset {
+    const ALL: [Self; 3] = [Self::Saver, Self::Standard, Self::Hd];
+
+    fn id(self) -> &'static str {
+        match self {
+            Self::Saver => "saver",
+            Self::Standard => "standard",
+            Self::Hd => "hd",
+        }
+    }
+
+    fn label(self) -> gpui::SharedString {
+        match self {
+            Self::Saver => crate::tr!(DataSaver),
+            Self::Standard => crate::tr!(StandardQuality),
+            Self::Hd => crate::tr!(HdQuality),
+        }
+        .into()
+    }
+
+    /// The mode this preset means for a camera offering `modes`, or `None`
+    /// when it offers nothing in that range: the height nearest the ideal,
+    /// then the frame rate nearest it, then the widest picture.
+    fn pick(self, modes: &[CameraMode]) -> Option<CameraMode> {
+        let (heights, ideal_height, ideal_fps) = match self {
+            Self::Saver => (180..=400, 360, 15),
+            Self::Standard => (420..=600, 480, 30),
+            Self::Hd => (601..=1080, 720, 30),
+        };
+        modes
+            .iter()
+            .copied()
+            .filter(|mode| heights.contains(&mode.height))
+            .min_by_key(|mode| {
+                (
+                    mode.height.abs_diff(ideal_height),
+                    mode.fps.abs_diff(ideal_fps),
+                    std::cmp::Reverse(mode.width),
+                )
+            })
+    }
+}
+
+/// A choice chip: filled in the accent when it is the one in effect, so the
+/// current setting reads at a glance. An outline's own selected state is
+/// a shade apart from its resting one, too faint to tell on a dark theme.
+fn chosen(button: Button, selected: bool) -> Button {
+    if selected {
+        button.primary().selected(true)
+    } else {
+        button.outline()
+    }
+}
+
 fn supported_mode(mode: CameraMode) -> bool {
     velo_video::VideoQuality {
         width: mode.width,
@@ -180,6 +247,11 @@ pub fn render(
     if modes.is_empty() {
         modes.push(CameraMode::default());
     }
+    // A mode saved before the presets, or picked for a camera since
+    // replaced, is shown as what it is rather than silently re-chosen.
+    let custom = !Preset::ALL
+        .iter()
+        .any(|preset| preset.pick(&modes) == Some(preferences.camera_mode));
     let mut content = div().flex().flex_col().gap(m.space_xl())
         .child(div().text_size(m.text_small()).text_color(cx.theme().muted_foreground).child(crate::tr!(PreferencesApplyToYourNextCallTestEachDeviceBeforeCallingDeviceTestsAccessOnlyTheDeviceYou)))
         .child(div().flex().child(Button::new("refresh-call-devices").label(crate::tr!(RefreshDevices)).outline().disabled(busy || active).on_click(move |_, _, cx| refresh.update(cx, |app, cx| app.refresh_call_devices(cx)))))
@@ -190,14 +262,30 @@ pub fn render(
         .child(choices(crate::tr!(RingtoneOutput), Kind::RingtoneOutput, &inventory.speakers, &preferences, entity.clone(), edits_disabled, m, cx))
         .child(group(label(crate::tr!(Ringtone), m, cx), div().flex().gap(m.space_sm()).children([(Ringtone::Silent, crate::tr!(Silent)), (Ringtone::Classic, crate::tr!(Classic)), (Ringtone::Gentle, crate::tr!(Gentle))].into_iter().map(|(tone, label)| {
             let entity = entity.clone(); let mut p = preferences.clone(); p.ringtone = tone;
-            Button::new(gpui::SharedString::from(format!("ringtone-{label}"))).label(label).outline().small().selected(preferences.ringtone == tone).disabled(edits_disabled).on_click(move |_, _, cx| { let p = p.clone(); entity.update(cx, |app, cx| app.save_call_devices(p, cx)); })
+            Button::new(gpui::SharedString::from(format!("ringtone-{label}"))).label(label).small().map(|b| chosen(b, preferences.ringtone == tone)).disabled(edits_disabled).on_click(move |_, _, cx| { let p = p.clone(); entity.update(cx, |app, cx| app.save_call_devices(p, cx)); })
         })), m))
         .child(div().flex().child(Button::new("test-call-ringtone").label(crate::tr!(TestRingtone)).outline().disabled(busy).on_click(move |_, _, cx| ringtone_test.update(cx, |app, cx| app.test_call_ringtone(cx)))))
         .child(choices(crate::tr!(Camera), Kind::Camera, &inventory.cameras, &preferences, entity.clone(), edits_disabled, m, cx))
-        .child(group(label(crate::tr!(ResolutionAndFrameRate), m, cx), div().flex().flex_wrap().gap(m.space_sm()).children(modes.into_iter().enumerate().map(|(index, mode)| {
-            let entity = entity.clone(); let mut p = preferences.clone(); p.camera_mode = mode;
-            Button::new(gpui::SharedString::from(format!("camera-mode-{index}"))).label(format!("{} × {} · {} FPS", mode.width, mode.height, mode.fps)).outline().small().selected(preferences.camera_mode == mode).disabled(edits_disabled).on_click(move |_, _, cx| { let p = p.clone(); entity.update(cx, |app, cx| app.save_call_devices(p, cx)); })
-        })), m))
+        .child(group(label(crate::tr!(VideoQuality), m, cx), div().flex().flex_col().gap(m.space_sm())
+            .child(div().flex().flex_wrap().gap(m.space_sm()).children(Preset::ALL.into_iter().map(|preset| {
+                let picked = preset.pick(&modes);
+                let entity = entity.clone();
+                let mut p = preferences.clone();
+                if let Some(mode) = picked { p.camera_mode = mode; }
+                Button::new(gpui::SharedString::from(format!("camera-preset-{}", preset.id())))
+                    .label(preset.label())
+                    .small()
+                    .map(|b| chosen(b, picked.is_some() && picked == Some(preferences.camera_mode)))
+                    .disabled(edits_disabled || picked.is_none())
+                    .on_click(move |_, _, cx| { let p = p.clone(); entity.update(cx, |app, cx| app.save_call_devices(p, cx)); })
+            })).when(custom, |row| row.child(
+                Button::new("camera-preset-custom")
+                    .label(crate::tr!(custom_camera, preferences.camera_mode.width, preferences.camera_mode.height, preferences.camera_mode.fps))
+                    .small()
+                    .map(|b| chosen(b, true))
+                    .disabled(true),
+            )))
+            .child(div().text_size(m.text_small()).text_color(cx.theme().muted_foreground).child(crate::tr!(VideoQualityNote))), m))
         .child(div().text_size(m.text_small()).child(crate::tr!(requested_camera, preferences.camera_mode.width, preferences.camera_mode.height, preferences.camera_mode.fps)))
         .child(div().flex().child(Button::new("camera-preview").label(if active { crate::tr!(StopCameraPreview) } else { crate::tr!(PreviewCamera) }).outline().disabled((busy || !ready) && !active).on_click(move |_, _, cx| preview.update(cx, |app, cx| if active { app.cancel_camera_preview(cx); } else { app.start_camera_preview(cx); }))));
     if let Some(image) = app.camera_preview_image(cx) {
@@ -254,6 +342,38 @@ pub fn render(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn mode(width: u32, height: u32, fps: u32) -> CameraMode {
+        CameraMode { width, height, fps }
+    }
+
+    /// What a C920 or C922 offers once the call path's limits are applied:
+    /// MJPEG up to 720p at 30, and the smaller modes at 30 and lower.
+    #[test]
+    fn presets_find_the_modes_a_c920_offers() {
+        let offered = [
+            mode(320, 240, 30),
+            mode(640, 360, 15),
+            mode(640, 360, 30),
+            mode(640, 480, 15),
+            mode(640, 480, 30),
+            mode(800, 600, 30),
+            mode(960, 540, 30),
+            mode(1280, 720, 15),
+            mode(1280, 720, 30),
+        ];
+        assert_eq!(Preset::Saver.pick(&offered), Some(mode(640, 360, 15)));
+        assert_eq!(Preset::Standard.pick(&offered), Some(mode(640, 480, 30)));
+        assert_eq!(Preset::Hd.pick(&offered), Some(mode(1280, 720, 30)));
+    }
+
+    #[test]
+    fn a_preset_the_camera_cannot_meet_is_offered_as_unavailable() {
+        let vga_only = [mode(640, 480, 30)];
+        assert_eq!(Preset::Hd.pick(&vga_only), None);
+        assert_eq!(Preset::Saver.pick(&vga_only), None);
+        assert_eq!(Preset::Standard.pick(&vga_only), Some(mode(640, 480, 30)));
+    }
     #[test]
     fn choices_follow_the_capture_codecs_mode_limits() {
         assert!(!supported_mode(CameraMode {

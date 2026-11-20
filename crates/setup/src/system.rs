@@ -142,6 +142,9 @@ pub fn install(options: Options, progress: &dyn Fn(Step)) -> Result<(), String> 
     progress(Step::Registering);
     set_start_at_sign_in(options.start_at_sign_in, &dir.join(DAEMON_EXE))?;
     register_uninstaller(&dir, &entries)?;
+    // Before the first toast: Settings lists Velo by name and logo, and the
+    // first notification is not a blank square.
+    let _ = velo_platform::windows_desktop::register_identity();
     refresh_shell();
     Ok(())
 }

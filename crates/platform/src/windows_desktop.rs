@@ -176,11 +176,47 @@ fn claim_chime_slot() -> bool {
     true
 }
 
+/// The logo a toast shows beside "Velo", and Settings beside the app's
+/// notification switch.
+const LOGO: &[u8] = include_bytes!("../../../packaging/windows/velo.png");
+
 pub fn notifier() -> windows::core::Result<ToastNotifier> {
-    CURRENT_USER
-        .create(format!(r"Software\Classes\AppUserModelId\{APP_ID}"))?
-        .set_string("DisplayName", "Velo")?;
+    register_identity()?;
     ToastNotificationManager::CreateToastNotifierWithId(&HSTRING::from(APP_ID))
+}
+
+/// Tell Windows what Velo's notifications are called and what they look
+/// like. Done when a notifier is made, and up front by the daemon and the
+/// installer, so the very first toast — and Settings' notification list —
+/// already carry the name and logo.
+pub fn register_identity() -> windows::core::Result<()> {
+    let key = CURRENT_USER.create(format!(r"Software\Classes\AppUserModelId\{APP_ID}"))?;
+    key.set_string("DisplayName", "Velo")?;
+    // An unpackaged app has no manifest to carry its logo, so Windows reads
+    // it from this file path instead; without one, every toast shows a
+    // blank square. A failure to write it costs the picture, not the toast.
+    if let Some(logo) = logo_file() {
+        key.set_string("IconUri", logo.display().to_string())?;
+        // The tile behind the logo; transparent lets the logo's own tile
+        // stand on whatever the toast is drawn on.
+        key.set_string("IconBackgroundColor", "00000000")?;
+    }
+    Ok(())
+}
+
+/// The logo, written where Windows can read it: beside Velo's data, and
+/// rewritten only when this build carries a different one.
+fn logo_file() -> Option<std::path::PathBuf> {
+    let dir =
+        std::path::PathBuf::from(std::env::var_os("LOCALAPPDATA")?).join(crate::legacy_names::NEW);
+    let path = dir.join("notification-logo.png");
+    let current = std::fs::metadata(&path).is_ok_and(|meta| meta.len() == LOGO.len() as u64)
+        && std::fs::read(&path).is_ok_and(|bytes| bytes == LOGO);
+    if !current {
+        std::fs::create_dir_all(&dir).ok()?;
+        std::fs::write(&path, LOGO).ok()?;
+    }
+    Some(path)
 }
 
 /// Run the local Windows delivery path without fetching or sending a message.

@@ -12,8 +12,10 @@ formatted_catalog! {
     wants_to(capabilities) => ("Wants to: {capabilities}", "Solicita: {capabilities}");
     also(capabilities) => ("Also: {capabilities}", "Também: {capabilities}");
     files(count) => ("{count} files", "{count} arquivos");
+    unread_chats(count) => ("{count} unread chats", "{count} conversas não lidas");
     system_default_device(device) => ("{device} (system default)", "{device} (padrão do sistema)");
     requested_camera(width, height, fps) => ("Requested camera mode: {width} × {height} · {fps} FPS", "Modo de câmera solicitado: {width} × {height} · {fps} FPS");
+    custom_camera(width, height, fps) => ("Custom · {width} × {height} · {fps} FPS", "Personalizado · {width} × {height} · {fps} FPS");
     opened_camera(width, height, fps) => ("Camera opened at {width} × {height} · {fps} FPS", "Câmera aberta em {width} × {height} · {fps} FPS");
     last_seen(time) => ("last seen {time}", "visto por último {time}");
     others(line, count) => ("{line} and {count}", "{line} e {count}");

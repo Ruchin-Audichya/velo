@@ -4634,6 +4634,18 @@ impl Render for WhatsAppApp {
             .update(cx, |search, cx| search.refresh_language(window, cx));
         self.reconcile_media_owner(cx);
         self.observe_window_activation(window, cx);
+        let unread = self.unread_chat_count();
+        let theme = gpui_component::ActiveTheme::theme(&**cx);
+        let (fill, ink) = (theme.primary.to_rgb(), theme.primary_foreground.to_rgb());
+        crate::platform::taskbar::show(
+            window,
+            crate::platform::taskbar::label(unread).map(|label| crate::platform::taskbar::Badge {
+                label,
+                description: crate::tr!(unread_chats, unread).to_string(),
+                fill,
+                ink,
+            }),
+        );
         // First, because every dimension below resolves from the scale this
         // settles: the window's size is folded into the base font here and
         // nowhere else, which is what lets a 480×640 handheld get the whole

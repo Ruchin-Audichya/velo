@@ -49,12 +49,11 @@ mod tests {
             let mut options = gpui::WindowOptions::default();
             super::apply(&mut options, cx);
             assert_eq!(options.app_id.as_deref(), Some(super::APP_ID));
-            let icon = options
-                .icon
-                .expect("organization PNG produces a window icon");
-            assert_eq!(icon.dimensions(), (460, 460));
+            let icon = options.icon.expect("the Velo PNG produces a window icon");
+            assert_eq!(icon.dimensions(), (256, 256));
             assert_eq!(icon.get_pixel(0, 0).0, [0, 0, 0, 0]);
-            assert_eq!(icon.get_pixel(230, 230).0, [234, 55, 9, 255]);
+            // The green tile, left of the speech bubble.
+            assert_eq!(icon.get_pixel(20, 128).0, [33, 192, 99, 255]);
         });
     }
 }

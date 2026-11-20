@@ -249,7 +249,11 @@ catalog! {
     Gentle => ("Gentle", "Suave");
     TestRingtone => ("Test ringtone", "Testar toque");
     Camera => ("Camera", "Câmera");
-    ResolutionAndFrameRate => ("Resolution and frame rate", "Resolução e taxa de quadros");
+    VideoQuality => ("Video quality", "Qualidade do vídeo");
+    DataSaver => ("Data saver", "Economia de dados");
+    StandardQuality => ("Standard", "Padrão");
+    HdQuality => ("HD", "HD");
+    VideoQualityNote => ("Calls carry up to HD (1280 × 720). A choice your camera cannot make is greyed out.", "As chamadas transmitem até HD (1280 × 720). Opções que sua câmera não suporta ficam desativadas.");
     StopCameraPreview => ("Stop camera preview", "Parar prévia da câmera");
     PreviewCamera => ("Preview camera", "Prévia da câmera");
     StartCall => ("Start call", "Iniciar chamada");

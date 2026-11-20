@@ -93,6 +93,10 @@ fn main() -> Result<()> {
     for line in renamed {
         log::info!("{line}");
     }
+    #[cfg(windows)]
+    if let Err(e) = velo_platform::windows_desktop::register_identity() {
+        log::warn!("could not register Velo's notification name and logo: {e}");
+    }
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
