@@ -10,8 +10,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Ruchin-Audichya/velo/releases/latest"><b>⬇ Download for Windows</b></a>
+  <a href="https://github.com/Ruchin-Audichya/velo/releases/latest/download/Velo-Setup-1.1.0-x64.exe"><b>⬇ Download Velo 1.1 for Windows</b></a>
   &nbsp;·&nbsp; Windows 10 &amp; 11, 64-bit &nbsp;·&nbsp; free
+  <br><sub><a href="https://github.com/Ruchin-Audichya/velo/releases/latest">All downloads, portable zip and checksums</a></sub>
 </p>
 
 ---
@@ -34,6 +35,17 @@ Velo is a **real Windows app**: written in Rust, drawn on your GPU, no embedded 
 
 It also keeps running in the tray when you close the window, so messages and calls still reach you. Like a messenger is supposed to.
 
+## New in 1.1
+
+- **An unread count on the taskbar icon**, so a glance at the taskbar tells you if anything's new
+- **The Velo logo on every notification**, instead of a blank square
+- **A new ringtone**: a bright marimba (Classic) or a soft kalimba (Gentle), loud enough to hear across the room, with no clicks
+- **HD video calls in one click**: pick *Data saver*, *Standard* or *HD* instead of scrolling a list of 40 camera modes. Webcams like the Logitech C920 and C922 get 720p.
+- **Find any file you've ever been sent**: a fast search across file names in every chat, even ones you haven't opened
+- **Start a chat from your contacts**, or add a new contact right from Velo
+- A redesigned Calls and Files screen, photos on Status, and a "jump to latest" button in long chats
+- Velo now uses its own name everywhere on your PC. Updating from 1.0 moves your chats across automatically, and you stay signed in.
+
 ## What it does
 
 **The everyday stuff, done properly**
@@ -46,8 +58,9 @@ It also keeps running in the tray when you close the window, so messages and cal
 
 **The stuff WhatsApp Web doesn't do**
 - **Preview photos and videos before downloading them**, so you know if that 40 MB video is worth it
-- **Search across every chat at once**, and a per-chat **files panel** you can actually search and sort
-- Native **notifications with soft chimes**, a tray icon, and **start at sign-in**
+- **Search across every chat at once**, and **find any file by name** across all your chats in a blink
+- **HD video calls** with one-click quality presets for your webcam
+- Native **notifications with soft chimes and the Velo logo**, an **unread badge on the taskbar**, a tray icon, and **start at sign-in**
 - Keyboard-first: Ctrl+K search, Alt+↑↓ to move between chats, Alt+Shift+↓ for the next unread, Ctrl+N for a new chat
 - **Themes, accent colours and chat wallpapers**: Classic dark & light, plus Velo violet, Ultramarine and Coral accents
 - Snappy, native animations: things fade and settle, nothing bounces at you
@@ -60,7 +73,9 @@ It also keeps running in the tray when you close the window, so messages and cal
 
 That's it. Your chats show up and you're in.
 
-Prefer no installer? Grab the **portable zip**, unzip it anywhere, and run `oxidezap.exe`.
+Prefer no installer? Grab the **portable zip**, unzip it anywhere, and run `velo.exe`.
+
+**Already on 1.0?** Just run the new installer. It updates in place, keeps your chats and your taskbar pin, and you stay signed in.
 
 **To remove Velo:** Windows Settings → Apps → Installed apps → Velo → Uninstall. You choose whether to keep your chats on this PC for next time.
 
@@ -69,7 +84,7 @@ Prefer no installer? Grab the **portable zip**, unzip it anywhere, and run `oxid
 ## Is it safe?
 
 - **Your messages stay end-to-end encrypted.** Velo is a *linked device*, exactly like WhatsApp Web. Your phone stays the boss.
-- **Your data stays on your PC**, in `%LOCALAPPDATA%\oxidezap`. Nothing is sent anywhere except to WhatsApp itself.
+- **Your data stays on your PC**, in `%LOCALAPPDATA%\velo`. Nothing is sent anywhere except to WhatsApp itself.
 - **The honest part:** Velo is *unofficial*. WhatsApp's terms don't love third-party clients, so there's a small but real chance WhatsApp restricts an account that uses one. Plenty of people use unofficial clients without trouble, but you should know it's a possibility. Use it at your own risk.
 
 ## What it's built on
