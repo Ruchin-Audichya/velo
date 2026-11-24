@@ -118,6 +118,10 @@ pub struct ChatRow {
     pub pinned: bool,
     pub muted_until: Option<DateTime<Utc>>,
     pub archived: bool,
+    /// A community header drawn from its groups because the community
+    /// itself is not a chat here: clicking it folds the community rather
+    /// than opening a conversation that does not exist.
+    pub synthetic_community: bool,
 }
 
 impl ChatRow {
@@ -156,6 +160,7 @@ impl ChatRow {
             pinned: chat.pinned_at.is_some(),
             muted_until: chat.muted_until,
             archived: chat.archived,
+            synthetic_community: false,
         }
     }
 
@@ -180,7 +185,14 @@ fn hierarchy_label(hierarchy: Option<&GroupHierarchy>) -> Option<&'static str> {
 
 pub fn disambiguate_names(rows: &mut [ChatRow]) {
     let mut by_name: HashMap<String, Vec<usize>> = HashMap::new();
-    for (index, row) in rows.iter().enumerate() {
+    // A row nested under its community already has its context: every
+    // community has an "Announcements", and tagging each one would only
+    // add noise where the header above says which it is.
+    for (index, row) in rows
+        .iter()
+        .enumerate()
+        .filter(|(_, row)| row.tree_depth == 0)
+    {
         by_name.entry(row.name.clone()).or_default().push(index);
     }
     for indices in by_name.values_mut().filter(|indices| indices.len() > 1) {

@@ -375,6 +375,18 @@ impl Settings {
         self.apply_draft(window, cx);
     }
 
+    pub(super) fn set_motion(
+        &mut self,
+        motion: crate::motion::MotionLevel,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(settings) = &mut self.open {
+            settings.draft.motion = motion;
+        }
+        self.apply_draft(window, cx);
+    }
+
     pub(super) fn set_wallpaper(
         &mut self,
         wallpaper: crate::theme::wallpaper::Wallpaper,

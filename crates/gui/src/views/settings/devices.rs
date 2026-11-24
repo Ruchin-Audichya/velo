@@ -249,7 +249,7 @@ pub fn render(
         .child(choices(crate::tr!(Speaker), Kind::Speaker, &inventory.speakers, &preferences, entity.clone(), edits_disabled, m, cx))
         .child(div().flex().child(Button::new("test-call-speaker").label(crate::tr!(TestSpeaker)).outline().disabled(busy).on_click(move |_, _, cx| speaker_test.update(cx, |app, cx| app.test_call_speaker(cx)))))
         .child(choices(crate::tr!(RingtoneOutput), Kind::RingtoneOutput, &inventory.speakers, &preferences, entity.clone(), edits_disabled, m, cx))
-        .child(group(label(crate::tr!(Ringtone), m, cx), div().flex().gap(m.space_sm()).children([(Ringtone::Silent, crate::tr!(Silent)), (Ringtone::Classic, crate::tr!(Classic)), (Ringtone::Gentle, crate::tr!(Gentle))].into_iter().map(|(tone, label)| {
+        .child(group(label(crate::tr!(Ringtone), m, cx), div().flex().flex_wrap().gap(m.space_sm()).children([(Ringtone::Signature, crate::tr!(VeloSignature)), (Ringtone::GlassChime, crate::tr!(GlassChime)), (Ringtone::Classic, crate::tr!(Classic)), (Ringtone::Gentle, crate::tr!(Gentle)), (Ringtone::Silent, crate::tr!(Silent))].into_iter().map(|(tone, label)| {
             let entity = entity.clone(); let mut p = preferences.clone(); p.ringtone = tone;
             Button::new(gpui::SharedString::from(format!("ringtone-{label}"))).label(label).small().map(|b| chosen(b, preferences.ringtone == tone)).disabled(edits_disabled).on_click(move |_, _, cx| { let p = p.clone(); entity.update(cx, |app, cx| app.save_call_devices(p, cx)); })
         })), m))

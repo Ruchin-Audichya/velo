@@ -24,6 +24,7 @@ mod rich_text;
 pub(crate) mod rich_text_selection;
 mod status;
 mod status_ticks;
+pub(crate) mod sticker_packs;
 #[cfg(not(target_family = "wasm"))]
 mod window_bar;
 

@@ -19,7 +19,7 @@ static CALL_PREFERENCES: std::sync::RwLock<(velo_core::CallDevicePreferences, bo
                 height: 480,
                 fps: 30,
             },
-            ringtone: Ringtone::Classic,
+            ringtone: Ringtone::Signature,
         },
         false,
     ));
@@ -77,6 +77,78 @@ const B5: f64 = 987.77;
 const C6: f64 = 1046.5;
 const D6: f64 = 1174.66;
 const E6: f64 = 1318.51;
+const FS5: f64 = 739.99;
+const CS6: f64 = 1108.73;
+
+/// Velo Signature: an original motif on a warm synthesized pluck. The
+/// partials are harmonic and fade fast above the fundamental, so it reads as
+/// soft rather than bright, and the rise E–A–C♯ then the turn to B and home
+/// to A is short enough to hear in full on every ring.
+const SIGNATURE: Voice = Voice {
+    partials: &[
+        (1.0, 1.0, 0.42),
+        (2.0, 0.22, 0.16),
+        (3.0, 0.07, 0.08),
+        (0.5, 0.18, 0.5),
+    ],
+    attack: 0.008,
+    notes: &[
+        Note {
+            at: 0.00,
+            hz: E5,
+            gain: 0.80,
+        },
+        Note {
+            at: 0.15,
+            hz: A5,
+            gain: 0.88,
+        },
+        Note {
+            at: 0.30,
+            hz: CS6,
+            gain: 0.92,
+        },
+        Note {
+            at: 0.56,
+            hz: B5,
+            gain: 0.78,
+        },
+        Note {
+            at: 0.80,
+            hz: A5,
+            gain: 0.82,
+        },
+    ],
+};
+
+/// Glass Chime: bells whose partials sit at the non-integer ratios of a
+/// struck glass bowl, falling F♯–E–C♯ like a doorbell heard through a wall.
+const GLASS: Voice = Voice {
+    partials: &[
+        (1.0, 1.0, 0.55),
+        (2.76, 0.30, 0.22),
+        (5.40, 0.10, 0.10),
+        (8.93, 0.04, 0.05),
+    ],
+    attack: 0.002,
+    notes: &[
+        Note {
+            at: 0.00,
+            hz: E6,
+            gain: 0.70,
+        },
+        Note {
+            at: 0.30,
+            hz: CS6,
+            gain: 0.72,
+        },
+        Note {
+            at: 0.62,
+            hz: FS5,
+            gain: 0.80,
+        },
+    ],
+};
 
 /// Classic: a bright marimba phrase climbing a G major arpeggio and
 /// answering itself. A marimba bar's overtones sit near 4× and 10× the
@@ -178,6 +250,8 @@ pub fn ringtone_sample(tone: Ringtone, frame: u64, rate: u32) -> i16 {
         Ringtone::Silent => return 0,
         Ringtone::Gentle => &KALIMBA,
         Ringtone::Classic => &MARIMBA,
+        Ringtone::Signature => &SIGNATURE,
+        Ringtone::GlassChime => &GLASS,
     };
     if rate == 0 {
         return 0;
@@ -344,12 +418,24 @@ mod imp {
             move |stop| {
                 let device = select(output.as_deref(), false)?;
                 let (config, format) = crate::call_device::default_config(&device, false)?;
-                let (producer, consumer) =
+                let (mut producer, consumer) =
                     ringbuf::HeapRb::<i16>::new(config.sample_rate as usize).split();
+                // Queued before the stream starts, so its first callback has
+                // a ring to play rather than silence: a stream started empty
+                // underran on its first buffers, a click at every ring.
+                let mut frame = 0;
+                top_up(
+                    &mut producer,
+                    tone,
+                    &mut frame,
+                    config.sample_rate,
+                    PREFILL_SECONDS,
+                );
                 let on_error = {
                     let stop = stop.clone();
                     Arc::new(move || stop.store(true, Ordering::Release))
                 };
+                let underruns = Arc::new(AtomicU64::new(0));
                 let stream = crate::call_device::build_output_stream(
                     &device,
                     &config,
@@ -358,7 +444,7 @@ mod imp {
                     consumer,
                     crate::call_device::SpeakerCounters {
                         pops: Arc::new(AtomicU64::new(0)),
-                        underruns: Arc::new(AtomicU64::new(0)),
+                        underruns: underruns.clone(),
                     },
                     on_error,
                 )?;
@@ -366,24 +452,50 @@ mod imp {
                     anyhow::bail!("ringtone cancelled");
                 }
                 stream.play()?;
-                Ok((stream, config.sample_rate, producer))
+                Ok((stream, config.sample_rate, producer, frame, underruns))
             },
-            move |(_stream, rate, mut producer), stop| {
-                let mut frame = 0;
+            move |(_stream, rate, mut producer, mut frame, underruns), stop| {
+                // Everything the queue has room for, every pass. The loop used
+                // to push a fixed 10 ms and then sleep "5 ms", but Windows'
+                // default timer sleeps about 15.6 ms, so it fed 10 ms of ring
+                // per 15.6 ms of playback: the queue ran dry over and over,
+                // the callback filled the gaps with silence, and the ring
+                // stuttered. Topping up to capacity makes the feed independent
+                // of how long the sleep really was.
                 while !stop.load(Ordering::Acquire) {
-                    for _ in 0..(rate / 100) {
-                        if producer
-                            .try_push(ringtone_sample(tone, frame, rate))
-                            .is_err()
-                        {
-                            break;
-                        }
-                        frame += 1;
-                    }
-                    std::thread::park_timeout(Duration::from_millis(5));
+                    top_up(&mut producer, tone, &mut frame, rate, f64::INFINITY);
+                    std::thread::park_timeout(Duration::from_millis(20));
+                }
+                let gaps = underruns.load(Ordering::Relaxed);
+                if gaps > 0 {
+                    log::debug!("the ringtone underran {gaps} times");
                 }
             },
         )
+    }
+
+    /// Seconds of ring queued before the stream starts.
+    const PREFILL_SECONDS: f64 = 0.25;
+
+    /// Push ring samples from `frame` on until the queue is full or `seconds`
+    /// of them have gone in; `frame` advances past what went in.
+    pub(crate) fn top_up(
+        producer: &mut impl Producer<Item = i16>,
+        tone: Ringtone,
+        frame: &mut u64,
+        rate: u32,
+        seconds: f64,
+    ) {
+        let limit = (seconds * f64::from(rate)).min(u32::MAX as f64) as u64;
+        let mut pushed = 0;
+        while pushed < limit
+            && producer
+                .try_push(ringtone_sample(tone, *frame, rate))
+                .is_ok()
+        {
+            *frame += 1;
+            pushed += 1;
+        }
     }
 
     fn start_worker<T: 'static>(
@@ -577,12 +689,50 @@ pub(crate) use imp::{MicrophoneChoice, microphone_choice, select};
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(not(target_family = "wasm"))]
+    #[test]
+    fn the_ring_feed_fills_its_queue_however_long_the_sleep_was() {
+        use ringbuf::traits::{Observer, Split};
+        let rate = 48_000;
+        let (mut producer, consumer) = ringbuf::HeapRb::<i16>::new(rate as usize).split();
+        let mut frame = 0;
+        super::imp::top_up(&mut producer, Ringtone::Classic, &mut frame, rate, 0.25);
+        assert_eq!(
+            consumer.occupied_len(),
+            12_000,
+            "a quarter second before play"
+        );
+        super::imp::top_up(
+            &mut producer,
+            Ringtone::Classic,
+            &mut frame,
+            rate,
+            f64::INFINITY,
+        );
+        assert_eq!(
+            consumer.occupied_len(),
+            rate as usize,
+            "one pass fills it to capacity"
+        );
+        assert_eq!(
+            frame,
+            u64::from(rate),
+            "and the ring continues where it left off"
+        );
+    }
     #[test]
     fn tones_are_bounded_and_have_silent_gaps() {
         let rate = 16_000;
         let cycle = (RING_CYCLE * f64::from(rate)) as u64;
         let phrase = (RING_PHRASE * f64::from(rate)) as u64 + 1;
-        for tone in [Ringtone::Classic, Ringtone::Gentle, Ringtone::Silent] {
+        for tone in [
+            Ringtone::Classic,
+            Ringtone::Gentle,
+            Ringtone::Signature,
+            Ringtone::GlassChime,
+            Ringtone::Silent,
+        ] {
             assert!((0..cycle * 2).all(|i| ringtone_sample(tone, i, rate).abs() <= RING_PEAK));
             assert!(
                 (phrase..cycle).all(|i| ringtone_sample(tone, i, rate) == 0),
@@ -598,7 +748,12 @@ mod tests {
     #[test]
     fn the_ring_has_no_clicks() {
         let rate = 48_000;
-        for tone in [Ringtone::Classic, Ringtone::Gentle] {
+        for tone in [
+            Ringtone::Classic,
+            Ringtone::Gentle,
+            Ringtone::Signature,
+            Ringtone::GlassChime,
+        ] {
             let samples: Vec<i32> = (0..(RING_CYCLE * f64::from(rate)) as u64)
                 .map(|i| i32::from(ringtone_sample(tone, i, rate)))
                 .collect();

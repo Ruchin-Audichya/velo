@@ -78,6 +78,7 @@ pub struct ResponsiveLayout {
     metrics: Metrics,
     sidebar_preference_rem: Option<f32>,
     show_details: bool,
+    rail_expanded: bool,
 }
 
 impl ResponsiveLayout {
@@ -98,7 +99,19 @@ impl ResponsiveLayout {
             metrics,
             sidebar_preference_rem: None,
             show_details: false,
+            rail_expanded: false,
         }
+    }
+
+    /// The side rail is expanded, labels and all.
+    pub fn with_rail(mut self, expanded: bool) -> Self {
+        self.rail_expanded = expanded;
+        self
+    }
+
+    /// Whether the side rail is showing labels.
+    pub fn rail_expanded(&self) -> bool {
+        self.rail_expanded && !self.is_mobile()
     }
 
     pub fn with_panes(mut self, sidebar_preference_rem: Option<f32>, show_details: bool) -> Self {
@@ -210,8 +223,10 @@ impl ResponsiveLayout {
     pub fn rail_width(&self) -> Pixels {
         if self.is_mobile() {
             Pixels::ZERO
+        } else if self.rail_expanded {
+            self.metrics.rail_expanded_width()
         } else {
-            self.metrics.icon_button() + self.metrics.space_lg()
+            self.metrics.rail_target() + self.metrics.space_lg()
         }
     }
 

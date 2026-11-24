@@ -332,6 +332,8 @@ actions!(
     [
         /// Move focus to the conversation search field.
         FocusSearch,
+        /// Show or hide the labels in the side rail.
+        ToggleRail,
         /// Open the next conversation in the list, wherever focus is.
         NextChat,
         /// Open the previous conversation in the list, wherever focus is.
@@ -646,6 +648,7 @@ pub fn init_app_bindings(cx: &mut gpui::App) {
         window_binding("secondary-k", FocusSearch, cx),
         // WhatsApp Desktop's own shortcut for a new chat.
         window_binding("secondary-n", forward::NewChat, cx),
+        window_binding("secondary-b", ToggleRail, cx),
         window_binding(
             crate::platform::keyboard::conversation_search_key(),
             ToggleConversationSearch,
@@ -723,6 +726,9 @@ pub struct WhatsAppApp {
     /// Contact info / Group info, opened from the chat header's name.
     pub(crate) contact_info_open: bool,
     pub(crate) sidebar_preference_rem: Option<f32>,
+    /// The side rail shows labels as well as icons. Read from the theme
+    /// file at start; Ctrl+B and the rail's own button change it.
+    pub(crate) rail_expanded: bool,
     pub(crate) shared_files_filter: crate::views::shared_files::Filter,
     pub(crate) shared_files_sort: crate::views::shared_files::Sort,
     /// Message hits from every chat for the sidebar's search.
@@ -1580,6 +1586,7 @@ impl WhatsAppApp {
             shared_files_open: false,
             contact_info_open: false,
             sidebar_preference_rem: None,
+            rail_expanded: crate::theme::config::load().rail_expanded,
             shared_files_filter: Default::default(),
             shared_files_sort: Default::default(),
             global_search: Default::default(),
@@ -1805,6 +1812,7 @@ impl WhatsAppApp {
                 && self.destination.has_conversations()
                 && self.selected_destination_jid().is_some(),
         )
+        .with_rail(self.rail_expanded)
     }
 
     /// Which panel a phone-width window is showing.
@@ -2095,6 +2103,26 @@ impl WhatsAppApp {
             .iter()
             .filter_map(|author| self.find_chat(&author.jid))
             .take(MAX)
+            .map(|chat| crate::session::avatar::ChatDemand {
+                jid: chat.jid.clone(),
+                picture_id: chat.avatar_picture_id.clone(),
+                cache_key: chat.avatar_cache_key.clone(),
+            })
+            .collect();
+        if demands.is_empty() {
+            return;
+        }
+        self.avatar_manager.demand_chats(&demands);
+        if let Some(session) = &self.client {
+            self.avatar_manager.flush_demands(session);
+        }
+    }
+
+    /// Ask for the pictures of these chats, wherever they are drawn.
+    pub fn demand_avatars_for(&mut self, jids: &[String]) {
+        let demands: Vec<crate::session::avatar::ChatDemand> = jids
+            .iter()
+            .filter_map(|jid| self.find_chat(jid))
             .map(|chat| crate::session::avatar::ChatDemand {
                 jid: chat.jid.clone(),
                 picture_id: chat.avatar_picture_id.clone(),
@@ -2872,6 +2900,7 @@ impl WhatsAppApp {
                         chat_jid: chat.jid.clone(),
                         message_id: message.id.clone(),
                         sticker,
+                        builtin: None,
                         label,
                         image: std::sync::Arc::new(gpui::Image::from_bytes(
                             format,
@@ -2883,6 +2912,25 @@ impl WhatsAppApp {
         }
         found.sort_by_key(|(at, _)| std::cmp::Reverse(*at));
         found.into_iter().take(120).map(|(_, item)| item).collect()
+    }
+
+    /// One of Velo's own stickers, sent as a real WhatsApp sticker.
+    fn send_builtin_sticker(&mut self, name: &str, cx: &mut Context<Self>) {
+        let Some(jid) = self.selected_chat.clone() else {
+            return;
+        };
+        let Some(bytes) = crate::components::sticker_packs::bytes(name) else {
+            return;
+        };
+        let picked = crate::platform::picker::Picked {
+            file_name: format!("{name}.webp"),
+            mime_type: "image/webp".to_string(),
+            kind: velo_core::OutgoingMedia::Sticker,
+            bytes,
+        };
+        if self.send_attachment(&jid, picked, None, None, cx) {
+            self.scroll_to_last_message();
+        }
     }
 
     /// Send a sticker or GIF from the panel to the open chat, as WhatsApp's
@@ -3691,6 +3739,7 @@ impl WhatsAppApp {
                 chat_jid,
                 message_id,
             } => self.send_existing(chat_jid.clone(), message_id.clone(), cx),
+            InputAreaEvent::SendBuiltinSticker(name) => self.send_builtin_sticker(name, cx),
             InputAreaEvent::PasteMedia => self.paste_media(cx),
             InputAreaEvent::StartRecording => {
                 self.start_recording(cx);
@@ -4923,6 +4972,9 @@ impl Render for WhatsAppApp {
             }))
             .on_action(cx.listener(|app, react: &ReactToMessage, window, cx| {
                 app.toggle_reaction(&react.id, &react.emoji, window, cx);
+            }))
+            .on_action(cx.listener(|app, _: &ToggleRail, _window, cx| {
+                app.toggle_rail(cx);
             }))
             .on_action(cx.listener(|app, _: &forward::NewChat, window, cx| {
                 app.open_new_chat(window, cx);

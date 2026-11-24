@@ -291,8 +291,41 @@ pub(super) fn hierarchical_group_rows(
     query: &str,
     collapsed: &std::collections::HashSet<String>,
 ) -> Vec<ChatRow> {
-    use velo_core::GroupHierarchy;
+    use velo_core::{GroupHierarchy, SubgroupKind};
 
+    // Most communities are not chats of their own: the account only ever
+    // talks in their groups, so the parent the groups name is not a row and
+    // nothing nested under it. Draw a header for each such community where
+    // its first group appears, named and pictured after its announcement
+    // group, which carries the community's own name, as WhatsApp lays it out.
+    let present: std::collections::HashSet<&str> =
+        rows.iter().map(|row| row.jid.as_str()).collect();
+    let mut augmented: Vec<ChatRow> = Vec::with_capacity(rows.len() + 8);
+    let mut made = std::collections::HashSet::new();
+    for row in rows {
+        if let Some(GroupHierarchy::Subgroup { parent_jid, .. }) = &row.group_hierarchy
+            && !present.contains(parent_jid.as_str())
+            && made.insert(parent_jid.clone())
+        {
+            let announcement = rows.iter().find(|other| {
+                matches!(&other.group_hierarchy, Some(GroupHierarchy::Subgroup { parent_jid: p, kind: SubgroupKind::Announcement }) if p == parent_jid)
+            });
+            let face = announcement.unwrap_or(row);
+            let mut header = face.clone();
+            header.jid = parent_jid.clone();
+            header.group_hierarchy = Some(GroupHierarchy::Community);
+            header.hierarchy_label = None;
+            header.preview = crate::app::chat_row::Preview::Empty;
+            header.unread = crate::app::chat_row::Unread::None;
+            header.timestamp = None;
+            header.muted_until = None;
+            header.pinned = row.pinned;
+            header.synthetic_community = true;
+            augmented.push(header);
+        }
+        augmented.push(row.clone());
+    }
+    let rows = augmented.as_slice();
     let query_active = !query.trim().is_empty();
     let matches = |row: &ChatRow| {
         contains_ignore_case(&row.name, query) || contains_ignore_case(&row.jid, query)
@@ -367,6 +400,19 @@ pub(super) fn hierarchical_group_rows(
                         .map(|child| {
                             let mut child = (*child).clone();
                             child.tree_depth = 1;
+                            // Under its community the announcement group is
+                            // simply "Announcements", as WhatsApp names it;
+                            // the community's name is on the header above.
+                            if matches!(
+                                &child.group_hierarchy,
+                                Some(GroupHierarchy::Subgroup {
+                                    kind: SubgroupKind::Announcement,
+                                    ..
+                                })
+                            ) {
+                                child.name = crate::tr!(Announcements).to_string();
+                                child.hierarchy_label = None;
+                            }
                             child
                         }),
                 );
@@ -490,7 +536,9 @@ mod tests {
         assert!(rows[0].community_toggle_visible);
         assert_eq!(rows[1].tree_depth, 1);
         assert_eq!(rows[1].hierarchy_label, Some("General"));
-        assert_eq!(rows[3].hierarchy_label, Some("Announcement"));
+        // Under its community the announcement group reads "Announcements".
+        assert_eq!(rows[3].name, "Announcements");
+        assert_eq!(rows[3].hierarchy_label, None);
         assert_eq!(rows[4].tree_depth, 0);
     }
 
@@ -684,7 +732,7 @@ mod tests {
     }
 
     #[test]
-    fn a_missing_parent_is_not_guessed_from_a_matching_name() {
+    fn a_missing_parent_gets_its_own_header_not_a_namesake() {
         use velo_core::{GroupHierarchy, SubgroupKind};
 
         let rows = vec![
@@ -699,9 +747,15 @@ mod tests {
             ),
         ];
         let rows = hierarchical_group_rows(&rows, "", &Default::default());
-        assert_eq!(rows.len(), 2);
-        assert!(rows.iter().all(|row| row.tree_depth == 0));
+        // The same-named community is left alone; the child's real parent,
+        // which is not a chat here, gets a header of its own by JID.
+        assert_eq!(
+            rows.iter().map(|row| row.jid.as_str()).collect::<Vec<_>>(),
+            vec!["unrelated@g.us", "missing@g.us", "child@g.us"]
+        );
         assert!(!rows[0].community_toggle_visible);
+        assert!(rows[1].synthetic_community);
+        assert_eq!(rows[2].tree_depth, 1);
     }
 
     #[test]

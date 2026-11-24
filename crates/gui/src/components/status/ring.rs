@@ -17,6 +17,7 @@
 //! own optical axis when you switch between them, and that is what happens if
 //! the border and its gap are added on the outside.
 
+use gpui::StyledImage as _;
 use gpui::prelude::FluentBuilder as _;
 use gpui::{App, Hsla, IntoElement, ParentElement, Pixels, Styled, div, px};
 use gpui_component::ActiveTheme as _;
@@ -58,6 +59,7 @@ pub fn status_ring(
     count: usize,
     unseen: usize,
     ground: Hsla,
+    thumbnail: Option<std::sync::Arc<gpui::Image>>,
     cx: &App,
 ) -> impl IntoElement + use<> {
     let lit = cx.theme().primary;
@@ -88,11 +90,54 @@ pub fn status_ring(
                 spent.opacity(0.7)
             })
         })
-        .child(
-            Avatar::new(identity.to_string(), name, inner)
+        .child(match thumbnail {
+            // The latest update itself, as WhatsApp shows it: what is
+            // waiting, rather than who posted it, which the name says.
+            Some(image) => gpui::img(image)
+                .size(inner)
+                .rounded_full()
+                .object_fit(gpui::ObjectFit::Cover)
+                .into_any_element(),
+            None => Avatar::new(identity.to_string(), name, inner)
                 .picture(picture, None)
-                .on(ground),
-        )
+                .on(ground)
+                .into_any_element(),
+        })
+}
+
+/// The preview of `message`'s picture or video, decoded once and kept.
+///
+/// A status row is drawn on every frame the list scrolls, and building an
+/// image from bytes copies them; this keeps one per update id, bounded.
+pub fn status_thumbnail(message: &velo_core::ChatMessage) -> Option<std::sync::Arc<gpui::Image>> {
+    use std::cell::RefCell;
+    use std::collections::HashMap;
+    thread_local! {
+        static CACHE: RefCell<HashMap<String, std::sync::Arc<gpui::Image>>> =
+            RefCell::new(HashMap::new());
+    }
+    let media = message.media.as_ref().filter(|_| !message.revoked)?;
+    if media.data.is_empty() {
+        return None;
+    }
+    let format = match media.mime_type.as_str() {
+        "image/png" => gpui::ImageFormat::Png,
+        "image/webp" => gpui::ImageFormat::Webp,
+        "image/gif" => gpui::ImageFormat::Gif,
+        // A video's data is its JPEG poster frame, and so is most of the rest.
+        _ => gpui::ImageFormat::Jpeg,
+    };
+    CACHE.with_borrow_mut(|cache| {
+        if let Some(image) = cache.get(&message.id) {
+            return Some(image.clone());
+        }
+        if cache.len() >= 256 {
+            cache.clear();
+        }
+        let image = std::sync::Arc::new(gpui::Image::from_bytes(format, media.data.to_vec()));
+        cache.insert(message.id.clone(), image.clone());
+        Some(image)
+    })
 }
 
 #[cfg(test)]

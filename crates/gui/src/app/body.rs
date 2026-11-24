@@ -796,7 +796,9 @@ pub(super) mod tests {
         cx.read(|cx| assert_eq!(app.read(cx).destination(), Destination::Channels));
         cx.update(|window, cx| {
             window.blur(cx);
-            for _ in 0..7 {
+            // The rail's expand button is the first stop now, ahead of the
+            // destinations.
+            for _ in 0..8 {
                 window.focus_next(cx);
             }
         });

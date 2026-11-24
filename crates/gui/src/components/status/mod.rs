@@ -1,7 +1,7 @@
 //! Status: the sidebar list of who posted, and the pane that plays them back.
 
 mod list;
-mod ring;
+pub(crate) mod ring;
 mod view;
 
 pub use list::{StatusListProps, StatusSelection, render_status_list};

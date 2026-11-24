@@ -1,5 +1,6 @@
 //! The connected view: sidebar, conversation, and whatever floats over them.
 
+use gpui::AnimationExt as _;
 use gpui::{
     AnyElement, App, AppContext, Axis, Context, DragMoveEvent, Entity, InteractiveElement,
     IntoElement, ParentElement, Render, SharedString, Styled, Window, div,
@@ -356,6 +357,14 @@ pub fn render_connected_view(
                 )
                 .into_any_element(),
             };
+            // Switching between Chats, Status, Channels and Communities slides
+            // the new list up a few points as it fades in: a fifth of a
+            // second, transform and opacity only, so it never costs a frame.
+            let sidebar = crate::motion::rise_in(
+                div().h_full().child(sidebar),
+                gpui::ElementId::Name(format!("pane-{}", destination.label()).into()),
+                layout.metrics().space_md(),
+            );
             el.child(
                 div()
                     .relative()
@@ -646,7 +655,8 @@ fn render_chat_area(
                                     crate::tr!(Search),
                                 )
                                 .shortcut("↑ ↓", crate::tr!(MoveBetweenChats)),
-                        ),
+                        )
+                        .child(render_why_velo(metrics, cx)),
                 ),
                 "empty-conversation-in",
             )),
@@ -736,6 +746,80 @@ fn render_chat_area(
                 })
             }
         })
+}
+
+/// Three reasons Velo is worth having, on the screen everyone sees first.
+///
+/// Each card rises in a beat after the one before, so the row reads left to
+/// right instead of appearing as a block.
+fn render_why_velo(metrics: Metrics, cx: &App) -> impl IntoElement + use<> {
+    let cards = [
+        (
+            ProductIcon::VeloMark,
+            "Light and instant",
+            "Native Rust drawn on your GPU. No browser inside, a fraction of the memory.",
+        ),
+        (
+            ProductIcon::Sticker,
+            "60 stickers built in",
+            "Hinglish, English and meme packs, plus every sticker from your chats.",
+        ),
+        (
+            ProductIcon::MessageSquare,
+            "Private by design",
+            "End-to-end encrypted like WhatsApp Web. Your chats stay on this PC.",
+        ),
+    ];
+    let mut row = div()
+        .mt(metrics.space_xxl())
+        .flex()
+        .flex_wrap()
+        .justify_center()
+        .gap(metrics.space_lg());
+    for (index, (icon, title, body)) in cards.into_iter().enumerate() {
+        let card = div()
+            .w(metrics.call_card_width() * 0.62)
+            .p(metrics.space_lg())
+            .rounded(metrics.radius_xl())
+            .bg(cx.theme().secondary)
+            .border_1()
+            .border_color(cx.theme().border)
+            .flex()
+            .flex_col()
+            .gap(metrics.space_sm())
+            .child(
+                Icon::new(icon)
+                    .size(metrics.icon_button() * 0.8)
+                    .text_color(cx.theme().primary),
+            )
+            .child(
+                div()
+                    .text_size(metrics.text_body())
+                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .text_color(cx.theme().foreground)
+                    .child(title),
+            )
+            .child(
+                div()
+                    .text_size(metrics.text_small())
+                    .text_color(cx.theme().muted_foreground)
+                    .child(body),
+            );
+        row = row.child(
+            card.with_animation(
+                ("why-velo", index),
+                gpui::Animation::new(crate::motion::duration(std::time::Duration::from_millis(
+                    260 + index as u64 * 90,
+                )))
+                .with_easing(gpui::ease_out_quint()),
+                {
+                    let rise = crate::motion::travel(metrics.space_xl());
+                    move |el, t| el.relative().top(rise * (1.0 - t)).opacity(t)
+                },
+            ),
+        );
+    }
+    row
 }
 
 /// What replaces the composer while the app is read-only.

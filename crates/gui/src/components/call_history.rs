@@ -97,6 +97,15 @@ impl CallHistory {
                                 calls.into_iter().map(|call| row_for(app, call)).collect()
                             })
                             .unwrap_or_default();
+                        // Ask for the pictures of the people in it, as the
+                        // chat list does for its visible rows.
+                        let jids: Vec<String> = view
+                            .calls
+                            .iter()
+                            .filter_map(|row| row.jid.clone())
+                            .take(60)
+                            .collect();
+                        let _ = owner.update(cx, |app, _| app.demand_avatars_for(&jids));
                     }
                     Err(error) => view.error = Some(error),
                 }
@@ -195,6 +204,21 @@ impl Render for CallHistory {
             })
             .collect();
         let count = rows.len();
+        // Each row's picture as it is now, not as it was when the history
+        // loaded: pictures arrive after the list does, and a key captured at
+        // load time left every row a silhouette for good.
+        let owner = self.owner.upgrade();
+        let picture_of = |row: &Row| -> Option<String> {
+            owner
+                .as_ref()
+                .and_then(|app| {
+                    row.jid
+                        .as_deref()
+                        .and_then(|jid| app.read(cx).chat_named(jid))
+                        .and_then(|chat| chat.avatar_cache_key.clone())
+                })
+                .or_else(|| row.avatar_key.clone())
+        };
 
         let mut list: Vec<AnyElement> = Vec::new();
         let mut last_day = None;
@@ -208,6 +232,7 @@ impl Render for CallHistory {
                 last_day = day;
                 list.push(
                     div()
+                        .flex_shrink_0()
                         .px(metrics.space_lg())
                         .pt(metrics.space_lg())
                         .pb(metrics.space_xs())
@@ -243,6 +268,10 @@ impl Render for CallHistory {
             list.push(
                 div()
                     .id(("call-row", index))
+                    // Never squeezed: a long history in a column that fits
+                    // its children shrank every row below its own height,
+                    // and they drew over one another.
+                    .flex_shrink_0()
                     .flex()
                     .items_center()
                     .gap(metrics.space_lg())
@@ -253,7 +282,7 @@ impl Render for CallHistory {
                     .child(
                         Avatar::new(identity, &row.name, metrics.avatar_row())
                             .group(row.call.group)
-                            .picture(row.avatar_key.clone(), None),
+                            .picture(picture_of(row), None),
                     )
                     .child(
                         div()
@@ -325,11 +354,15 @@ impl Render for CallHistory {
                 }))
         };
 
-        div()
-            .size_full()
+        let list_pane = div()
+            .w(metrics.sidebar_width())
+            .flex_shrink_0()
+            .h_full()
             .flex()
             .flex_col()
-            .bg(cx.theme().background)
+            .border_r_1()
+            .border_color(cx.theme().border)
+            .bg(cx.theme().sidebar)
             .text_color(cx.theme().foreground)
             .child(
                 div()
@@ -418,7 +451,54 @@ impl Render for CallHistory {
                             ),
                         )
                     }),
-            )
+            );
+
+        // The rest of the window, as WhatsApp keeps it: what calling here
+        // offers, rather than a list stretched across a wide screen.
+        let hero = crate::components::parts::hero_icon(
+            Icon::from(ProductIcon::Phone),
+            metrics.avatar_call() * 1.2,
+            metrics.avatar_call() * 0.5,
+            cx.theme().primary,
+            cx,
+        );
+        let side = div()
+            .flex_1()
+            .min_w_0()
+            .h_full()
+            .flex()
+            .items_center()
+            .justify_center()
+            .bg(cx.theme().background)
+            .child(crate::motion::rise_in(
+                div()
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .gap(metrics.space_lg())
+                    .p(metrics.space_xxl())
+                    .rounded(metrics.radius_xl())
+                    .bg(cx.theme().secondary)
+                    .max_w(metrics.call_card_width())
+                    .text_center()
+                    .child(hero)
+                    .child(
+                        div()
+                            .text_size(metrics.text_heading())
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(cx.theme().foreground)
+                            .child("Voice and video calling"),
+                    )
+                    .child(
+                        div()
+                            .text_size(metrics.text_secondary())
+                            .text_color(cx.theme().muted_foreground)
+                            .child("HD calls from your PC, end-to-end encrypted. Press the phone or camera on any call, or open a chat and call from its header."),
+                    ),
+                "calls-side",
+                metrics.space_lg(),
+            ));
+        div().size_full().flex().child(list_pane).child(side)
     }
 }
 

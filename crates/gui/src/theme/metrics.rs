@@ -358,6 +358,11 @@ tokens! {
     filter_chip_height = dense(26.0);
     /// A quiet icon button in a header or toolbar.
     icon_button = dense(34.0);
+    /// A destination in the side rail: roomier than a header icon, since
+    /// the rail is how every screen is reached.
+    rail_target = dense(44.0);
+    rail_icon = scaled(22.0);
+    rail_expanded_width = scaled(208.0);
     /// The glyph inside an icon button.
     icon = scaled(17.0);
     icon_small = scaled(14.0);
@@ -521,7 +526,7 @@ tokens! {
     /// the actions move into the overflow menu.
     breakpoint_header_actions = scaled(400.0);
 
-    sidebar_width = scaled(340.0);
+    sidebar_width = scaled(380.0);
     sidebar_width_compact = scaled(280.0);
     sidebar_width_min = scaled(240.0);
 

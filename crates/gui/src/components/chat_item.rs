@@ -81,10 +81,17 @@ pub fn render_chat_item(
             el.pl(metrics.chat_row_padding_x() + metrics.space_xl())
         })
         .cursor_pointer()
-        .on_click(move |_, window, cx| {
-            entity.update(cx, |this, cx| {
-                this.select_chat(jid.clone(), ChatOpen::ToCompose, window, cx)
-            });
+        .on_click({
+            let synthetic = row.synthetic_community;
+            move |_, window, cx| {
+                entity.update(cx, |this, cx| {
+                    if synthetic {
+                        this.toggle_community(&jid, cx);
+                    } else {
+                        this.select_chat(jid.clone(), ChatOpen::ToCompose, window, cx)
+                    }
+                });
+            }
         })
         .when(row.community_toggle_visible, |el| {
             let hover = cx.theme().list_hover;
@@ -125,7 +132,11 @@ pub fn render_chat_item(
             parts::detail_stack()
                 .gap(metrics.space_xs())
                 .child(render_name_row(&row, name, has_unread, metrics, cx))
-                .child(render_preview_row(&row, has_unread, metrics, cx)),
+                // A community header is a title, not a conversation: WhatsApp
+                // draws its name alone, without an empty preview line.
+                .when(!row.synthetic_community, |el| {
+                    el.child(render_preview_row(&row, has_unread, metrics, cx))
+                }),
         )
         // WhatsApp's chat menu, in its order. Every item is reachable without
         // opening the chat, which is the point of having it on the row.
@@ -322,7 +333,9 @@ fn render_preview(
             .gap(metrics.space_sm())
             .flex_1()
             .min_w_0()
-            .text_size(metrics.text_secondary())
+            // The preview is what a row is read for: at the secondary size it
+            // was a squint, and WhatsApp sets it nearly as large as the name.
+            .text_size(metrics.text_body() * 0.96)
     };
     let text = |content: String| parts::one_line().flex_1().min_w_0().child(content);
 

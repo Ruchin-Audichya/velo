@@ -31,9 +31,14 @@ impl Default for CameraMode {
 #[serde(rename_all = "snake_case")]
 pub enum Ringtone {
     Silent,
-    #[default]
     Classic,
     Gentle,
+    /// Velo's own: a warm pluck climbing an A-major motif. The default for
+    /// anyone who has not chosen; a saved choice keeps its name.
+    #[default]
+    Signature,
+    /// Soft glass bells, inharmonic like a struck bowl.
+    GlassChime,
 }
 
 /// None selects the system default. Missing saved IDs must remain visible as
@@ -126,6 +131,6 @@ mod tests {
             serde_json::from_str(r#"{"speaker":"missing-id"}"#).unwrap();
         assert_eq!(prefs.speaker.as_deref(), Some("missing-id"));
         assert_eq!(prefs.camera_mode, CameraMode::default());
-        assert_eq!(prefs.ringtone, Ringtone::Classic);
+        assert_eq!(prefs.ringtone, Ringtone::Signature);
     }
 }

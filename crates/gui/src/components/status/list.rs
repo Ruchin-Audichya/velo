@@ -216,11 +216,13 @@ fn render_rows(
                     1 => section_label(crate::tr!(Recent), metrics, cx).into_any_element(),
                     _ => {
                         let author = &props.feed.authors()[ix - 2];
+                        let thumbnail = latest_thumbnail(&props.feed, author);
                         render_author_row(
                             author,
                             props.selected.is(&author.jid),
                             None,
                             props.pictures.get(&author.jid).cloned(),
+                            thumbnail,
                             rows_entity.clone(),
                             layout,
                             cx,
@@ -322,6 +324,7 @@ fn render_mine(
                 props.selected == StatusSelection::Mine,
                 Some(subtitle.clone()),
                 props.pictures.get(&author.jid).cloned(),
+                latest_thumbnail(&props.feed, author),
                 entity,
                 layout,
                 cx,
@@ -370,6 +373,7 @@ fn render_recent(
             is_selected,
             None,
             props.pictures.get(&author.jid).cloned(),
+            latest_thumbnail(&props.feed, author),
             entity.clone(),
             layout,
             cx,
@@ -377,6 +381,18 @@ fn render_recent(
         .into_any_element()
     }));
     rows
+}
+
+/// The latest update's preview, for the ring.
+fn latest_thumbnail(
+    feed: &StatusFeed,
+    author: &StatusAuthor,
+) -> Option<std::sync::Arc<gpui::Image>> {
+    author
+        .updates
+        .last()
+        .and_then(|&latest| feed.messages().get(latest))
+        .and_then(crate::components::status::ring::status_thumbnail)
 }
 
 fn section_label(label: &'static str, metrics: Metrics, cx: &App) -> impl IntoElement + use<> {
@@ -392,11 +408,16 @@ fn section_label(label: &'static str, metrics: Metrics, cx: &App) -> impl IntoEl
 }
 
 /// One person, with the ring that says whether their run is watched.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one row's facts, each from a different owner"
+)]
 fn render_author_row(
     author: &StatusAuthor,
     is_selected: bool,
     subtitle: Option<SharedString>,
     picture: Option<String>,
+    thumbnail: Option<std::sync::Arc<gpui::Image>>,
     entity: Entity<WhatsAppApp>,
     layout: ResponsiveLayout,
     cx: &App,
@@ -458,6 +479,7 @@ fn render_author_row(
             author.count(),
             author.unseen,
             ground,
+            thumbnail,
             cx,
         ))
         .child(

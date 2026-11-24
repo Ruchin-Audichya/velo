@@ -38,6 +38,7 @@ pub fn render(
         // Each control group gets the reading column. Translated descriptions
         // must wrap within it instead of sizing a neighbouring flex column.
         .child(render_density(settings, entity.clone(), metrics, cx))
+        .child(render_motion(settings, entity.clone(), metrics, cx))
         .child(render_font_size(settings, entity.clone(), metrics, cx))
         .child(render_theme_file(settings, entity, metrics, cx))
 }
@@ -467,6 +468,39 @@ fn render_density(
                         entity.update(cx, |app, cx| app.set_theme_density(density, window, cx));
                     })
             })),
+        metrics,
+    )
+}
+
+/// How much the interface moves: Off, Minimal, Balanced or Expressive.
+///
+/// Windows' own "Animation effects" switch still wins: with it off, every
+/// animation ends the moment it starts whatever is chosen here.
+fn render_motion(
+    settings: &SettingsState,
+    entity: Entity<WhatsAppApp>,
+    metrics: Metrics,
+    cx: &App,
+) -> impl IntoElement + use<> {
+    let active = settings.draft.motion;
+    group(
+        label("Motion", metrics, cx),
+        div().flex().flex_wrap().gap(metrics.space_md()).children(
+            crate::motion::MotionLevel::ALL.into_iter().map(|level| {
+                let entity = entity.clone();
+                Button::new(SharedString::from(format!("motion-{}", level.id())))
+                    .label(level.label())
+                    .map(|b| super::panes::chosen(b, level == active))
+                    .px(metrics.space_xl())
+                    .py(metrics.space_md())
+                    .rounded(metrics.radius_md())
+                    .text_size(metrics.text_small())
+                    .cursor_pointer()
+                    .on_click(move |_, window, cx| {
+                        entity.update(cx, |app, cx| app.set_theme_motion(level, window, cx));
+                    })
+            }),
+        ),
         metrics,
     )
 }

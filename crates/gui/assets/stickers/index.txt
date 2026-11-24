@@ -1,0 +1,60 @@
+hinglish-00	Bhai kya scene hai? 🤔
+hinglish-01	Chill maar 😎
+hinglish-02	Arre yaar! 🤦
+hinglish-03	Kya baat hai! 👏
+hinglish-04	Haan bhai haan 🙄
+hinglish-05	Bas kar pagle 😂
+hinglish-06	Rulayega kya? 🥲
+hinglish-07	Scene on hai 🔥
+hinglish-08	Theek hai boss 👍
+hinglish-09	Ho jayega 💪
+hinglish-10	Jugaad lagao 🛠️
+hinglish-11	Kal pakka 🤞
+hinglish-12	Main toh gaya 💀
+hinglish-13	Chai pe chalein? ☕
+hinglish-14	Exam kal hai 😭
+hinglish-15	Mast hai! 🤩
+hinglish-16	Pagal hai kya? 😳
+hinglish-17	Abhi aaya 🏃
+hinglish-18	Sab moh maya hai 🧘
+hinglish-19	Party kab hai? 🎉
+english-00	LOL 😂
+english-01	Same 🙋
+english-02	On my way 🚗
+english-03	Done! ✅
+english-04	Thank you! 🙏
+english-05	Good morning ☀️
+english-06	Good night 🌙
+english-07	Congrats! 🎉
+english-08	BRB ⏳
+english-09	No cap 🧢
+english-10	Big mood 😌
+english-11	Facts 💯
+english-12	I'm dead 💀
+english-13	Let's gooo 🚀
+english-14	Sorry 🥺
+english-15	Miss you 🤍
+english-16	Happy birthday 🎂
+english-17	You got this 💪
+english-18	Call me 📞
+english-19	Love it 😍
+memes-00	Plot twist 😱
+memes-01	Task failed successfully 🫠
+memes-02	Monday again 😩
+memes-03	Loading brain... 🧠
+memes-04	404: motivation not found 🤖
+memes-05	Error: sleep needed 😴
+memes-06	This is fine 🔥
+memes-07	Me pretending to work 💻
+memes-08	Not my problem 🤷
+memes-09	Instant regret 😬
+memes-10	It's a feature, not a bug 🐛
+memes-11	Brain.exe has stopped 🖥️
+memes-12	Main character energy ✨
+memes-13	Who asked? 🧐
+memes-14	Respectfully, no 🙅
+memes-15	Bro thinks he's him 😏
+memes-16	Touch grass 🌱
+memes-17	Certified classic 🏆
+memes-18	Galti se mistake 🙈
+memes-19	Ye toh hona hi tha 🤷

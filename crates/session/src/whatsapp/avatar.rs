@@ -256,47 +256,57 @@ async fn lookup(
         return channel_lookup(client, jid, existing_id).await;
     }
     if jid.is_group() {
-        let asked = match client
-            .pictures()
-            .lookup(
-                ProfilePictureRequest::new(
-                    ProfilePictureTarget::Group(jid),
-                    ProfilePictureType::Preview,
+        let own: Lookup = async {
+            let asked = match client
+                .pictures()
+                .lookup(
+                    ProfilePictureRequest::new(
+                        ProfilePictureTarget::Group(jid),
+                        ProfilePictureType::Preview,
+                    )
+                    .existing_id(existing_id),
                 )
-                .existing_id(existing_id),
-            )
-            .await
-        {
-            Ok(outcome) => Lookup::of(outcome),
-            Err(error) => {
-                debug!(
-                    "avatar metadata lookup failed for {}: {error}",
-                    jid.observe()
-                );
-                return Lookup::Failed;
+                .await
+            {
+                Ok(outcome) => Lookup::of(outcome),
+                Err(error) => {
+                    debug!(
+                        "avatar metadata lookup failed for {}: {error}",
+                        jid.observe()
+                    );
+                    return Lookup::Failed;
+                }
+            };
+            if !asked.wants_community_fallback() {
+                return asked;
             }
-        };
-        if !asked.wants_community_fallback() {
-            return asked;
-        }
-        // Not authorized, which for a community parent is what
-        // `w:profile:picture` answers. Ask the `w:g2` query before giving up.
-        match client
-            .pictures()
-            .lookup(
-                ProfilePictureRequest::new(
-                    ProfilePictureTarget::Community(jid),
-                    ProfilePictureType::Preview,
+            // Not authorized, which for a community parent is what
+            // `w:profile:picture` answers. Ask the `w:g2` query before giving up.
+            match client
+                .pictures()
+                .lookup(
+                    ProfilePictureRequest::new(
+                        ProfilePictureTarget::Community(jid),
+                        ProfilePictureType::Preview,
+                    )
+                    .existing_id(existing_id),
                 )
-                .existing_id(existing_id),
-            )
-            .await
-        {
-            Ok(outcome) => asked.or_community(outcome),
-            // A group that is not a parent has no answer here; the original
-            // not-authorized stands, and it was not destructive.
-            Err(_) => asked,
+                .await
+            {
+                Ok(outcome) => asked.or_community(outcome),
+                // A group that is not a parent has no answer here; the original
+                // not-authorized stands, and it was not destructive.
+                Err(_) => asked,
+            }
         }
+        .await;
+        if matches!(
+            own,
+            Lookup::Found { .. } | Lookup::Unchanged | Lookup::Failed
+        ) {
+            return own;
+        }
+        announcement_picture(client, jid).await.unwrap_or(own)
     } else {
         match client
             .pictures()
@@ -319,6 +329,38 @@ async fn lookup(
                 Lookup::Failed
             }
         }
+    }
+}
+
+/// The picture an announcement group is drawn with: its community's.
+///
+/// A community's announcement group has no picture of its own, and WhatsApp
+/// draws it with the community's. Only for those (the routing cache says
+/// which, at no cost), so an ordinary group without a picture costs nothing
+/// more: one metadata read names the parent, and the parent answers the
+/// community query.
+async fn announcement_picture(client: &Arc<Client>, jid: &Jid) -> Option<Lookup> {
+    let routing = client.groups().routing_info(jid).await.ok()?;
+    if routing.is_community_announce != Some(true) {
+        return None;
+    }
+    let parent = client
+        .groups()
+        .fetch_metadata(jid)
+        .await
+        .ok()?
+        .parent_group_jid?;
+    let outcome = client
+        .pictures()
+        .lookup(ProfilePictureRequest::new(
+            ProfilePictureTarget::Community(&parent),
+            ProfilePictureType::Preview,
+        ))
+        .await
+        .ok()?;
+    match Lookup::of(outcome) {
+        found @ Lookup::Found { .. } => Some(found),
+        _ => None,
     }
 }
 
@@ -356,8 +398,17 @@ fn channel_picture(path: Option<String>) -> Option<(String, String)> {
     } else {
         return None;
     };
-    let id = path.split('?').next().unwrap_or(&path).to_string();
-    Some((id, source))
+    // Short, not the path itself: the id becomes part of the cache file's
+    // name, and a channel's CDN path is long enough that the escaped name
+    // ran past Windows' limit, so every write failed and no channel ever
+    // showed a picture. FNV-1a, so the id is the same in every build.
+    let stable = path.split('?').next().unwrap_or(&path);
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in stable.bytes() {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0100_0000_01b3);
+    }
+    Some((format!("ch{hash:016x}"), source))
 }
 
 /// Resolve avatar demands and publish what was learned, a chunk at a time.
@@ -713,7 +764,9 @@ mod tests {
     fn a_channel_picture_path_becomes_a_fetchable_source() {
         let (id, source) =
             channel_picture(Some("/v/t61.24694-24/pic.jpg?ccb=1&oh=x&oe=y".into())).unwrap();
-        assert_eq!(id, "/v/t61.24694-24/pic.jpg");
+        assert_eq!(id.len(), 18, "short enough to name a file: {id}");
+        let (again, _) = channel_picture(Some("/v/t61.24694-24/pic.jpg?other=1".into())).unwrap();
+        assert_eq!(id, again, "the query string is not the picture");
         assert_eq!(
             source,
             "https://pps.whatsapp.net/v/t61.24694-24/pic.jpg?ccb=1&oh=x&oe=y"

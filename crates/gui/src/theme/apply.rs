@@ -25,6 +25,7 @@ fn hsla(colour: Rgb) -> Hsla {
 /// window — the base font is the rem reference and existing frames are laid
 /// out against the old one.
 pub fn apply(settings: &ThemeSettings, rem_size: f32, cx: &mut App) {
+    crate::motion::set_level(settings.motion);
     let mode = if settings.preset.is_dark() {
         ThemeMode::Dark
     } else {

@@ -203,7 +203,8 @@ pub fn resolve(
             }
             let response = match fetch(&source, &hub).await {
                 Ok(response) => response,
-                Err(_) => {
+                Err(error) => {
+                    log::debug!("a picture could not be fetched: {error}");
                     if is_current(&hub, &jid, &selection) {
                         recorder.on_failed(&jid);
                         publish_failed(&hub, &jid, true);
@@ -214,7 +215,8 @@ pub fn resolve(
             let retryable = response.status == 429 || (500..600).contains(&response.status);
             let bytes = match accept(response) {
                 Ok(bytes) => bytes,
-                Err(_) => {
+                Err(error) => {
+                    log::debug!("a fetched picture was refused: {error}");
                     if is_current(&hub, &jid, &selection) {
                         // Retryability sets the front-end cooldown, not the
                         // resolver's lifetime. No bytes landed, so even a

@@ -13,6 +13,84 @@ use std::time::Duration;
 
 use gpui::{Animation, AnimationExt as _, ElementId, IntoElement, Pixels, Styled, ease_out_quint};
 
+/// How much the interface moves, chosen in Settings → Appearance.
+///
+/// Every helper here asks [`duration`] and [`travel`], so one setting scales
+/// all of them together. Off keeps the interface whole and working, with
+/// each animation finished the moment it starts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum MotionLevel {
+    Off,
+    Minimal,
+    #[default]
+    Balanced,
+    Expressive,
+}
+
+impl MotionLevel {
+    pub const ALL: [Self; 4] = [Self::Off, Self::Minimal, Self::Balanced, Self::Expressive];
+
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Off => "off",
+            Self::Minimal => "minimal",
+            Self::Balanced => "balanced",
+            Self::Expressive => "expressive",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Off => "Off",
+            Self::Minimal => "Minimal",
+            Self::Balanced => "Balanced",
+            Self::Expressive => "Expressive",
+        }
+    }
+
+    pub fn parse(id: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|level| level.id() == id)
+    }
+}
+
+static LEVEL: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(2);
+
+/// Set the motion level for every animation drawn from now on.
+pub fn set_level(level: MotionLevel) {
+    LEVEL.store(level as u8, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// The motion level in force.
+pub fn level() -> MotionLevel {
+    match LEVEL.load(std::sync::atomic::Ordering::Relaxed) {
+        0 => MotionLevel::Off,
+        1 => MotionLevel::Minimal,
+        3 => MotionLevel::Expressive,
+        _ => MotionLevel::Balanced,
+    }
+}
+
+/// `base` at the motion level in force: shorter for Minimal, a little longer
+/// for Expressive, and a single millisecond (done on its first frame) for Off.
+pub fn duration(base: Duration) -> Duration {
+    match level() {
+        MotionLevel::Off => Duration::from_millis(1),
+        MotionLevel::Minimal => base * 3 / 5,
+        MotionLevel::Balanced => base,
+        MotionLevel::Expressive => base * 27 / 20,
+    }
+}
+
+/// How far something travels as it animates: nothing for Off and Minimal,
+/// which fade only, and half again as far for Expressive.
+pub fn travel(distance: Pixels) -> Pixels {
+    match level() {
+        MotionLevel::Off | MotionLevel::Minimal => Pixels::ZERO,
+        MotionLevel::Balanced => distance,
+        MotionLevel::Expressive => distance * 1.5,
+    }
+}
+
 /// A view appearing: a chat being switched to, a panel opening.
 pub const ENTER: Duration = Duration::from_millis(180);
 /// Something arriving in a list: a new message.
@@ -44,7 +122,7 @@ where
 {
     element.with_animation(
         id,
-        Animation::new(ENTER).with_easing(ease_out_quint()),
+        Animation::new(duration(ENTER)).with_easing(ease_out_quint()),
         |el, t| el.opacity(t),
     )
 }
@@ -54,9 +132,10 @@ pub fn rise_in<E>(element: E, id: impl Into<ElementId>, distance: Pixels) -> imp
 where
     E: IntoElement + Styled + 'static,
 {
+    let distance = travel(distance);
     element.with_animation(
         id,
-        Animation::new(ARRIVE).with_easing(ease_out_quint()),
+        Animation::new(duration(ARRIVE)).with_easing(ease_out_quint()),
         move |el, t| el.relative().top(distance * (1.0 - t)).opacity(t),
     )
 }
@@ -66,9 +145,10 @@ pub fn slide_in_right<E>(element: E, id: impl Into<ElementId>, distance: Pixels)
 where
     E: IntoElement + Styled + 'static,
 {
+    let distance = travel(distance);
     element.with_animation(
         id,
-        Animation::new(ENTER).with_easing(ease_out_quint()),
+        Animation::new(duration(ENTER)).with_easing(ease_out_quint()),
         move |el, t| el.relative().left(distance * (1.0 - t)).opacity(t),
     )
 }
@@ -81,7 +161,7 @@ where
 {
     element.with_animation(
         id,
-        Animation::new(SWAP).with_easing(ease_out_quint()),
+        Animation::new(duration(SWAP)).with_easing(ease_out_quint()),
         |el, t| el.opacity(t),
     )
 }
@@ -95,7 +175,7 @@ where
 {
     element.with_animation(
         id,
-        Animation::new(BREATH)
+        Animation::new(duration(BREATH))
             .repeat()
             .with_easing(gpui::pulsating_between(0.55, 1.0)),
         |el, t| el.opacity(t),
@@ -109,7 +189,7 @@ where
 {
     element.with_animation(
         id,
-        Animation::new(POP).with_easing(ease_out_quint()),
+        Animation::new(duration(POP)).with_easing(ease_out_quint()),
         |el, t| el.opacity(0.35 + 0.65 * t),
     )
 }

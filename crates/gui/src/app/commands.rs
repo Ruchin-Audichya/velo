@@ -461,6 +461,28 @@ impl WhatsAppApp {
             .update(cx, |settings, cx| settings.set_accent(accent, window, cx));
     }
 
+    /// Choose how much the interface moves.
+    pub fn set_theme_motion(
+        &mut self,
+        motion: crate::motion::MotionLevel,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.settings
+            .update(cx, |settings, cx| settings.set_motion(motion, window, cx));
+    }
+
+    /// Show or hide the labels in the side rail, and remember the choice.
+    pub fn toggle_rail(&mut self, cx: &mut Context<Self>) {
+        self.rail_expanded = !self.rail_expanded;
+        let mut saved = crate::theme::config::load();
+        saved.rail_expanded = self.rail_expanded;
+        if let Err(error) = crate::theme::config::save(&saved) {
+            log::warn!("the side rail's width was not remembered: {error}");
+        }
+        cx.notify();
+    }
+
     /// Choose the chat wallpaper.
     pub fn set_wallpaper(
         &mut self,

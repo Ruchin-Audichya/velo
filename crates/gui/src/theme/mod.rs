@@ -53,6 +53,10 @@ pub struct ProductTheme {
     pub preset: Preset,
     /// What the conversation is drawn on.
     pub wallpaper: wallpaper::Wallpaper,
+    /// How much the interface moves.
+    pub motion: crate::motion::MotionLevel,
+    /// The side rail's saved width, carried so a Settings save keeps it.
+    rail_expanded: bool,
     /// Whatever the config file asked for that could not be honoured. Empty
     /// when the file is absent or fully applied.
     pub problems: Vec<String>,
@@ -85,6 +89,8 @@ impl ProductTheme {
             palette: settings.palette,
             preset: settings.preset,
             wallpaper: settings.wallpaper,
+            motion: settings.motion,
+            rail_expanded: settings.rail_expanded,
             problems: settings.problems,
             location,
             loaded_at,
@@ -101,6 +107,8 @@ impl ProductTheme {
             font_size: self.base_font_size,
             language: self.language,
             wallpaper: self.wallpaper,
+            motion: self.motion,
+            rail_expanded: self.rail_expanded,
             problems: self.problems.clone(),
         }
     }

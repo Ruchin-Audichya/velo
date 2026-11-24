@@ -68,6 +68,7 @@ catalog! {
     SessionOptions => ("Session options", "Opções da sessão");
     Reconnect => ("Reconnect", "Reconectar");
     MessageInfoTitle => ("Message info", "Dados da mensagem");
+    Announcements => ("Announcements", "Avisos");
     ReadText => ("Read", "Lida");
     Delivered => ("Delivered", "Entregue");
     Played => ("Played", "Reproduzida");
@@ -258,6 +259,8 @@ catalog! {
     Silent => ("Silent", "Silencioso");
     Classic => ("Classic", "Clássico");
     Gentle => ("Gentle", "Suave");
+    VeloSignature => ("Velo Signature", "Velo Signature");
+    GlassChime => ("Glass Chime", "Sino de vidro");
     TestRingtone => ("Test ringtone", "Testar toque");
     Camera => ("Camera", "Câmera");
     VideoQuality => ("Video quality", "Qualidade do vídeo");

@@ -245,9 +245,10 @@ mod imp {
                 return None;
             };
             let old_bitmap = SelectObject(dc, bitmap);
-            // Two digits fill the disc; "99+" needs a smaller face to fit.
+            // Two digits fill the disc; "99+" needs a smaller face to fit
+            // inside it: at half the disc its "+" was cut off at the edge.
             let height = if label.len() > 2 {
-                size * 50 / 100
+                size * 40 / 100
             } else {
                 size * 68 / 100
             };

@@ -51,6 +51,8 @@ pub enum InputAreaEvent {
     CancelEdit,
     /// The emoji panel opened: the app hands it the stickers and GIFs it has.
     PickerOpened,
+    /// One of Velo's built-in stickers, by name, for the open chat.
+    SendBuiltinSticker(String),
     /// A sticker or GIF from the panel, sent again to the open chat.
     SendExisting {
         chat_jid: String,
@@ -67,6 +69,8 @@ pub struct PickerMedia {
     /// Who sent it, or the chat: what the panel's search matches.
     pub label: String,
     pub image: std::sync::Arc<gpui::Image>,
+    /// Set for one of Velo's own stickers: its name in the built-in packs.
+    pub builtin: Option<String>,
 }
 
 /// Which page of the emoji panel is showing.
@@ -164,6 +168,9 @@ pub struct InputAreaView {
     emoji_search: Entity<InputState>,
     picker_tab: PickerTab,
     recent_media: Vec<PickerMedia>,
+    /// Which sticker shelf is showing: a built-in pack, or `None` for the
+    /// ones from your chats.
+    sticker_pack: Option<&'static str>,
     language: crate::i18n::Language,
     /// Whether PTT recording is active
     is_recording: bool,
@@ -234,6 +241,7 @@ impl InputAreaView {
             emoji_search,
             picker_tab: PickerTab::default(),
             recent_media: Vec::new(),
+            sticker_pack: Some(crate::components::sticker_packs::PACKS[0].0),
             input,
             language: crate::i18n::Language::current(),
             is_recording: false,
@@ -607,17 +615,77 @@ impl InputAreaView {
         metrics: Metrics,
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
-        let tiles: Vec<&PickerMedia> = self
+        // A search looks through every pack and your chats at once; without
+        // one, the shelf the chips picked.
+        let builtin = crate::components::sticker_packs::tiles();
+        let shelf = self.sticker_pack;
+        let from_chats = self
             .recent_media
             .iter()
-            .filter(|item| item.sticker == stickers)
-            .filter(|item| query.is_empty() || item.label.to_lowercase().contains(query))
-            .take(60)
-            .collect();
+            .filter(|item| item.sticker == stickers);
+        let tiles: Vec<&PickerMedia> = if stickers && query.is_empty() {
+            match shelf {
+                Some(pack) => builtin
+                    .iter()
+                    .filter(|item| {
+                        item.builtin
+                            .as_deref()
+                            .map(crate::components::sticker_packs::pack_of)
+                            == Some(pack)
+                    })
+                    .collect(),
+                None => from_chats.take(60).collect(),
+            }
+        } else if stickers {
+            builtin
+                .iter()
+                .chain(from_chats)
+                .filter(|item| item.label.to_lowercase().contains(query))
+                .take(60)
+                .collect()
+        } else {
+            from_chats
+                .filter(|item| query.is_empty() || item.label.to_lowercase().contains(query))
+                .take(60)
+                .collect()
+        };
         let empty = tiles.is_empty();
+        let shelf_chip =
+            |pack: Option<&'static str>, label: &'static str, cx: &mut Context<Self>| {
+                let selected = shelf == pack;
+                let primary = cx.theme().primary;
+                div()
+                    .id(gpui::ElementId::Name(format!("shelf-{label}").into()))
+                    .px(metrics.space_md())
+                    .py(metrics.space_xxs())
+                    .rounded_full()
+                    .cursor_pointer()
+                    .text_size(metrics.text_small())
+                    .border_1()
+                    .border_color(if selected { primary } else { cx.theme().border })
+                    .when(selected, |el| {
+                        el.bg(primary.opacity(0.14)).text_color(primary)
+                    })
+                    .on_click(cx.listener(move |view, _, _, cx| {
+                        view.sticker_pack = pack;
+                        cx.notify();
+                    }))
+                    .child(label)
+            };
+        let shelves = stickers.then(|| {
+            let mut row = div().flex().flex_wrap().gap(metrics.space_sm());
+            for (pack, label) in crate::components::sticker_packs::PACKS {
+                row = row.child(shelf_chip(Some(pack), label, cx));
+            }
+            row.child(shelf_chip(None, "From chats", cx))
+        });
         let tile = metrics.touch_target() * 1.9;
         // Keyed by what is showing, so a new search replays the arrival.
-        let round = format!("{}-{query}", if stickers { "s" } else { "g" });
+        let round = format!(
+            "{}-{}-{query}",
+            if stickers { "s" } else { "g" },
+            shelf.unwrap_or("chats")
+        );
         div()
             .flex()
             .flex_col()
@@ -639,6 +707,7 @@ impl InputAreaView {
                             })),
                     ),
             )
+            .children(shelves)
             .child(
                 div()
                     .id(if stickers { "sticker-grid" } else { "gif-grid" })
@@ -650,8 +719,9 @@ impl InputAreaView {
                     .children(tiles.into_iter().enumerate().map(|(index, item)| {
                         let chat_jid = item.chat_jid.clone();
                         let message_id = item.message_id.clone();
+                        let builtin = item.builtin.clone();
                         let hover = cx.theme().secondary;
-                        let jiggle = metrics.space_xs();
+                        let jiggle = crate::motion::travel(metrics.space_xs());
                         div()
                             .id(gpui::ElementId::Name(
                                 format!("picker-{round}-{}", item.message_id).into(),
@@ -670,9 +740,12 @@ impl InputAreaView {
                                 }
                             })
                             .on_click(cx.listener(move |view, _, window, cx| {
-                                cx.emit(InputAreaEvent::SendExisting {
-                                    chat_jid: chat_jid.clone(),
-                                    message_id: message_id.clone(),
+                                cx.emit(match &builtin {
+                                    Some(name) => InputAreaEvent::SendBuiltinSticker(name.clone()),
+                                    None => InputAreaEvent::SendExisting {
+                                        chat_jid: chat_jid.clone(),
+                                        message_id: message_id.clone(),
+                                    },
                                 });
                                 view.emoji_open = false;
                                 window.focus(&view.focus_handle(cx), cx);
@@ -688,8 +761,8 @@ impl InputAreaView {
                                 gpui::ElementId::Name(
                                     format!("jiggle-{round}-{index}").into(),
                                 ),
-                                gpui::Animation::new(std::time::Duration::from_millis(
-                                    380 + (index as u64 % 8) * 35,
+                                gpui::Animation::new(crate::motion::duration(
+                                    std::time::Duration::from_millis(380 + (index as u64 % 8) * 35),
                                 ))
                                 .with_easing(gpui::ease_out_quint()),
                                 move |el, t| {
@@ -708,7 +781,7 @@ impl InputAreaView {
                         .text_size(metrics.text_small())
                         .text_color(cx.theme().muted_foreground)
                         .child(if stickers {
-                            "Stickers you send or receive show up here. To make one, use Attach → Sticker from image."
+                            "Nothing here yet. Stickers you send or receive show up under From chats, and Attach → Sticker from image makes your own."
                         } else {
                             "GIFs you send or receive show up here. To send one, use Attach → GIF or looping video."
                         }),
@@ -739,7 +812,7 @@ impl InputAreaView {
                     || item.name.to_lowercase().contains(&query)
                     || item.emoji.contains(&query)
             })
-            .take(120)
+            .take(240)
             .collect();
         div()
             .flex()
@@ -766,18 +839,25 @@ impl InputAreaView {
             .child(
                 div()
                     .id("emoji-grid")
-                    .h(metrics.touch_target() * 3.0)
+                    .h(metrics.touch_target() * 5.0)
                     .overflow_y_scroll()
                     .flex()
                     .flex_wrap()
                     .gap(metrics.space_xs())
                     .children(matches.into_iter().enumerate().map(|(index, item)| {
                         let emoji = item.emoji.clone();
+                        // Large enough to tell apart at a glance, as on a
+                        // phone: at label size the faces were a blur.
                         Button::new(("emoji-pick", index))
-                            .label(item.emoji.clone())
+                            .child(
+                                div()
+                                    .text_size(metrics.touch_target() * 0.62)
+                                    .line_height(metrics.touch_target())
+                                    .child(item.emoji.clone()),
+                            )
                             .tooltip(item.name.clone())
                             .ghost()
-                            .size(metrics.touch_target())
+                            .size(metrics.touch_target() * 1.3)
                             .on_click(cx.listener(move |view, _, window, cx| {
                                 view.input.update(cx, |state, cx| {
                                     state.replace_text_in_range(None, &emoji, window, cx)

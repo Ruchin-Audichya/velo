@@ -52,6 +52,10 @@ pub struct ThemeFile {
     pub language: Option<String>,
     /// The chat wallpaper, by the ids in [`super::wallpaper::Wallpaper`].
     pub wallpaper: Option<String>,
+    /// `off`, `minimal`, `balanced` or `expressive`.
+    pub motion: Option<String>,
+    /// `compact` (icons) or `expanded` (icons and labels).
+    pub rail: Option<String>,
 }
 
 /// A resolved, always-valid theme.
@@ -63,6 +67,9 @@ pub struct ThemeSettings {
     pub font_size: f32,
     pub language: crate::i18n::Language,
     pub wallpaper: super::wallpaper::Wallpaper,
+    pub motion: crate::motion::MotionLevel,
+    /// The side rail shows labels beside its icons.
+    pub rail_expanded: bool,
     /// What the file asked for that could not be honoured, in the order the
     /// keys appear. Empty means the file was fully applied — or absent.
     pub problems: Vec<String>,
@@ -78,6 +85,8 @@ impl Default for ThemeSettings {
             font_size: DEFAULT_FONT_SIZE,
             language: crate::i18n::Language::default(),
             wallpaper: super::wallpaper::Wallpaper::default(),
+            motion: crate::motion::MotionLevel::default(),
+            rail_expanded: false,
             problems: Vec::new(),
         }
     }
@@ -139,6 +148,24 @@ impl ThemeSettings {
             },
         };
 
+        let motion = match file.motion.as_deref() {
+            None => crate::motion::MotionLevel::default(),
+            Some(name) => crate::motion::MotionLevel::parse(name).unwrap_or_else(|| {
+                problems.push(format!(
+                    "motion {name:?} is not off, minimal, balanced or expressive"
+                ));
+                crate::motion::MotionLevel::default()
+            }),
+        };
+        let rail_expanded = match file.rail.as_deref() {
+            None | Some("compact") => false,
+            Some("expanded") => true,
+            Some(other) => {
+                problems.push(format!("rail {other:?} is not compact or expanded"));
+                false
+            }
+        };
+
         let font_size = match file.font_size {
             None => DEFAULT_FONT_SIZE,
             Some(size) if (MIN_FONT_SIZE..=MAX_FONT_SIZE).contains(&size) => size,
@@ -161,6 +188,8 @@ impl ThemeSettings {
                 .map(crate::i18n::Language::parse)
                 .unwrap_or_default(),
             wallpaper,
+            motion,
+            rail_expanded,
             problems,
         }
     }
@@ -186,6 +215,15 @@ impl ThemeSettings {
             font_size: Some(self.font_size),
             language: Some(self.language.code().to_string()),
             wallpaper: Some(self.wallpaper.id().to_string()),
+            motion: Some(self.motion.id().to_string()),
+            rail: Some(
+                if self.rail_expanded {
+                    "expanded"
+                } else {
+                    "compact"
+                }
+                .to_string(),
+            ),
         }
     }
 }
@@ -432,6 +470,8 @@ mod tests {
             font_size: 18.0,
             language: crate::i18n::Language::Portuguese,
             wallpaper: crate::theme::wallpaper::Wallpaper::Ocean,
+            motion: crate::motion::MotionLevel::Expressive,
+            rail_expanded: true,
             problems: Vec::new(),
         };
         settings.palette.primary = Rgb(0xff00ff);
