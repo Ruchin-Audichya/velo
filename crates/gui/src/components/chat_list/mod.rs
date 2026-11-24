@@ -195,9 +195,11 @@ fn render_title_bar(
                 .flex()
                 .gap(metrics.space_xxs())
                 .child(
+                    // Filled, like WhatsApp's own: starting a conversation is
+                    // the list's main action, not one tool among several.
                     Button::new("new-chat")
                         .icon(IconName::Plus)
-                        .ghost()
+                        .primary()
                         .small()
                         .tooltip("New chat (Ctrl+N)")
                         .cursor_pointer()

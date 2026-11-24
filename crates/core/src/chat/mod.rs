@@ -171,6 +171,14 @@ pub struct Chat {
     /// the store DID originate and no longer returns from the relevant list
     /// may be pruned by the front end.
     pub(crate) from_store: bool,
+    /// Whether `messages` is everything the store holds for this chat: the
+    /// store returned fewer rows than were asked for. Only then can a row
+    /// the front end holds and this load lacks be known to be gone — cleared
+    /// or deleted on the phone — rather than merely older than the page.
+    /// `false` says nothing: a page that came back full, or a sidebar row
+    /// that carried no messages at all.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub history_complete: bool,
 }
 
 impl Chat {
@@ -235,6 +243,7 @@ impl Chat {
             participants: HashMap::new(),
             messages: Vec::new(),
             from_store: false,
+            history_complete: false,
         }
     }
 

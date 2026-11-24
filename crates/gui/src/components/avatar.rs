@@ -101,18 +101,20 @@ impl RenderOnce for Avatar {
         let palette = product.palette;
         let ground = self.ground.unwrap_or(cx.theme().sidebar);
 
-        // Neutral on purpose: no photo is not an identity, so it gets no hue.
-        // Dark: a mid grey disc with a lighter figure. Light: a pale grey
-        // disc with a white figure — the two ways "nobody here" is drawn.
+        // One quiet tint of the accent for everyone without a photo, as
+        // WhatsApp draws them: the same for all, so it still says nothing
+        // about who it is, but a list of grey discs read as broken pictures.
+        // Dark: a deep tint with a lighter figure. Light: a pale tint with
+        // the accent itself as the figure.
         let (disc, figure) = if product.preset.is_dark() {
             (
-                palette.elevated.mix(palette.faint_foreground, 0.45),
-                palette.subtle_foreground.mix(palette.foreground, 0.35),
+                palette.elevated.mix(palette.primary, 0.22),
+                palette.primary.mix(palette.foreground, 0.35),
             )
         } else {
             (
-                palette.secondary.mix(palette.faint_foreground, 0.35),
-                palette.background,
+                palette.secondary.mix(palette.primary, 0.16),
+                palette.primary.mix(palette.background, 0.15),
             )
         };
         let silhouette = if self.is_group {

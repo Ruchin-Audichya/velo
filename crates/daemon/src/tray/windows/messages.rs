@@ -101,6 +101,9 @@ impl Receiver {
                 if let Some(hub) = notice.hub.upgrade()
                     && hub.account_generation() == generation
                 {
+                    // Before `show`: a window started by it reads the chat
+                    // on attach, and a running one is told now.
+                    hub.open_chat(notice.jid.clone());
                     crate::window::show(&hub);
                 }
                 Ok(())

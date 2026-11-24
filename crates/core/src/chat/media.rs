@@ -227,7 +227,8 @@ pub struct MediaContent {
     /// Download info for fetching full media (videos, documents)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub downloadable: Option<DownloadableMedia>,
-    /// Whether this is an animated sticker (WebP animation)
+    /// Whether this is an animated sticker (WebP animation), or for a video,
+    /// a GIF: WhatsApp's looping, silent `gif_playback` video.
     #[serde(default, skip_serializing_if = "is_false")]
     pub is_animated: bool,
     /// Duration in seconds (for audio/video)

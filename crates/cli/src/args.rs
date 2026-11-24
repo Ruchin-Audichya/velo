@@ -953,4 +953,7 @@ pub struct McpArgs {
     /// Output raw usage specification JSON
     #[usage(long)]
     pub spec: bool,
+    /// Run as an MCP server on stdin/stdout, so Claude can use Velo
+    #[usage(long)]
+    pub serve: bool,
 }

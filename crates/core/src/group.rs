@@ -17,6 +17,27 @@ pub struct GroupRoster {
     /// account's own entry marked rather than moved: where "You" goes in a
     /// line of names is the renderer's decision, not this type's.
     pub members: Vec<GroupMember>,
+    /// Why this account cannot post here, when it cannot.
+    ///
+    /// `None` both when posting is open and when nobody could find out: a
+    /// message box shown in a group that turns out to be closed fails the way
+    /// it always has, but one hidden in an open group is a chat the owner
+    /// cannot answer. Absent on the wire for the same reason.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub posting_blocked: Option<PostingBlock>,
+}
+
+/// Why the message box is replaced by a line saying so, as WhatsApp does.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PostingBlock {
+    /// The group's "Send messages: only admins" setting, and this account is
+    /// not one of its admins.
+    AdminsOnly,
+    /// The account is no longer in the group: it left, or was removed.
+    NotMember,
+    /// A channel this account follows. Only its owner and admins post.
+    ChannelFollower,
 }
 
 /// One member of a group.
@@ -36,6 +57,9 @@ pub struct GroupMember {
     /// Whether this member is the account reading it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub is_self: bool,
+    /// Whether they are one of the group's admins (its creator included).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub is_admin: bool,
 }
 
 impl GroupRoster {

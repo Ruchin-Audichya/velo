@@ -322,6 +322,70 @@ async fn sqlite_busy_retains_local_write_until_lock_released() {
     let _ = std::fs::remove_file(format!("{}-shm", path.display()));
 }
 
+/// The stall the v1.2 QA pass found: once a lock outlasted the retries, the
+/// writer held the write and waited for someone to flush. It now retries on
+/// its own, so a write lands soon after the lock clears with nobody asking.
+#[tokio::test]
+async fn a_paused_writer_recovers_by_itself_once_the_lock_clears() {
+    use diesel::Connection;
+    use whatsapp_rust_sqlite_storage::SqliteDatabaseConfig;
+    let path = std::env::temp_dir().join(format!("velo-232-recover-{}.sqlite", std::process::id()));
+    let db = whatsapp_rust_sqlite_storage::SqliteDatabase::open(
+        path.to_str().unwrap(),
+        SqliteDatabaseConfig {
+            busy_timeout: Duration::from_millis(1),
+            ..Default::default()
+        },
+    )
+    .await
+    .map(|database| database.store(1))
+    .unwrap();
+    db.database()
+        .provision_device(db.device_id())
+        .await
+        .unwrap();
+    let store = ChatStore::new(&db).await.unwrap();
+    let mut locker = diesel::SqliteConnection::establish(path.to_str().unwrap()).unwrap();
+    diesel::sql_query("BEGIN IMMEDIATE")
+        .execute(&mut locker)
+        .unwrap();
+    store
+        .record_outgoing(
+            &jid(PEER),
+            "RECOVER",
+            &wa::Message::text("retained"),
+            ts(1_700_000_000),
+        )
+        .unwrap();
+    let _failure = tokio::time::timeout(Duration::from_secs(5), store.flush())
+        .await
+        .expect("retries must stop")
+        .expect_err("held writer lock must fail");
+    diesel::sql_query("ROLLBACK").execute(&mut locker).unwrap();
+    drop(locker);
+    // No flush: the writer has to get there itself.
+    let mut landed = false;
+    for _ in 0..80 {
+        if store
+            .message(&jid(PEER), "RECOVER")
+            .await
+            .unwrap()
+            .is_some()
+        {
+            landed = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    assert!(landed, "the paused writer never retried on its own");
+    store.close().await.unwrap();
+    drop(store);
+    drop(db);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(format!("{}-wal", path.display()));
+    let _ = std::fs::remove_file(format!("{}-shm", path.display()));
+}
+
 #[tokio::test]
 async fn rollback_retains_deferred_ack_and_does_not_apply_later_inbound() {
     let (db, store) = test_store().await;

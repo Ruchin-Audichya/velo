@@ -57,9 +57,9 @@ pub use protocol::{
     CallDeviceAction, CallDeviceReply, CameraPreviewFrame, ChatAction, ChatSummary, ClientRequest,
     ClientScope, ConnectionState, ContactSummary, DaemonEvent, DaemonMessage, Download,
     EditMessage, EnsureAvatars, FileMatch, GroupMembers, InstallPlugin, LoadChats, LoadMessages,
-    MarkAudioPlayed, MarkRead, MarkStatusWatched, MessagePreview, PageCursor, PairingCode,
-    ProtocolError, Request, RequestId, RevokeMessage, SendAudio, SendMedia, SendReaction, SendText,
-    StateSnapshot, StateVersion, Typing, VotePoll,
+    MarkAudioPlayed, MarkRead, MarkStatusWatched, MessageInfoRequest, MessagePreview, PageCursor,
+    PairingCode, ProtocolError, Request, RequestId, RevokeMessage, SendAudio, SendMedia,
+    SendReaction, SendText, StateSnapshot, StateVersion, Typing, VotePoll,
 };
 pub use transport::{
     ACCOUNT_STAGED_INFIX, DEFAULT_WEB_PORT, MAX_STAGED_BYTES, PROTOCOL_VERSION, STAGED_PREFIX,

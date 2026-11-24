@@ -1476,7 +1476,7 @@ pub(crate) fn exercise_call_frame_adoption(
     let mut retired = false;
     while let Ok(event) = events.try_recv() {
         match event {
-            FromDaemon::ShowWindow => {}
+            FromDaemon::ShowWindow | FromDaemon::OpenChat(_) => {}
             FromDaemon::CallFrames => {
                 app.update(&mut cx, |app, cx| {
                     app.draw_waiting_call_frames(cx);

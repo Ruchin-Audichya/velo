@@ -1,8 +1,11 @@
 //! Handing a file to the person using the window.
 //!
-//! On the desktop that is a path: the Downloads directory, a name the sender
-//! cannot use to escape it, and a `(n)` suffix so a save never clobbers
-//! anything. A page has none of that — no environment to read a directory
+//! On the desktop that is a path in Velo's own download cache, as WhatsApp
+//! for Windows keeps one: `transfers\<year>-W<week>` under the data folder,
+//! a name the sender cannot use to escape it, and a `(n)` suffix so a save
+//! never clobbers anything. Opening a file opens that copy; it reaches the
+//! user's own folders only through "Save as…", and weeks older than
+//! [`KEEP_WEEKS`] are cleared at startup so the cache does not pile up. A page has none of that — no environment to read a directory
 //! out of and no filesystem to write into — but it has the same *gesture*
 //! available, because handing a file to the user is something a browser does
 //! natively: a blob, an object URL, and a link that carries `download`.
@@ -23,13 +26,62 @@ pub enum DownloadOutcome {
     BrowserDownloadRequested(String),
 }
 
-/// Save these bytes under this name.
+/// Save these bytes under this name: into the download cache on the
+/// desktop, to the browser's own downloads on a page.
 ///
 /// # Errors
 ///
 /// Nowhere to write, or writing failed.
 pub fn save(file_name: &str, data: &[u8]) -> Result<DownloadOutcome, String> {
     imp::save(file_name, data)
+}
+
+/// How many weeks of downloads the cache keeps: the current one and the
+/// three before it.
+pub const KEEP_WEEKS: i64 = 4;
+
+/// Delete cache weeks older than [`KEEP_WEEKS`]. Blocking I/O; a failure is
+/// left for the next start.
+pub fn prune_cache() {
+    imp::prune_cache();
+}
+
+/// Where the download cache lives, when this platform has one.
+#[must_use]
+pub fn cache_root() -> Option<std::path::PathBuf> {
+    imp::cache_root()
+}
+
+/// Where "Save as…" opens: the user's Downloads folder.
+#[must_use]
+pub fn save_as_directory() -> Option<std::path::PathBuf> {
+    crate::platform::files::root()
+        .ok()
+        .and_then(|velo| velo.parent().map(std::path::Path::to_path_buf))
+}
+
+/// The cache folder a download made in the week of `today` goes into.
+#[must_use]
+pub fn week_folder(today: chrono::NaiveDate) -> String {
+    use chrono::Datelike as _;
+    let week = today.iso_week();
+    format!("{}-W{:02}", week.year(), week.week())
+}
+
+/// Whether a cache folder named `name` is older than [`KEEP_WEEKS`] on
+/// `today`. A folder whose name is not a week is never Velo's to delete.
+#[must_use]
+pub fn is_expired_week(name: &str, today: chrono::NaiveDate) -> bool {
+    let Some((year, week)) = name.split_once("-W") else {
+        return false;
+    };
+    let (Ok(year), Ok(week)) = (year.parse::<i32>(), week.parse::<u32>()) else {
+        return false;
+    };
+    let Some(monday) = chrono::NaiveDate::from_isoywd_opt(year, week, chrono::Weekday::Mon) else {
+        return false;
+    };
+    (today - monday).num_days() >= KEEP_WEEKS * 7
 }
 
 /// Whether saving happens somewhere other than the calling thread.
@@ -49,15 +101,41 @@ mod imp {
     use std::io::Write as _;
     use std::path::PathBuf;
 
-    /// Write into the user's Downloads directory.
-    ///
-    /// `$XDG_DOWNLOAD_DIR`, then `$HOME` or `%USERPROFILE%` + `/Downloads`,
-    /// then the working directory — the same fallback chain the database
-    /// uses when no home is known.
+    /// Write into this week's folder of the download cache.
     pub(super) fn save(file_name: &str, data: &[u8]) -> Result<super::DownloadOutcome, String> {
-        write(file_name, data)
+        let root = cache_root().ok_or("Velo's data folder could not be located.")?;
+        let today = wacore::time::now_utc()
+            .with_timezone(&chrono::Local)
+            .date_naive();
+        write_in(&root.join(super::week_folder(today)), file_name, data)
             .map(super::DownloadOutcome::NativeFile)
             .map_err(|e| e.to_string())
+    }
+
+    pub(super) fn cache_root() -> Option<PathBuf> {
+        Some(velo_ipc::state_dir()?.join("transfers"))
+    }
+
+    pub(super) fn prune_cache() {
+        let Some(root) = cache_root() else {
+            return;
+        };
+        let Ok(read) = std::fs::read_dir(&root) else {
+            return;
+        };
+        let today = wacore::time::now_utc()
+            .with_timezone(&chrono::Local)
+            .date_naive();
+        for entry in read.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let is_dir = entry.file_type().is_ok_and(|kind| kind.is_dir());
+            if is_dir
+                && super::is_expired_week(&name, today)
+                && let Err(error) = std::fs::remove_dir_all(entry.path())
+            {
+                log::debug!("an old download week stays until next time: {error}");
+            }
+        }
     }
 
     /// A file name that cannot leave the directory it is joined to.
@@ -100,12 +178,6 @@ mod imp {
         } else {
             name.to_string()
         }
-    }
-
-    fn write(file_name: &str, data: &[u8]) -> std::io::Result<PathBuf> {
-        let root = crate::platform::files::root().map_err(std::io::Error::other)?;
-        let category = crate::platform::files::Category::of(std::path::Path::new(file_name));
-        write_in(&root.join(category.label()), file_name, data)
     }
 
     pub(super) fn write_in(
@@ -203,6 +275,18 @@ mod tests {
     }
 
     #[test]
+    fn the_cache_keeps_four_weeks_and_nothing_it_did_not_make() {
+        let today = chrono::NaiveDate::from_ymd_opt(2026, 11, 24).unwrap();
+        assert_eq!(super::week_folder(today), "2026-W48");
+        assert!(!super::is_expired_week("2026-W48", today));
+        assert!(!super::is_expired_week("2026-W45", today));
+        assert!(super::is_expired_week("2026-W44", today));
+        assert!(super::is_expired_week("2025-W52", today));
+        assert!(!super::is_expired_week("photos", today));
+        assert!(!super::is_expired_week("2026-Wxx", today));
+    }
+
+    #[test]
     fn regression_193_collision_returns_the_actual_suffixed_path_without_overwrite() {
         let dir = scratch();
         let first = write_in(&dir, "report.pdf", b"original").unwrap();
@@ -239,6 +323,13 @@ mod tests {
 #[cfg(target_family = "wasm")]
 mod imp {
     use wasm_bindgen::JsCast as _;
+
+    /// The browser keeps its own downloads; a page has no cache to name.
+    pub(super) fn cache_root() -> Option<std::path::PathBuf> {
+        None
+    }
+
+    pub(super) fn prune_cache() {}
 
     /// Hand the bytes to the browser's own download machinery.
     ///

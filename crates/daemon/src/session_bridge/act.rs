@@ -155,6 +155,54 @@ impl Bridge {
                 });
                 None
             }
+            Action::FindChat { id, jid, answer_to } => {
+                let Some(permit) = self.permit() else {
+                    let _ = reply.send(too_busy());
+                    return None;
+                };
+                let task = client.find_chat(jid);
+                velo_session::spawn(async move {
+                    let result = task
+                        .await
+                        .map_err(|error| error.to_string())
+                        .and_then(|result| result);
+                    answer_now(
+                        &answer_to,
+                        answered(id, Ok(DaemonMessage::ChatFound { id, result })),
+                    );
+                    let _ = reply.send(CommandOutcome::Accepted);
+                    drop(permit);
+                });
+                None
+            }
+            Action::MessageInfo {
+                id,
+                request:
+                    velo_ipc::MessageInfoRequest {
+                        chat_jid,
+                        message_id,
+                    },
+                answer_to,
+            } => {
+                let Some(permit) = self.permit() else {
+                    let _ = reply.send(too_busy());
+                    return None;
+                };
+                let task = client.message_info(chat_jid, message_id);
+                velo_session::spawn(async move {
+                    let result = task
+                        .await
+                        .map_err(|error| error.to_string())
+                        .and_then(|result| result);
+                    answer_now(
+                        &answer_to,
+                        answered(id, Ok(DaemonMessage::MessageInfo { id, result })),
+                    );
+                    let _ = reply.send(CommandOutcome::Accepted);
+                    drop(permit);
+                });
+                None
+            }
             Action::ListContacts {
                 id,
                 query,
@@ -1869,6 +1917,8 @@ impl Bridge {
             | Action::ChatAction { .. }
             | Action::ForwardMessage { .. }
             | Action::ListContacts { .. }
+            | Action::MessageInfo { .. }
+            | Action::FindChat { .. }
             | Action::SaveContact { .. }
             | Action::SearchFiles { .. }
             | Action::LoadChats { .. }

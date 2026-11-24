@@ -36,7 +36,7 @@ impl Chat {
         // hydrated history): no duplicate bubble, no recount. Id-only, not
         // (timestamp, id): the optimistic bubble's UI clock and the store's
         // commit clock can stamp the same message a second apart.
-        if self.messages.iter().any(|m| m.id == message.id) {
+        if self.messages.iter().any(|m| m.same_message(&message)) {
             return false;
         }
 
@@ -92,6 +92,9 @@ impl Chat {
     /// the live one. Messages merge dedup-guarded without unread bumps; the
     /// store's counters are authoritative after a flush.
     pub fn merge_history(&mut self, hydrated: Chat) {
+        if hydrated.from_store {
+            self.drop_rows_the_store_no_longer_has(&hydrated);
+        }
         // A live-created chat adopted by a store load becomes prunable: the
         // store owns it from here on.
         self.from_store |= hydrated.from_store;
@@ -148,6 +151,60 @@ impl Chat {
         }
     }
 
+    /// Forget held messages a store load shows are gone.
+    ///
+    /// Merging alone only ever adds, so a chat cleared on the phone, or a
+    /// message deleted there, kept showing here until a restart. A store page
+    /// is authoritative for the stretch of time it covers: a held message
+    /// inside that stretch and missing from the page has left the store. When
+    /// the page is the chat's whole stored history, everything up to its
+    /// newest row is covered, which is what catches a full clear.
+    ///
+    /// Spared always: our own messages the store may not have yet (still
+    /// sending, or failed and waiting for a retry), and anything newer than
+    /// the load, which can have arrived live after the store was read.
+    fn drop_rows_the_store_no_longer_has(&mut self, hydrated: &Chat) {
+        use crate::message_status::MessageStatus;
+        let kept: std::collections::HashSet<&str> =
+            hydrated.messages.iter().map(|m| m.id.as_str()).collect();
+        let oldest = hydrated.messages.iter().map(|m| m.timestamp).min();
+        let newest_row = hydrated.messages.iter().map(|m| m.timestamp).max();
+        // A whole history covers up to the chat's activity time too: a clear
+        // keeps that time, which can be later than every surviving row.
+        let newest = match (newest_row, hydrated.last_message_time) {
+            (Some(row), Some(activity)) if hydrated.history_complete => Some(row.max(activity)),
+            (row, activity) => row.or(activity),
+        };
+        let Some(newest) = newest else {
+            return;
+        };
+        let complete = hydrated.history_complete;
+        if !complete && oldest.is_none() {
+            // A row with no messages and no claim to completeness: a sidebar
+            // page. It says nothing about the timeline.
+            return;
+        }
+        self.messages.retain(|message| {
+            let unsent = message.is_from_me
+                && matches!(
+                    message.status,
+                    MessageStatus::Pending | MessageStatus::Failed
+                );
+            if unsent || kept.contains(message.id.as_str()) {
+                return true;
+            }
+            let covered = if complete {
+                message.timestamp <= newest
+            } else {
+                // Strictly inside: a page cut among same-second rows leaves
+                // siblings at its edges that are older, not gone.
+                oldest.is_some_and(|oldest| message.timestamp > oldest)
+                    && message.timestamp < newest
+            };
+            !covered
+        });
+    }
+
     /// Rename a message (optimistic local id -> real WhatsApp id),
     /// re-inserting so the (timestamp, id) sort invariant holds for
     /// same-second siblings. The renamed bubble replaces a row already
@@ -179,7 +236,7 @@ impl Chat {
         // timestamp than the optimistic bubble. Remove-and-reinsert keeps
         // the (timestamp, id) sort invariant when the timestamp shifted.
         let mut unchanged = false;
-        if let Some(pos) = self.messages.iter().position(|m| m.id == message.id) {
+        if let Some(pos) = self.messages.iter().position(|m| m.same_message(&message)) {
             let existing = self.messages.remove(pos);
             // The store never holds downloaded media bytes — hydrated rows
             // come back empty or with just a preview thumbnail; graft the
@@ -338,6 +395,109 @@ mod tests {
     use crate::chat::message::make_message;
     use crate::fixtures;
     use chrono::{TimeZone, Utc};
+
+    fn stored(jid: &str, ids: &[(&str, i64)], complete: bool) -> Chat {
+        let mut chat = Chat::from_store(jid.into(), "Peer".into(), 0);
+        chat.messages = ids.iter().map(|(id, at)| make_message(id, *at)).collect();
+        chat.history_complete = complete;
+        chat
+    }
+
+    fn ids(chat: &Chat) -> Vec<&str> {
+        chat.messages.iter().map(|m| m.id.as_str()).collect()
+    }
+
+    /// Two members' phones picked the same id: both messages are drawn.
+    #[test]
+    fn same_id_from_two_members_is_two_messages() {
+        let mut group = Chat::new("120363000000000001@g.us".into());
+        let mut ana = make_message("SAME", 1_700_000_000);
+        ana.sender = "559900000001@s.whatsapp.net".into();
+        let mut bia = make_message("SAME", 1_700_000_001);
+        bia.sender = "559900000002@s.whatsapp.net".into();
+        assert!(group.add_message(ana.clone()));
+        assert!(group.add_message(bia));
+        assert_eq!(group.messages.len(), 2);
+        // The same member's message redelivered is still one, device and all.
+        let mut again = ana.clone();
+        again.sender = "559900000001:7@s.whatsapp.net".into();
+        assert!(!group.add_message(again));
+        // And one arriving under the member's LID cannot be told apart, so
+        // it merges rather than doubling.
+        let mut as_lid = ana;
+        as_lid.sender = "123456789@lid".into();
+        assert!(!group.add_message(as_lid));
+        assert_eq!(group.messages.len(), 2);
+    }
+
+    /// Cleared on the phone, with one starred message kept: the store's
+    /// whole history is that one row, and nothing else may stay on screen.
+    #[test]
+    fn a_clear_on_the_phone_removes_what_the_store_dropped() {
+        let mut live = Chat::new(fixtures::PEER.into());
+        for (id, at) in [
+            ("A", 1_700_000_000),
+            ("STAR", 1_700_000_010),
+            ("B", 1_700_000_020),
+        ] {
+            live.add_message(make_message(id, at));
+        }
+        let mut cleared = stored(fixtures::PEER, &[("STAR", 1_700_000_010)], true);
+        // The store keeps the chat's activity time across a clear.
+        cleared.last_message_time = Some(Utc.timestamp_opt(1_700_000_020, 0).unwrap());
+        live.merge_history(cleared);
+        assert_eq!(ids(&live), ["STAR"]);
+    }
+
+    /// Cleared with nothing kept: an empty but complete history empties the
+    /// timeline, except our own message still on its way out, and one that
+    /// arrived live after the store was read.
+    #[test]
+    fn an_empty_complete_history_spares_unsent_and_newer_messages() {
+        let mut live = Chat::new(fixtures::PEER.into());
+        live.add_message(make_message("OLD", 1_700_000_000));
+        let mut sending = make_message("SENDING", 1_700_000_005);
+        sending.is_from_me = true;
+        sending.status = crate::message_status::MessageStatus::Pending;
+        live.add_message(sending);
+        live.add_message(make_message("LIVE", 1_700_000_100));
+        let mut cleared = stored(fixtures::PEER, &[], true);
+        cleared.last_message_time = Some(Utc.timestamp_opt(1_700_000_050, 0).unwrap());
+        live.merge_history(cleared);
+        assert_eq!(ids(&live), ["SENDING", "LIVE"]);
+    }
+
+    /// A full page of the newest rows covers only its own stretch: older
+    /// rows outside it are not evidence of anything.
+    #[test]
+    fn a_partial_page_only_reconciles_inside_its_own_range() {
+        let mut live = Chat::new(fixtures::PEER.into());
+        for (id, at) in [
+            ("OLDER", 1_700_000_000),
+            ("GONE", 1_700_000_020),
+            ("N1", 1_700_000_010),
+            ("N2", 1_700_000_030),
+        ] {
+            live.add_message(make_message(id, at));
+        }
+        live.merge_history(stored(
+            fixtures::PEER,
+            &[("N1", 1_700_000_010), ("N2", 1_700_000_030)],
+            false,
+        ));
+        assert_eq!(ids(&live), ["OLDER", "N1", "N2"]);
+    }
+
+    /// A sidebar row carries no messages and claims nothing.
+    #[test]
+    fn a_sidebar_row_never_touches_the_timeline() {
+        let mut live = Chat::new(fixtures::PEER.into());
+        live.add_message(make_message("KEEP", 1_700_000_000));
+        let mut row = stored(fixtures::PEER, &[], false);
+        row.last_message_time = Some(Utc.timestamp_opt(1_700_000_050, 0).unwrap());
+        live.merge_history(row);
+        assert_eq!(ids(&live), ["KEEP"]);
+    }
 
     #[test]
     fn history_rebuild_preserves_edited_fact_on_exact_own_and_peer_rows() {

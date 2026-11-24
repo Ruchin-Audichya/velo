@@ -28,7 +28,8 @@ catalog! {
     Draft => ("Draft:", "Rascunho:");
     Previous => ("Previous", "Anterior");
     Next => ("Next", "Próximo");
-    SaveToDownloads => ("Save to Downloads", "Salvar em Downloads");
+    SaveToDownloads => ("Download", "Baixar");
+    SaveAs => ("Save as…", "Salvar como…");
     NothingToSaveThisFileCouldNotBeRead => ("Nothing to save: this file could not be read", "Nada para salvar: não foi possível ler este arquivo");
     Close => ("Close", "Fechar");
     LoadingImage => ("Loading image...", "Carregando imagem...");
@@ -66,6 +67,16 @@ catalog! {
     OfflineYourMessagesStayReadableReconnectToSend => ("Offline. Your messages stay readable. Reconnect to send.", "Sem conexão. Você pode ler suas mensagens. Reconecte para enviar.");
     SessionOptions => ("Session options", "Opções da sessão");
     Reconnect => ("Reconnect", "Reconectar");
+    MessageInfoTitle => ("Message info", "Dados da mensagem");
+    ReadText => ("Read", "Lida");
+    Delivered => ("Delivered", "Entregue");
+    Played => ("Played", "Reproduzida");
+    ReadBy => ("Read by", "Lida por");
+    DeliveredTo => ("Delivered to", "Entregue para");
+    PlayedBy => ("Played by", "Reproduzida por");
+    OnlyAdminsCanSendMessages => ("Only admins can send messages.", "Somente admins podem enviar mensagens.");
+    NoLongerAGroupMember => ("You can't send messages to this group because you're no longer a member.", "Você não pode enviar mensagens para este grupo porque não é mais um membro.");
+    OnlyChannelAdminsCanPost => ("Only the channel's admins can post here.", "Somente os admins do canal podem publicar aqui.");
     ReturnToCall => ("Return to call", "Voltar à chamada");
     BackToRetainedHistory => ("Back to retained history", "Voltar ao histórico salvo");
     LinkYourPhone => ("Link your phone", "Vincule seu celular");
@@ -319,8 +330,8 @@ catalog! {
     CouldNotDownloadThatAudio => ("Could not download that audio", "Não foi possível baixar o áudio");
     CouldNotDownloadThatImage => ("Could not download that image", "Não foi possível baixar a imagem");
     CouldNotDownloadThatFile => ("Could not download that file", "Não foi possível baixar o arquivo");
-    ThatFileIsNoLongerInDownloadsSaveItAgainToOpenIt => ("That file is no longer in Downloads. Save it again to open it.", "O arquivo não está mais em Downloads. Salve novamente para abri-lo.");
-    ThatFileIsNoLongerInDownloadsSaveItAgainToShowIt => ("That file is no longer in Downloads. Save it again to show it.", "O arquivo não está mais em Downloads. Salve novamente para mostrá-lo.");
+    ThatFileIsNoLongerInDownloadsSaveItAgainToOpenIt => ("That file is no longer on this computer. Download it again to open it.", "O arquivo não está mais neste computador. Baixe novamente para abri-lo.");
+    ThatFileIsNoLongerInDownloadsSaveItAgainToShowIt => ("That file is no longer on this computer. Download it again to show it.", "O arquivo não está mais neste computador. Baixe novamente para mostrá-lo.");
     CouldNotDownloadThatVideo => ("Could not download that video", "Não foi possível baixar o vídeo");
     FinishEditingTheMessageBeforeAddingAFile => ("Finish editing the message before adding a file.", "Termine de editar a mensagem antes de adicionar um arquivo.");
     FinishOrCancelThePendingFileFirstThenDropAgain => ("Finish or cancel the pending file first, then drop again.", "Envie ou cancele o arquivo pendente antes de soltar outro.");
@@ -390,7 +401,8 @@ catalog! {
     LogInfoNote => ("The default: connections, sends, and what went wrong.", "O padrão: conexões, envios e falhas.");
     LogDebugNote => ("Every stanza the library reads, and every step of a pairing.", "Cada stanza recebida pela biblioteca e cada etapa da vinculação.");
     LogTraceNote => ("Everything, including the protocol's own bookkeeping.", "Tudo, incluindo os registros internos do protocolo.");
-    MessageDeleted => ("[Message deleted]", "[Mensagem apagada]");
+    MessageDeleted => ("\u{2298} This message was deleted", "\u{2298} Esta mensagem foi apagada");
+    YouDeletedThisMessage => ("\u{2298} You deleted this message", "\u{2298} Você apagou esta mensagem");
     OutgoingCalling => ("calling", "chamando");
     OutgoingRinging => ("ringing", "tocando");
     OutgoingConnected => ("connected", "conectada");

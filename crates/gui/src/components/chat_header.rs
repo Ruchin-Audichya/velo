@@ -573,23 +573,27 @@ mod tests {
                 jid: format!("{i}@s.whatsapp.net"),
                 name: Some((*name).to_string()),
                 is_self: false,
+                is_admin: false,
             })
             .collect();
         members.extend((0..unnamed).map(|i| GroupMember {
             jid: format!("{i}@lid"),
             name: None,
             is_self: false,
+            is_admin: false,
         }));
         if includes_me {
             members.push(GroupMember {
                 jid: "me@s.whatsapp.net".to_string(),
                 name: None,
                 is_self: true,
+                is_admin: false,
             });
         }
         GroupRoster {
             jid: "group@g.us".to_string(),
             members,
+            posting_blocked: None,
         }
     }
 

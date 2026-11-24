@@ -3955,3 +3955,10 @@ fn history_backfill_wait_detects_older_rows_without_count_growth() {
         }
     ));
 }
+
+#[test]
+fn the_phone_lists_this_device_as_velo() {
+    assert_eq!(super::linked_device_name("windows"), "Velo Windows");
+    assert_eq!(super::linked_device_name("macos"), "Velo macOS");
+    assert_eq!(super::linked_device_name("unknown"), "Velo Web");
+}

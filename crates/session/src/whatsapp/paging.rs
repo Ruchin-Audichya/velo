@@ -332,6 +332,92 @@ impl WhatsAppClient {
         })
     }
 
+    /// The address the stored chat with `jid` lives under, under whichever
+    /// of the person's addresses it is: their number may find a chat kept
+    /// under their LID, and the other way round. `None` when there is none.
+    pub fn find_chat(&self, jid: String) -> Task<Result<Option<String>, String>> {
+        let session = self.session.clone();
+        self.exec.spawn(async move {
+            let Some(live) = session.lock().await.clone() else {
+                return Err("no session yet".to_string());
+            };
+            let jid = jid
+                .parse::<Jid>()
+                .map_err(|_| "invalid chat jid".to_string())?;
+            live.chat_store
+                .chat(&jid)
+                .await
+                .map(|entry| entry.map(|entry| entry.jid.to_string()))
+                .map_err(|e| format!("finding the chat failed: {e}"))
+        })
+    }
+
+    /// Who a sent message was delivered to and read by, and when.
+    ///
+    /// From the receipts the store kept as they arrived, so it answers
+    /// offline too. One entry per person: the store already files a receipt
+    /// per participant rather than per device, and this account's own
+    /// devices are left out, as WhatsApp leaves them out.
+    pub fn message_info(
+        &self,
+        chat_jid: String,
+        message_id: String,
+    ) -> Task<Result<velo_core::MessageInfo, String>> {
+        let session = self.session.clone();
+        self.exec.spawn(async move {
+            let Some(live) = session.lock().await.clone() else {
+                return Err("no session yet".to_string());
+            };
+            let chat = chat_jid
+                .parse::<Jid>()
+                .map_err(|_| "invalid chat jid".to_string())?;
+            let entries = live
+                .chat_store
+                .receipts(&chat, &message_id)
+                .await
+                .map_err(|e| format!("message info failed: {e}"))?;
+            let mine = super::history::own_jids(&live.client);
+            let mut recipients: Vec<velo_core::RecipientReceipt> = Vec::new();
+            for entry in entries {
+                let bare = entry.user_jid.to_non_ad_string();
+                if mine.contains(&bare) {
+                    continue;
+                }
+                let index = match recipients.iter().position(|r| r.jid == bare) {
+                    Some(index) => index,
+                    None => {
+                        let name = live.names.known(&live.client, &entry.user_jid, None).await;
+                        recipients.push(velo_core::RecipientReceipt {
+                            jid: bare,
+                            name,
+                            delivered_at: None,
+                            read_at: None,
+                            played_at: None,
+                        });
+                        recipients.len() - 1
+                    }
+                };
+                let slot = match entry.status {
+                    velo_chat_store::MessageStatus::Delivered => {
+                        &mut recipients[index].delivered_at
+                    }
+                    velo_chat_store::MessageStatus::Read => &mut recipients[index].read_at,
+                    velo_chat_store::MessageStatus::Played => &mut recipients[index].played_at,
+                    _ => continue,
+                };
+                // The earliest report of a state is when it happened.
+                if slot.is_none_or(|held| entry.timestamp < held) {
+                    *slot = Some(entry.timestamp);
+                }
+            }
+            Ok(velo_core::MessageInfo {
+                chat_jid,
+                message_id,
+                recipients,
+            })
+        })
+    }
+
     /// Fetch a single message by ID.
     pub fn get_message(
         &self,

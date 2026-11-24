@@ -37,6 +37,7 @@ mod message_status;
 mod plugin;
 mod presence;
 mod quoted;
+mod receipts;
 mod rich_text;
 mod status;
 mod system_notice;
@@ -59,7 +60,7 @@ pub use chat::{
 };
 pub use chat::{fallback_chat_name, fallback_sender_name};
 pub use events::{AvatarOutcome, AvatarResolution, ReceiptType, UiEvent};
-pub use group::{GroupMember, GroupRoster};
+pub use group::{GroupMember, GroupRoster, PostingBlock};
 pub use links::{LinkSpan, find_links as find_message_links, find_links_in};
 pub use log_level::{LogLevel, UnknownLogLevel};
 pub use media_budget::{
@@ -73,6 +74,7 @@ pub use presence::{
     Availability, ChatTyping, ComposingKind, PresenceRegistry, TypingSummary, Typist,
 };
 pub use quoted::{QuotedKind, QuotedMessage};
+pub use receipts::{MessageInfo, RecipientReceipt};
 pub use rich_text::{
     Emphasis, RichText, Span as TextSpan, parse as parse_rich_text,
     plain_text as plain_message_text,

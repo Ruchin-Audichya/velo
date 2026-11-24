@@ -522,6 +522,18 @@ pub enum DaemonMessage {
     /// it. It is not state either — nothing here changes when it arrives, and
     /// a front end that never asks is never sent one.
     GroupMembers { id: RequestId, roster: GroupRoster },
+    /// The answer to [`ClientRequest::FindChat`]: the address the
+    /// conversation is stored under, or `None` when there is none yet.
+    ChatFound {
+        id: RequestId,
+        result: Result<Option<String>, String>,
+    },
+    /// The answer to [`ClientRequest::MessageInfo`], addressed to the
+    /// window that asked like a page.
+    MessageInfo {
+        id: RequestId,
+        result: Result<velo_core::MessageInfo, String>,
+    },
     /// A module was installed, and the id it claimed.
     ///
     /// Addressed to the client that asked, like a page of history: the id is
@@ -584,6 +596,10 @@ pub enum DaemonMessage {
     /// does, and the daemon keeps the account exactly as it does then. A
     /// client with nothing on screen ignores it, as it does the other.
     HideWindow,
+    /// A notification for this conversation was clicked: bring the window
+    /// forward with it open. Versionless like [`DaemonMessage::ShowWindow`],
+    /// and ignored the same way by a client with no window.
+    OpenChat { jid: String },
     /// A message the daemon accepted could not be delivered.
     ///
     /// Also versionless, and for the same reason: nothing about the daemon's
@@ -945,6 +961,14 @@ pub struct LoadChats {
     pub archived: bool,
 }
 
+/// The message whose receipts are being asked for. See
+/// [`ClientRequest::MessageInfo`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MessageInfoRequest {
+    pub chat_jid: String,
+    pub message_id: String,
+}
+
 /// The group whose members are being asked for. See
 /// [`ClientRequest::GroupMembers`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1227,6 +1251,21 @@ pub enum ClientRequest {
     /// only goes to the network when the server has said its snapshot is
     /// stale.
     GroupMembers(GroupMembers),
+    /// Who one of this account's sent messages was delivered to and read
+    /// by, and when: WhatsApp's "Message info". Answered with
+    /// [`DaemonMessage::MessageInfo`]. A read of the local store, so it
+    /// answers offline with whatever receipts had arrived.
+    MessageInfo(MessageInfoRequest),
+    /// Which stored conversation, if any, is the one with this person.
+    ///
+    /// A window knows a chat by the address it is stored under, and a
+    /// contact WhatsApp has moved to a LID is stored under the LID: typing
+    /// their number cannot find it there. The store knows every address a
+    /// person has been seen under, so it answers. Answered with
+    /// [`DaemonMessage::ChatFound`].
+    FindChat {
+        jid: String,
+    },
     /// Ask what this account is taking up on disk.
     ///
     /// Answered with [`DaemonMessage::Storage`] under the request's id. The
@@ -2378,13 +2417,16 @@ mod tests {
                         jid: "559900000001@s.whatsapp.net".into(),
                         name: Some("Ana".into()),
                         is_self: false,
+                        is_admin: false,
                     },
                     velo_core::GroupMember {
                         jid: "559900000002@s.whatsapp.net".into(),
                         name: None,
                         is_self: true,
+                        is_admin: false,
                     },
                 ],
+                posting_blocked: None,
             },
         };
         let line = serde_json::to_string(&answered).expect("an answer is writable");

@@ -112,6 +112,17 @@ mod imp {
         let root = root()?;
         std::fs::create_dir_all(&root).map_err(|error| error.to_string())?;
         let mut entries = Vec::new();
+        // Downloads go to Velo's cache, one folder per week; earlier versions
+        // saved under Downloads\Velo, which is still listed below.
+        if let Some(cache) = crate::platform::download::cache_root()
+            && let Ok(weeks) = std::fs::read_dir(&cache)
+        {
+            for week in weeks.flatten() {
+                if week.file_type().is_ok_and(|kind| kind.is_dir()) {
+                    read_folder(&week.path(), None, &mut entries)?;
+                }
+            }
+        }
         read_folder(&root, None, &mut entries)?;
         for category in Category::ALL
             .into_iter()

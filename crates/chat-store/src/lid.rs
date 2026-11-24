@@ -87,11 +87,17 @@ fn counterpart_of(
         )
         .get_result::<String>(conn)
         .optional()?
+        .filter(|pn| is_user_part(pn))
         .map(|pn| Jid::new(pn, Server::Pn).to_string()));
     }
     Ok(crate::point_lookup::First(
         dsl::lid_pn_mapping
             .filter(dsl::device_id.eq(device_id).and(dsl::phone_number.eq(user)))
+            // A malformed row must not win the newest-first race over a
+            // good one: see `is_user_part`.
+            .filter(diesel::dsl::sql::<diesel::sql_types::Bool>(
+                "lid <> '' AND lid NOT GLOB '*[^0-9]*'",
+            ))
             // The lid tiebreak keeps routing stable when updated_at ties —
             // flapping between counterpart keys would re-split the thread.
             .order((dsl::updated_at.desc(), dsl::lid.desc()))
@@ -99,7 +105,18 @@ fn counterpart_of(
     )
     .get_result::<String>(conn)
     .optional()?
+    .filter(|lid| is_user_part(lid))
     .map(|lid| Jid::new(lid, Server::Lid).to_string()))
+}
+
+/// Whether a value from the mapping table can be the user part of an address.
+///
+/// The table is written from the wire and from older versions' stores, and a
+/// row holding anything but digits used to reach a `parse().expect()` and take
+/// the daemon down with it. Such a row is ignored: the chat stays under the
+/// key it already has.
+fn is_user_part(value: &str) -> bool {
+    !value.is_empty() && value.bytes().all(|b| b.is_ascii_digit())
 }
 
 /// Every key the peer's rows may live under: the given key, its PN, and all
@@ -127,7 +144,9 @@ pub(crate) fn chat_key_candidates(
     if !keys.contains(&pn) {
         keys.push(pn.clone());
     }
-    let pn_user = pn.parse::<Jid>().expect("constructed PN JID").user;
+    let Ok(pn_user) = pn.parse::<Jid>().map(|jid| jid.user) else {
+        return Ok(keys);
+    };
     let lids: Vec<String> = dsl::lid_pn_mapping
         .filter(
             dsl::device_id
@@ -137,7 +156,7 @@ pub(crate) fn chat_key_candidates(
         .order((dsl::updated_at.desc(), dsl::lid.desc()))
         .select(dsl::lid)
         .load(conn)?;
-    for lid in lids {
+    for lid in lids.into_iter().filter(|lid| is_user_part(lid)) {
         let key = Jid::new(lid, Server::Lid).to_string();
         if !keys.contains(&key) {
             keys.push(key);
@@ -755,5 +774,28 @@ mod point_lookup_tests {
             counterpart_chat_key(&mut conn, 1, "123@g.us").unwrap(),
             None
         );
+    }
+
+    #[test]
+    fn a_malformed_mapping_row_is_ignored_rather_than_fatal() {
+        let mut conn = SqliteConnection::establish(":memory:").unwrap();
+        conn.batch_execute(
+            "CREATE TABLE lid_pn_mapping(device_id INTEGER NOT NULL,lid TEXT NOT NULL,phone_number TEXT NOT NULL,updated_at BIGINT NOT NULL,PRIMARY KEY(lid,device_id));             INSERT INTO lid_pn_mapping VALUES(1,'100','5@0:1',1),(1,'200',' ',1),(1,'x@y','600',1),(1,'300','600',1)",
+        ).unwrap();
+        for input in ["100@lid", "200@lid"] {
+            let jid = input.parse::<Jid>().unwrap();
+            assert_eq!(counterpart_of(&mut conn, 1, &jid).unwrap(), None, "{input}");
+            assert_eq!(
+                chat_key_candidates(&mut conn, 1, input).unwrap(),
+                vec![input.to_string()]
+            );
+        }
+        let pn = "600@s.whatsapp.net".parse::<Jid>().unwrap();
+        assert_eq!(
+            counterpart_of(&mut conn, 1, &pn).unwrap().as_deref(),
+            Some("300@lid")
+        );
+        let keys = chat_key_candidates(&mut conn, 1, "600@s.whatsapp.net").unwrap();
+        assert_eq!(keys, vec!["600@s.whatsapp.net", "300@lid"]);
     }
 }

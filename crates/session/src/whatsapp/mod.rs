@@ -123,10 +123,36 @@ use whatsapp_rust::wacore::download::MediaType as DownloadMediaType;
 /// Automatic presence matches a browser tab: it announces `available` on
 /// every connection. This process outlives every window, so that announcement
 /// would make WhatsApp route new-message attention away from the phone.
+///
+/// It also names the device for the phone's Linked devices list. The library
+/// says "rust" with an unknown-device icon unless told otherwise; this says
+/// "Velo Windows" (or the system it runs on) beside the desktop-computer
+/// icon. WhatsApp draws only its own icons there, so `DESKTOP` is the closest
+/// it has, and `UWP` is not claimed: that is the official Windows app, whose
+/// sync shape this client does not take. Only read when pairing, so a device
+/// linked before this keeps its old name until it is linked again.
 fn persistent_companion<B, T, H, R>(
     builder: whatsapp_rust::bot::BotBuilder<B, T, H, R>,
 ) -> whatsapp_rust::bot::BotBuilder<B, T, H, R> {
-    builder.with_presence_policy(PresencePolicy::Manual)
+    builder
+        .with_presence_policy(PresencePolicy::Manual)
+        .with_device_props(
+            whatsapp_rust::wacore::store::DevicePropsOverride::new()
+                .with_os(linked_device_name(std::env::consts::OS))
+                .with_platform_type(
+                    whatsapp_rust::waproto::whatsapp::device_props::PlatformType::DESKTOP,
+                ),
+        )
+}
+
+/// What the phone calls this device, from the system it was built for.
+fn linked_device_name(os: &str) -> &'static str {
+    match os {
+        "windows" => "Velo Windows",
+        "macos" => "Velo macOS",
+        "linux" => "Velo Linux",
+        _ => "Velo Web",
+    }
 }
 
 /// Retract a stale `available` announcement left on the server by an older

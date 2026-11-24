@@ -54,7 +54,7 @@ mod imp {
     use windows_sys::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
         CreateIconIndirect, DestroyIcon, ICONINFO, RegisterWindowMessageW, SM_CXSMICON,
-        WM_NCDESTROY,
+        WM_DPICHANGED, WM_NCDESTROY,
     };
 
     /// Not the placement subclass's id: both live on the same window.
@@ -68,6 +68,11 @@ mod imp {
         /// Whether the shell has it. False after a failure, and after
         /// Explorer restarts and rebuilds every button without overlays.
         applied: bool,
+        /// The pixel size the shell's copy was drawn at. A window dragged to
+        /// a screen with another scale keeps the same badge but needs it
+        /// redrawn: the size was part of what "unchanged" has to mean, and
+        /// leaving it out kept a blurry or tiny badge until the count moved.
+        applied_size: i32,
         subclassed: bool,
         taskbar: Option<windows::Win32::UI::Shell::ITaskbarList3>,
     }
@@ -100,7 +105,11 @@ mod imp {
                     unsafe { SetWindowSubclass(hwnd as HWND, Some(on_message), SUBCLASS_ID, 0) }
                         != 0;
             }
-            if state.applied && state.wanted == badge {
+            let size = icon_size(hwnd as HWND);
+            if state.applied
+                && state.wanted == badge
+                && (badge.is_none() || state.applied_size == size)
+            {
                 return;
             }
             state.wanted = badge;
@@ -123,6 +132,7 @@ mod imp {
             },
             Some(badge) => {
                 let size = icon_size(state.hwnd as HWND);
+                state.applied_size = size;
                 let Some(icon) = draw(badge, size) else {
                     state.applied = false;
                     return;
@@ -306,6 +316,16 @@ mod imp {
                 if state.hwnd == hwnd as usize {
                     state.subclassed = false;
                     state.applied = false;
+                }
+            });
+        } else if message == WM_DPICHANGED {
+            // Moved to a screen with another scale: draw the badge for it.
+            let _ = STATE.try_with(|cell| {
+                if let Ok(mut state) = cell.try_borrow_mut()
+                    && state.hwnd == hwnd as usize
+                    && state.wanted.is_some()
+                {
+                    apply(&mut state);
                 }
             });
         } else if message == button_created() {

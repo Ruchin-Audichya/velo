@@ -59,9 +59,42 @@ pub(super) async fn writer_loop(
     let mut pending_error = None;
     let unreceived = Arc::new(std::sync::Mutex::new(None));
     let mut next = None;
+    let mut recovery = Recovery::default();
     loop {
         let queued = match next.take() {
             Some(queued) => queued,
+            // Paused with writes held: wait for traffic, but not forever. A
+            // lock or transient storage error that has cleared would
+            // otherwise leave incoming messages uncommitted until something
+            // happened to flush, so the writer retries on its own, backing
+            // off, a bounded number of times.
+            None if paused && !pending.is_empty() && recovery.attempts < Recovery::MAX => {
+                match velo_platform::with_timeout(rx.recv(), recovery.delay()).await {
+                    Some(Some(queued)) => queued,
+                    Some(None) => break,
+                    None => {
+                        recovery.attempts += 1;
+                        match drain_pending(&db, device_id, &mut pending, &changes, &deferred).await
+                        {
+                            Ok(()) => {
+                                log::info!(
+                                    "chat-store: writer recovered after {} retries",
+                                    recovery.attempts
+                                );
+                                paused = false;
+                                recovery = Recovery::default();
+                            }
+                            Err(error) if recovery.attempts >= Recovery::MAX => log::error!(
+                                "chat-store: writes still failing after {} automatic retries; \
+                                 the store needs attention: {error}",
+                                recovery.attempts
+                            ),
+                            Err(_) => {}
+                        }
+                        continue;
+                    }
+                }
+            }
             None => match rx.recv().await {
                 Some(queued) => queued,
                 None => break,
@@ -75,6 +108,9 @@ pub(super) async fn writer_loop(
                 // every retained payload and the database before answering.
                 let result = drain_pending(&db, device_id, &mut pending, &changes, &deferred).await;
                 paused = result.is_err();
+                if !paused {
+                    recovery = Recovery::default();
+                }
                 if let Err(error) = result {
                     pending_error.get_or_insert(error);
                 }
@@ -184,6 +220,23 @@ pub(super) async fn writer_loop(
             "chat-store: writer dropped with {} uncommitted writes",
             pending.len()
         );
+    }
+}
+
+/// The writer's own retries while it is paused on held writes.
+#[derive(Default)]
+struct Recovery {
+    attempts: u32,
+}
+
+impl Recovery {
+    /// About eight minutes of retries in all before the writer stops trying
+    /// on its own and waits for an explicit flush.
+    const MAX: u32 = 12;
+
+    /// 1 s, doubling, capped at a minute.
+    fn delay(&self) -> std::time::Duration {
+        std::time::Duration::from_secs((1u64 << self.attempts.min(6)).min(60))
     }
 }
 

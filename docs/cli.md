@@ -18,6 +18,22 @@ cargo build --release -p velo-cli
 `velo-cli --help` is the command authority; what follows is how to
 think about it, not a second copy of it.
 
+## Connect Claude (MCP)
+
+`velo-cli mcp --serve` runs Velo as an MCP server on stdin/stdout, the way
+Claude in Chrome lets Claude use a browser. Its tools are `status`,
+`list_chats`, `read_messages`, `search_messages`, `search_contacts`,
+`send_message` and `mark_read`; each is this binary's own `--json` command run
+as a child process, so a tool can do exactly what the command can. Register it
+with Claude Code (Windows install path shown):
+
+```bash
+claude mcp add velo -- "%LOCALAPPDATA%\Programs\Velo\velo-cli.exe" mcp --serve
+```
+
+`send_message` really sends: the server's instructions tell the client to
+confirm the recipient and text first, and Claude asks before each call.
+
 ## Output
 
 Human tables by default. `--json` prints one envelope to stdout:

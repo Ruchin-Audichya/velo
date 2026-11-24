@@ -95,6 +95,35 @@ pub struct PollContent {
 }
 
 impl ChatMessage {
+    /// Whether `other` is this same message, delivered or hydrated again.
+    ///
+    /// An id is only unique per sender: in a group two members' phones can
+    /// pick the same one, and the store already keys rows by sender as well.
+    /// Matching on the id alone drew one bubble for both. So two copies are
+    /// one message unless they plainly come from two other people: two
+    /// addresses of the same kind that differ. Anything less certain merges as
+    /// it always did — our own messages (an optimistic bubble has no sender
+    /// yet), a missing sender, or a LID beside a phone number, which may well
+    /// be one person arriving under each.
+    #[must_use]
+    pub fn same_message(&self, other: &ChatMessage) -> bool {
+        if self.id != other.id {
+            return false;
+        }
+        if self.is_from_me || other.is_from_me || self.sender.is_empty() || other.sender.is_empty()
+        {
+            return true;
+        }
+        let bare = |jid: &str| -> (String, String) {
+            let (user, server) = jid.split_once('@').unwrap_or((jid, ""));
+            let user = user.split([':', '.']).next().unwrap_or(user);
+            (user.to_string(), server.to_string())
+        };
+        let (mine, my_server) = bare(&self.sender);
+        let (theirs, their_server) = bare(&other.sender);
+        my_server != their_server || mine == theirs
+    }
+
     /// What to draw for whoever wrote this: the name somebody has for them,
     /// or the number if nobody has one yet.
     ///

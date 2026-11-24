@@ -9,6 +9,7 @@ use std::sync::Arc;
 use std::sync::mpsc::{Receiver, channel};
 use std::time::Duration;
 
+use gpui::InteractiveElement as _;
 use gpui::{
     Animation, AnimationExt as _, App, AppContext as _, Bounds, Context, FontWeight, Hsla, Image,
     ImageFormat, IntoElement, ParentElement as _, Render, SharedString, Styled as _, Window,
@@ -69,7 +70,15 @@ pub fn run() {
                 ..Default::default()
             };
             let opened = cx.open_window(options, |window, cx| {
-                let view = cx.new(|_| Setup::new(uninstall));
+                let view = cx.new(|cx| Setup::new(uninstall, cx));
+                // Started from a browser's download bar or Explorer, the
+                // window opened behind them with nothing focused, so Enter
+                // did nothing and it took a click to find. It comes forward
+                // with the keyboard on it: Enter does the screen's main
+                // action, Escape leaves.
+                let focus = view.read(cx).focus.clone();
+                window.focus(&focus, cx);
+                window.activate_window();
                 cx.new(|cx| Root::new(view, window, cx))
             });
             if opened.is_err() {
@@ -145,11 +154,14 @@ struct Setup {
     /// A sign-in kept from before; read once, before anything installs.
     signed_in: bool,
     logo: Arc<Image>,
+    /// Where the keyboard goes: Enter and Escape act on the screen.
+    focus: gpui::FocusHandle,
 }
 
 impl Setup {
-    fn new(uninstall: bool) -> Self {
+    fn new(uninstall: bool, cx: &mut Context<Self>) -> Self {
         Self {
+            focus: cx.focus_handle(),
             uninstall,
             screen: if uninstall {
                 Screen::ConfirmRemove
@@ -163,6 +175,19 @@ impl Setup {
             remove_data: false,
             signed_in: system::has_existing_sign_in(),
             logo: Arc::new(Image::from_bytes(ImageFormat::Png, LOGO.to_vec())),
+        }
+    }
+
+    /// Enter: the primary button of whatever screen is up.
+    fn primary_action(&mut self, cx: &mut Context<Self>) {
+        match self.screen {
+            Screen::Welcome | Screen::ConfirmRemove | Screen::Failed(_) => self.start(cx),
+            Screen::Done => {
+                system::launch();
+                cx.quit();
+            }
+            Screen::Removed => cx.quit(),
+            Screen::Working { .. } => {}
         }
     }
 
@@ -312,10 +337,17 @@ impl Render for Setup {
             Screen::Removed => outcome(
                 IconName::CircleCheck,
                 "Velo has been removed",
-                if self.remove_data {
-                    "Its data on this PC is gone too. Your chats are still on your phone."
+                if self.remove_data && !system::data_left_behind().is_empty() {
+                    // Never claim the sign-in is gone when a folder holding
+                    // it could not be deleted.
+                    let left = system::data_left_behind().join(", ");
+                    SharedString::from(format!(
+                        "Some of its data could not be deleted, probably because a file is in use. Delete it yourself after restarting: {left}"
+                    ))
+                } else if self.remove_data {
+                    "Its data on this PC is gone too. Your chats are still on your phone.".into()
                 } else {
-                    "Your sign-in and chats on this PC were kept, in case you come back."
+                    "Your sign-in and chats on this PC were kept, in case you come back.".into()
                 },
                 cx,
             )
@@ -328,6 +360,17 @@ impl Render for Setup {
 
         let key = SharedString::from(format!("screen-{}", self.screen.key()));
         div()
+            .track_focus(&self.focus)
+            .on_key_down(cx.listener(|setup, event: &gpui::KeyDownEvent, _, cx| {
+                match event.keystroke.key.as_str() {
+                    "enter" => setup.primary_action(cx),
+                    // Not while files are being swapped: leaving then is
+                    // what the installer's rollback exists to survive, not
+                    // something a stray key should start.
+                    "escape" if !matches!(setup.screen, Screen::Working { .. }) => cx.quit(),
+                    _ => {}
+                }
+            }))
             .size_full()
             .flex()
             .flex_col()

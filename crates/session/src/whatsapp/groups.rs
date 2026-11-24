@@ -13,7 +13,7 @@
 
 use whatsapp_rust::wacore_binary::jid::{Jid, JidExt as _};
 
-use velo_core::{GroupMember, GroupRoster};
+use velo_core::{GroupMember, GroupRoster, PostingBlock};
 
 use super::WhatsAppClient;
 use super::history::own_jids;
@@ -22,6 +22,46 @@ use crate::exec::Task;
 enum RosterRead {
     CacheOnly,
     AllowNetwork,
+}
+
+/// Why this account may not post in a group, from the facts its metadata
+/// gives. Not being in it outranks the admins-only setting: a former member
+/// is not waiting on an admin.
+fn posting_block(announce_only: bool, in_group: bool, self_admin: bool) -> Option<PostingBlock> {
+    if !in_group {
+        Some(PostingBlock::NotMember)
+    } else if announce_only && !self_admin {
+        Some(PostingBlock::AdminsOnly)
+    } else {
+        None
+    }
+}
+
+/// A channel has no member list to give, only this account's role in it.
+async fn channel_roster(
+    client: &std::sync::Arc<whatsapp_rust::Client>,
+    channel: Jid,
+    source: RosterRead,
+) -> GroupRoster {
+    use whatsapp_rust::features::NewsletterRole;
+    let posting_blocked = match source {
+        RosterRead::AllowNetwork => match client.newsletter().get_metadata(&channel).await {
+            Ok(meta) => match meta.role {
+                Some(NewsletterRole::Owner | NewsletterRole::Admin) => None,
+                _ => Some(PostingBlock::ChannelFollower),
+            },
+            Err(error) => {
+                log::debug!("this account's role in a channel is unknown: {error}");
+                None
+            }
+        },
+        RosterRead::CacheOnly => None,
+    };
+    GroupRoster {
+        jid: channel.to_string(),
+        members: Vec::new(),
+        posting_blocked,
+    }
 }
 
 impl WhatsAppClient {
@@ -54,6 +94,12 @@ impl WhatsAppClient {
         let session = self.session.clone();
         self.exec.spawn(async move {
             let group: Jid = jid.parse().map_err(|_| "not a chat address".to_string())?;
+            if group.is_newsletter() {
+                let Some(live) = session.lock().await.clone() else {
+                    return Err("no session yet".to_string());
+                };
+                return Ok(channel_roster(&live.client, group, source).await);
+            }
             if !group.is_group() {
                 return Err("not a group".to_string());
             }
@@ -101,11 +147,56 @@ impl WhatsAppClient {
                     jid: participant.to_string(),
                     name,
                     is_self,
+                    is_admin: false,
                 });
             }
+            // Who may post is not in the routing list, which is all the send
+            // path needs. The full metadata is one more query, and only made
+            // when the network is allowed: offline, the box stays as it was.
+            let posting_blocked = match source {
+                RosterRead::AllowNetwork => {
+                    match live.client.groups().fetch_metadata(&group).await {
+                        Ok(meta) => {
+                            let admins: Vec<String> = meta
+                                .participants
+                                .iter()
+                                .filter(|p| p.is_admin() || p.is_super_admin())
+                                .flat_map(|p| {
+                                    [Some(&p.jid), p.lid.as_ref(), p.phone_number.as_ref()]
+                                        .into_iter()
+                                        .flatten()
+                                        .map(|j| j.to_non_ad_string())
+                                })
+                                .collect();
+                            for member in &mut members {
+                                let bare = member
+                                    .jid
+                                    .parse::<Jid>()
+                                    .map(|j| j.to_non_ad_string())
+                                    .unwrap_or_else(|_| member.jid.clone());
+                                member.is_admin = admins.contains(&bare);
+                            }
+                            let in_group = meta.participants.iter().any(|p| {
+                                [Some(&p.jid), p.lid.as_ref(), p.phone_number.as_ref()]
+                                    .into_iter()
+                                    .flatten()
+                                    .any(|j| mine.contains(&j.to_non_ad_string()))
+                            });
+                            let self_admin = admins.iter().any(|a| mine.contains(a));
+                            posting_block(meta.is_announcement, in_group, self_admin)
+                        }
+                        Err(error) => {
+                            log::debug!("who may post in a group is unknown: {error}");
+                            None
+                        }
+                    }
+                }
+                RosterRead::CacheOnly => None,
+            };
             Ok(GroupRoster {
                 jid: group.to_string(),
                 members,
+                posting_blocked,
             })
         })
     }
@@ -576,6 +667,28 @@ fn parse_participant(raw: &str) -> Result<Jid, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_admins_post_in_an_announcement_group() {
+        assert_eq!(
+            posting_block(true, true, false),
+            Some(PostingBlock::AdminsOnly)
+        );
+        assert_eq!(posting_block(true, true, true), None);
+        assert_eq!(posting_block(false, true, false), None);
+    }
+
+    #[test]
+    fn a_former_member_is_told_so_before_anything_about_admins() {
+        assert_eq!(
+            posting_block(true, false, false),
+            Some(PostingBlock::NotMember)
+        );
+        assert_eq!(
+            posting_block(false, false, false),
+            Some(PostingBlock::NotMember)
+        );
+    }
 
     #[test]
     fn a_jid_is_read_as_itself() {

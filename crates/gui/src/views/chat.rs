@@ -332,6 +332,8 @@ pub fn render_connected_view(
     // when the conversation was opened; until the answer lands the header
     // draws the name alone, as it did before there was anything to draw.
     let members = open_chat.as_deref().and_then(|jid| app.group_members(jid));
+    // Why the message box would only fail here, when the daemon has said.
+    let posting_blocked = members.and_then(|roster| roster.posting_blocked);
     // The two panes, whichever destination they belong to.
     let panes = div()
         .flex()
@@ -411,6 +413,7 @@ pub fn render_connected_view(
                         search_bar,
                         input_area,
                         can_send,
+                        posting_blocked,
                         offline_recovery,
                         is_own_number,
                         plugin_actions,
@@ -566,6 +569,9 @@ struct ChatAreaProps<'a> {
     input_area: Option<Entity<InputAreaView>>,
     /// Whether anything can be sent from here at all.
     can_send: bool,
+    /// Why this account may not post in the open group or channel: the
+    /// message box gives way to a line saying so, as on the phone.
+    posting_blocked: Option<velo_core::PostingBlock>,
     offline_recovery: Option<OfflineRecovery>,
     /// Whether the open conversation is with this account's own number.
     is_own_number: bool,
@@ -598,6 +604,7 @@ fn render_chat_area(
         search_bar,
         input_area,
         can_send,
+        posting_blocked,
         offline_recovery,
         is_own_number,
         plugin_actions,
@@ -625,7 +632,8 @@ fn render_chat_area(
                         .surface(cx.theme().background)
                         .child(
                             EmptyState::new(crate::tr!(PickAConversation))
-                                .icon(ProductIcon::MessageSquare)
+                                .icon(ProductIcon::VeloMark)
+                                .brand()
                                 .description(crate::tr!(
                                     ChooseAChatOnTheLeftOrSearchForOneByNameOrMessage
                                 ))
@@ -712,6 +720,8 @@ fn render_chat_area(
                 .map(|el| {
                     if let Some(recovery) = offline_recovery {
                         el.child(render_offline_strip(entity.clone(), recovery, metrics, cx))
+                    } else if let Some(block) = posting_blocked {
+                        el.child(render_posting_strip(block, metrics, cx))
                     } else {
                         el.children(input_area)
                     }
@@ -778,6 +788,41 @@ pub(crate) fn render_offline_strip(
                 .on_click(move |_, _window, cx| {
                     entity.update(cx, |app, cx| app.retry_whatsapp_connection(cx));
                 }),
+        )
+}
+
+/// What replaces the message box where this account may not post.
+///
+/// WhatsApp's own wording, centred where the box was. Not a disabled field:
+/// typing into one that can only fail is what the "not sent, retry" bubbles
+/// used to be.
+fn render_posting_strip(
+    block: velo_core::PostingBlock,
+    metrics: Metrics,
+    cx: &App,
+) -> impl IntoElement + use<> {
+    use velo_core::PostingBlock;
+    let line = match block {
+        PostingBlock::AdminsOnly => crate::tr!(OnlyAdminsCanSendMessages),
+        PostingBlock::NotMember => crate::tr!(NoLongerAGroupMember),
+        PostingBlock::ChannelFollower => crate::tr!(OnlyChannelAdminsCanPost),
+    };
+    div()
+        .id("posting-blocked")
+        .flex_shrink_0()
+        .flex()
+        .justify_center()
+        .px(metrics.space_xl())
+        .py(metrics.space_lg())
+        .bg(cx.theme().secondary)
+        .border_t_1()
+        .border_color(cx.theme().border)
+        .child(
+            div()
+                .text_size(metrics.text_small())
+                .text_color(cx.theme().muted_foreground)
+                .text_center()
+                .child(line),
         )
 }
 

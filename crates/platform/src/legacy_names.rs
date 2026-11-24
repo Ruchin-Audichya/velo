@@ -124,12 +124,39 @@ mod imp {
     /// a program that is still shutting down is retried briefly.
     pub(super) fn move_into_place(from: &Path, to: &Path) {
         if to.exists() {
-            super::note(format!(
-                "{} was not moved: {} already exists",
-                from.display(),
-                to.display()
-            ));
-            return;
+            // A data folder made by an earlier launch, before this move could
+            // run, holds preferences and logs but no sign-in. Leaving the old
+            // folder behind for it would open an empty store and ask the user
+            // to pair again while their chats sat one folder over. Such a
+            // folder is set aside, never deleted, and the real one moved in.
+            let holds_store = |dir: &Path| dir.join(STORE).is_file();
+            if holds_store(from) && !holds_store(to) {
+                let aside = unused(to, "before-upgrade");
+                if std::fs::rename(to, &aside).is_ok() {
+                    super::note(format!(
+                        "{} held no sign-in; set aside as {}",
+                        to.display(),
+                        aside.display()
+                    ));
+                } else {
+                    super::note(format!(
+                        "conflict: {} could not be set aside, so {} (which holds the sign-in) was not moved",
+                        to.display(),
+                        from.display()
+                    ));
+                    return;
+                }
+            } else {
+                // Both hold a sign-in, or neither is a data folder: moving
+                // either way could lose something, so both stay as they are.
+                super::note(format!(
+                    "{}{} was not moved: {} already exists",
+                    if holds_store(from) { "conflict: " } else { "" },
+                    from.display(),
+                    to.display()
+                ));
+                return;
+            }
         }
         let mut last = None;
         for _ in 0..10 {
@@ -150,6 +177,29 @@ mod imp {
         if let Some(error) = last {
             super::note(format!("{} could not be moved: {error}", from.display()));
         }
+    }
+
+    /// The sign-in, Signal state and chats: what makes a folder the data
+    /// folder rather than one holding only preferences.
+    const STORE: &str = "whatsapp.db";
+
+    /// `<path>.<suffix>`, or `<path>.<suffix>-2` and on, whichever is free.
+    fn unused(path: &Path, suffix: &str) -> PathBuf {
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let parent = path.parent().unwrap_or(path);
+        (1..)
+            .map(|n| {
+                if n == 1 {
+                    parent.join(format!("{name}.{suffix}"))
+                } else {
+                    parent.join(format!("{name}.{suffix}-{n}"))
+                }
+            })
+            .find(|candidate| !candidate.exists())
+            .unwrap_or_else(|| parent.join(format!("{name}.{suffix}")))
     }
 
     /// Saved files: `Downloads\OxideZap` becomes `Downloads\Velo`.
@@ -233,6 +283,47 @@ mod imp {
 #[cfg(all(test, not(target_family = "wasm")))]
 mod tests {
     use super::*;
+
+    /// The case that signed people out: a launch made `velo` (logs, a
+    /// preference) before the move ran. The sign-in must still arrive.
+    #[test]
+    fn an_empty_new_folder_does_not_strand_the_sign_in() {
+        let base = std::env::temp_dir().join(format!("velo-legacy-strand-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(base.join("oxidezap")).unwrap();
+        std::fs::write(base.join("oxidezap").join("whatsapp.db"), "chats").unwrap();
+        std::fs::create_dir_all(base.join("velo")).unwrap();
+        std::fs::write(base.join("velo").join("log-level"), "info").unwrap();
+        imp::rename_children(&base);
+        assert_eq!(
+            std::fs::read_to_string(base.join("velo").join("whatsapp.db")).unwrap(),
+            "chats"
+        );
+        assert!(base.join("velo.before-upgrade").join("log-level").is_file());
+        assert!(!base.join("oxidezap").exists());
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// Two folders that each hold a sign-in are both left alone.
+    #[test]
+    fn two_sign_ins_are_never_merged_or_overwritten() {
+        let base = std::env::temp_dir().join(format!("velo-legacy-both-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        for (dir, data) in [("oxidezap", "old"), ("velo", "new")] {
+            std::fs::create_dir_all(base.join(dir)).unwrap();
+            std::fs::write(base.join(dir).join("whatsapp.db"), data).unwrap();
+        }
+        imp::rename_children(&base);
+        assert_eq!(
+            std::fs::read_to_string(base.join("velo").join("whatsapp.db")).unwrap(),
+            "new"
+        );
+        assert_eq!(
+            std::fs::read_to_string(base.join("oxidezap").join("whatsapp.db")).unwrap(),
+            "old"
+        );
+        let _ = std::fs::remove_dir_all(&base);
+    }
 
     #[test]
     fn the_data_folder_and_account_folders_take_the_new_name() {

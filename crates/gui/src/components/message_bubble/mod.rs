@@ -188,6 +188,9 @@ pub fn render_message_bubble(
         && message.system.is_none()
         && (!message.is_from_me || message.status.has_left_this_device());
     let menu_delete_for_everyone = can_delete_sent(&message, true, now_ms);
+    // Our own sent messages, once the server has them: before that there is
+    // nothing to have been delivered.
+    let menu_info = message.is_from_me && !message.revoked && message.status.has_left_this_device();
     // A refcount, not a rescan: the row's text already parsed these when the
     // timeline was built, and the targets were shared then.
     let menu_links = content.link_targets().clone();
@@ -559,6 +562,17 @@ pub fn render_message_bubble(
                 menu.menu(
                     "Forward",
                     Box::new(crate::app::forward::ForwardMessage {
+                        jid: menu_jid.clone(),
+                        id: menu_id.clone().into(),
+                    }),
+                )
+            } else {
+                menu
+            };
+            let menu = if menu_info {
+                menu.menu(
+                    crate::tr!(MessageInfoTitle),
+                    Box::new(crate::app::message_info::ShowMessageInfo {
                         jid: menu_jid.clone(),
                         id: menu_id.clone().into(),
                     }),

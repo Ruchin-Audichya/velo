@@ -44,12 +44,33 @@ pub(super) struct ForwardPicker {
     /// Saved contacts, for New chat; loaded once when it opens.
     pub contacts: Vec<velo_ipc::ContactSummary>,
     pub contacts_loading: bool,
+    /// Why the contacts could not be read, when they could not.
+    pub contacts_error: Option<String>,
+    /// The row the arrow keys are on, counted over choosable rows only.
+    pub highlight: usize,
+    /// What each choosable row does, in the order the last frame drew them:
+    /// what Enter acts on. Written by the renderer, which is the one place
+    /// that knows the order.
+    pub choices: std::cell::RefCell<Vec<PickerChoice>>,
     /// The "New contact" form, while it is open in place of the list.
     pub new_contact: Option<NewContactForm>,
 }
 
+/// What one row of the picker does when chosen.
+#[derive(Clone, Debug)]
+pub(super) enum PickerChoice {
+    Chat(String),
+    Contact { jid: String, name: String },
+    NewContact,
+}
+
 /// A name and a number, saved to the phone's address book through WhatsApp.
 pub(super) struct NewContactForm {
+    /// Which form this is. A save answers the form that sent it and no
+    /// other: by the time the reply arrives the picker may have closed, or
+    /// become a Forward picker, and acting on that would send a message to
+    /// someone nobody chose.
+    pub id: u64,
     pub name: Entity<InputState>,
     pub number: Entity<InputState>,
     pub saving: bool,
@@ -139,6 +160,7 @@ impl WhatsAppApp {
         };
         if let Some(picker) = self.forward_picker.as_mut() {
             picker.contacts_loading = true;
+            picker.contacts_error = None;
         }
         let answer = client.list_contacts(None, 5000);
         cx.spawn(async move |entity: WeakEntity<Self>, cx| {
@@ -146,8 +168,13 @@ impl WhatsAppApp {
             let _ = entity.update(cx, |app, cx| {
                 if let Some(picker) = app.forward_picker.as_mut() {
                     picker.contacts_loading = false;
-                    if let Ok(Ok(contacts)) = result {
-                        picker.contacts = contacts;
+                    match result {
+                        Ok(Ok(contacts)) => picker.contacts = contacts,
+                        Ok(Err(error)) => picker.contacts_error = Some(error),
+                        Err(_) => {
+                            picker.contacts_error =
+                                Some("the background service did not answer".to_string());
+                        }
                     }
                     cx.notify();
                 }
@@ -183,7 +210,9 @@ impl WhatsAppApp {
         }
         window.focus(&name.read(cx).focus_handle(cx), cx);
         if let Some(picker) = self.forward_picker.as_mut() {
+            static NEXT_FORM: portable_atomic::AtomicU64 = portable_atomic::AtomicU64::new(1);
             picker.new_contact = Some(NewContactForm {
+                id: NEXT_FORM.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
                 name,
                 number,
                 saving: false,
@@ -236,12 +265,24 @@ impl WhatsAppApp {
         };
         form.saving = true;
         form.error = None;
+        let form_id = form.id;
         let answer = client.save_contact(jid.clone(), name.clone());
         let window = self.modal_window;
         cx.spawn(async move |entity: WeakEntity<Self>, cx| {
             let result = answer.await;
             let saved = matches!(result, Ok(Ok(())));
+            // Whether the form that asked is still the one on screen, in a
+            // New chat picker. Anything else — closed, replaced, a Forward
+            // picker opened meanwhile — gets the notice and nothing more.
+            let mut still_open = false;
             let _ = entity.update(cx, |app, cx| {
+                still_open = app.forward_picker.as_ref().is_some_and(|picker| {
+                    matches!(picker.purpose, Purpose::NewChat)
+                        && picker
+                            .new_contact
+                            .as_ref()
+                            .is_some_and(|form| form.id == form_id)
+                });
                 if saved {
                     app.notify_user(
                         format!("Saved {name} to your contacts"),
@@ -250,10 +291,11 @@ impl WhatsAppApp {
                     );
                     return;
                 }
-                if let Some(form) = app
-                    .forward_picker
-                    .as_mut()
-                    .and_then(|picker| picker.new_contact.as_mut())
+                if still_open
+                    && let Some(form) = app
+                        .forward_picker
+                        .as_mut()
+                        .and_then(|picker| picker.new_contact.as_mut())
                 {
                     form.saving = false;
                     form.error = Some(match &result {
@@ -263,10 +305,16 @@ impl WhatsAppApp {
                 }
                 cx.notify();
             });
-            if saved && let Some(window) = window {
+            if saved
+                && still_open
+                && let Some(window) = window
+            {
                 let _ = cx.update_window(window, |_, window, cx| {
                     let _ = entity.update(cx, |app, cx| {
-                        app.pick_contact(jid, Some(name), window, cx);
+                        // Straight to the chat: never through `pick_contact`,
+                        // which forwards when the picker is a Forward one.
+                        app.forward_picker = None;
+                        app.message_person(jid, Some(name), window, cx);
                     });
                 });
             }
@@ -284,11 +332,20 @@ impl WhatsAppApp {
         cx: &mut Context<Self>,
     ) {
         let input = cx.new(|cx| InputState::new(window, cx).placeholder(placeholder));
-        cx.subscribe(&input, |_, _, event: &InputEvent, cx| {
-            if let InputEvent::Change = event {
-                cx.notify();
-            }
-        })
+        cx.subscribe_in(
+            &input,
+            window,
+            |app, _, event: &InputEvent, window, cx| match event {
+                InputEvent::Change => {
+                    if let Some(picker) = app.forward_picker.as_mut() {
+                        picker.highlight = 0;
+                    }
+                    cx.notify();
+                }
+                InputEvent::PressEnter { .. } => app.choose_highlighted(window, cx),
+                _ => {}
+            },
+        )
         .detach();
         self.forward_picker = Some(ForwardPicker {
             purpose,
@@ -296,6 +353,9 @@ impl WhatsAppApp {
             input,
             contacts: Vec::new(),
             contacts_loading: false,
+            contacts_error: None,
+            highlight: 0,
+            choices: std::cell::RefCell::new(Vec::new()),
             new_contact: None,
         });
         cx.notify();
@@ -341,6 +401,37 @@ impl WhatsAppApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.find_chat(&jid).is_none()
+            && let Some(client) = self.client.as_ref()
+        {
+            // Not under this address, but perhaps under another of theirs:
+            // a contact WhatsApp moved to a LID is stored under the LID, and
+            // a number typed into New chat would open a second, empty
+            // conversation beside it. The store knows; ask it first.
+            let answer = client.find_chat(jid.clone());
+            cx.spawn_in(window, async move |entity: WeakEntity<Self>, cx| {
+                let found = answer.await.ok().and_then(Result::ok).flatten();
+                let _ = entity.update_in(cx, |app, window, cx| {
+                    let target = found
+                        .filter(|stored| app.find_chat(stored).is_some())
+                        .unwrap_or(jid);
+                    app.open_person_chat(target, name, window, cx);
+                });
+            })
+            .detach();
+            return;
+        }
+        self.open_person_chat(jid, name, window, cx);
+    }
+
+    /// [`message_person`](Self::message_person) once the address is settled.
+    fn open_person_chat(
+        &mut self,
+        jid: String,
+        name: Option<String>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if self.find_chat(&jid).is_none() {
             // A conversation nobody has written in yet. The store learns of
             // it with the first message; until then the window holds it so
@@ -356,6 +447,41 @@ impl WhatsAppApp {
         // for; the panel was the group's.
         self.contact_info_open = false;
         self.select_chat(jid, ChatOpen::ToCompose, window, cx);
+    }
+
+    /// Move the picker's highlight by `step` rows, clamped to the list.
+    pub(super) fn move_picker_highlight(&mut self, step: isize, cx: &mut Context<Self>) {
+        let Some(picker) = self.forward_picker.as_mut() else {
+            return;
+        };
+        let count = picker.choices.borrow().len();
+        if count == 0 {
+            return;
+        }
+        let next = picker.highlight.saturating_add_signed(step).min(count - 1);
+        if next != picker.highlight {
+            picker.highlight = next;
+            cx.notify();
+        }
+    }
+
+    /// Enter: act on the highlighted row, as a click on it would.
+    pub(super) fn choose_highlighted(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(picker) = self.forward_picker.as_ref() else {
+            return;
+        };
+        if picker.new_contact.is_some() {
+            return;
+        }
+        let choice = picker.choices.borrow().get(picker.highlight).cloned();
+        match choice {
+            Some(PickerChoice::Chat(jid)) => self.pick_chat(jid, window, cx),
+            Some(PickerChoice::Contact { jid, name }) => {
+                self.pick_contact(jid, Some(name), window, cx);
+            }
+            Some(PickerChoice::NewContact) => self.open_new_contact_form(window, cx),
+            None => {}
+        }
     }
 
     pub(super) fn cancel_forward_picker(&mut self, cx: &mut Context<Self>) -> bool {
@@ -448,6 +574,13 @@ impl WhatsAppApp {
         let hover = theme.list_hover;
         let avatar_size = metrics.avatar_inline();
 
+        // What each drawn row does, kept beside the rows in the same order so
+        // Enter acts on exactly the row the highlight is on. `None` is a
+        // section heading, which the arrow keys skip.
+        let mut row_choices: Vec<Option<PickerChoice>> = candidates
+            .iter()
+            .map(|chat| Some(PickerChoice::Chat(chat.jid.clone())))
+            .collect();
         let rows: Vec<AnyElement> = candidates
             .iter()
             .map(|chat| {
@@ -495,6 +628,7 @@ impl WhatsAppApp {
             .filter(|jid| self.find_chat(jid).is_none());
         let mut rows = rows;
         if let Some(jid) = new_number {
+            row_choices.insert(0, Some(PickerChoice::Chat(jid.clone())));
             let entity = entity.clone();
             let label = format!("Message +{}", jid.split('@').next().unwrap_or_default());
             let target = jid.clone();
@@ -556,7 +690,7 @@ impl WhatsAppApp {
         if is_new_chat {
             let trimmed = query.trim().to_lowercase();
             let digits: String = trimmed.chars().filter(char::is_ascii_digit).collect();
-            let contact_rows: Vec<AnyElement> = picker
+            let shown_contacts: Vec<&velo_ipc::ContactSummary> = picker
                 .contacts
                 .iter()
                 .filter(|contact| {
@@ -565,6 +699,18 @@ impl WhatsAppApp {
                         || (digits.len() >= 3 && contact.jid.contains(&digits))
                 })
                 .take(CONTACTS_SHOWN)
+                .collect();
+            let contact_choices: Vec<Option<PickerChoice>> = shown_contacts
+                .iter()
+                .map(|contact| {
+                    Some(PickerChoice::Contact {
+                        jid: contact.jid.clone(),
+                        name: contact.name.clone(),
+                    })
+                })
+                .collect();
+            let contact_rows: Vec<AnyElement> = shown_contacts
+                .into_iter()
                 .map(|contact| {
                     let entity = entity.clone();
                     let target = contact.jid.clone();
@@ -624,6 +770,7 @@ impl WhatsAppApp {
                 .collect();
             let have_contacts = !contact_rows.is_empty();
             let mut list: Vec<AnyElement> = Vec::new();
+            let mut list_choices: Vec<Option<PickerChoice>> = vec![Some(PickerChoice::NewContact)];
             // "New contact" leads, as on the phone, whatever is typed.
             let add_entity = entity.clone();
             list.push(
@@ -668,7 +815,9 @@ impl WhatsAppApp {
             // A to Z, the way the phone lists them.
             if trimmed.is_empty() && have_contacts {
                 list.push(section("Contacts on WhatsApp"));
+                list_choices.push(None);
                 list.extend(contact_rows);
+                list_choices.extend(contact_choices);
             } else {
                 if !rows.is_empty() {
                     list.push(section(if trimmed.is_empty() {
@@ -676,15 +825,64 @@ impl WhatsAppApp {
                     } else {
                         "Chats"
                     }));
+                    list_choices.push(None);
                     list.extend(rows);
+                    list_choices.append(&mut row_choices);
                 }
                 if have_contacts {
                     list.push(section("Contacts"));
+                    list_choices.push(None);
                     list.extend(contact_rows);
+                    list_choices.extend(contact_choices);
                 }
             }
+            // Said rather than left blank: an empty list while contacts load
+            // reads as "you have none", and a failure as nothing at all.
+            if picker.contacts_loading {
+                list.push(section("Loading contacts…"));
+                list_choices.push(None);
+            } else if let Some(error) = picker.contacts_error.as_ref() {
+                list.push(
+                    div()
+                        .px(metrics.space_lg())
+                        .pt(metrics.space_md())
+                        .text_size(metrics.text_small())
+                        .text_color(theme.danger)
+                        .child(format!("Contacts could not be loaded: {error}"))
+                        .into_any_element(),
+                );
+                list_choices.push(None);
+            }
             rows = list;
+            row_choices = list_choices;
         }
+        // The highlight, drawn over whichever choosable row it is on, and
+        // the order recorded for Enter.
+        let highlight = picker
+            .highlight
+            .min(row_choices.iter().flatten().count().saturating_sub(1));
+        let mut choosable = 0usize;
+        let rows: Vec<AnyElement> = rows
+            .into_iter()
+            .zip(row_choices.iter())
+            .map(|(row, choice)| {
+                if choice.is_none() {
+                    return row;
+                }
+                let here = choosable == highlight;
+                choosable += 1;
+                if here {
+                    div()
+                        .rounded(metrics.radius_lg())
+                        .bg(hover)
+                        .child(row)
+                        .into_any_element()
+                } else {
+                    row
+                }
+            })
+            .collect();
+        *picker.choices.borrow_mut() = row_choices.into_iter().flatten().collect();
         let empty = rows.is_empty();
         let title = match picker.purpose {
             Purpose::Forward { .. } => "Forward message to",
@@ -695,31 +893,49 @@ impl WhatsAppApp {
         let form = picker.new_contact.as_ref().map(|form| {
             let back = entity.clone();
             let save = entity.clone();
+            // The fields scroll and the buttons do not: in a short window
+            // the card is capped at most of its height, and a footer that
+            // scrolled with the fields was cut off below the fold, leaving
+            // no way to save.
             div()
                 .flex()
                 .flex_col()
-                .gap(metrics.space_md())
-                .px(metrics.space_xl())
-                .pb(metrics.space_xl())
-                .child(Input::new(&form.name).w_full())
-                .child(Input::new(&form.number).w_full())
+                .flex_1()
+                .min_h_0()
                 .child(
                     div()
-                        .text_size(metrics.text_small())
-                        .text_color(theme.muted_foreground)
-                        .child("Saved to your phone's contacts through WhatsApp, like adding them on the phone."),
+                        .id("new-contact-fields")
+                        .flex()
+                        .flex_col()
+                        .flex_1()
+                        .min_h_0()
+                        .overflow_y_scroll()
+                        .gap(metrics.space_md())
+                        .px(metrics.space_xl())
+                        .child(Input::new(&form.name).w_full())
+                        .child(Input::new(&form.number).w_full())
+                        .child(
+                            div()
+                                .text_size(metrics.text_small())
+                                .text_color(theme.muted_foreground)
+                                .child("Saved to your phone's contacts through WhatsApp, like adding them on the phone."),
+                        )
+                        .children(form.error.clone().map(|error| {
+                            div()
+                                .text_size(metrics.text_secondary())
+                                .text_color(theme.danger)
+                                .child(error)
+                        })),
                 )
-                .children(form.error.clone().map(|error| {
-                    div()
-                        .text_size(metrics.text_secondary())
-                        .text_color(theme.danger)
-                        .child(error)
-                }))
                 .child(
                     div()
+                        .flex_shrink_0()
                         .flex()
                         .justify_end()
                         .gap(metrics.space_md())
+                        .px(metrics.space_xl())
+                        .pt(metrics.space_md())
+                        .pb(metrics.space_xl())
                         .child(
                             gpui_component::button::Button::new("new-contact-back")
                                 .label("Back")
@@ -743,10 +959,20 @@ impl WhatsAppApp {
         });
         let showing_form = form.is_some();
 
+        let keys = entity.clone();
         div()
             .id("forward-modal")
             .debug_selector(|| "forward-modal".into())
             .track_focus(focus)
+            .capture_key_down(move |event, _, cx| {
+                let step = match event.keystroke.key.as_str() {
+                    "down" => 1,
+                    "up" => -1,
+                    _ => return,
+                };
+                cx.stop_propagation();
+                keys.update(cx, |app, cx| app.move_picker_highlight(step, cx));
+            })
             .absolute()
             .inset_0()
             .flex()

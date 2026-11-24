@@ -37,6 +37,9 @@ pub struct EmptyState {
     /// Tightened for a sidebar or a small pane, where the full breathing room
     /// would push the text out of view.
     compact: bool,
+    /// Tint the icon in the brand colour and let it rise in: for the one
+    /// screen that is Velo's front page rather than a gap in a list.
+    brand: bool,
 }
 
 impl EmptyState {
@@ -48,7 +51,14 @@ impl EmptyState {
             action: None,
             shortcuts: Vec::new(),
             compact: false,
+            brand: false,
         }
+    }
+
+    /// See [`EmptyState::brand`](Self).
+    pub fn brand(mut self) -> Self {
+        self.brand = true;
+        self
     }
 
     pub fn description(mut self, description: impl Into<SharedString>) -> Self {
@@ -115,13 +125,29 @@ impl RenderOnce for EmptyState {
                 // its own, because the frame here is the one thing that is
                 // not fixed: a compact empty state wears the header's avatar
                 // size and a full one the call card's.
-                parts::hero_icon(
-                    icon,
-                    icon_frame,
-                    icon_frame * 0.42,
-                    cx.theme().muted_foreground,
-                    cx,
-                )
+                if self.brand {
+                    crate::motion::rise_in(
+                        parts::hero_icon(
+                            icon,
+                            icon_frame * 1.25,
+                            icon_frame * 0.62,
+                            cx.theme().primary,
+                            cx,
+                        ),
+                        "empty-state-mark",
+                        metrics.space_lg(),
+                    )
+                    .into_any_element()
+                } else {
+                    parts::hero_icon(
+                        icon,
+                        icon_frame,
+                        icon_frame * 0.42,
+                        cx.theme().muted_foreground,
+                        cx,
+                    )
+                    .into_any_element()
+                }
             }))
             .child(
                 div()

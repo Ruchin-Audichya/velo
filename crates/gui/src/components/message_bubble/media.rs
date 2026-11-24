@@ -716,7 +716,8 @@ fn render_document_placeholder(
         );
 
     // Doc bytes are never cached for rendering; with download metadata the
-    // card saves the file to the Downloads dir.
+    // card downloads the file into Velo's download cache, opens it from
+    // there, and copies it out with "Save as…".
     match media_content.downloadable {
         Some(dl) => {
             let file_name = media_content
@@ -761,15 +762,15 @@ fn render_document_placeholder(
                         }
                     });
                     let reveal = parts::icon_button(
-                        SharedString::from(format!("reveal-{id}")),
+                        SharedString::from(format!("save-as-{id}")),
                         Icon::new(IconName::Folder).size(metrics.icon_small()),
-                        crate::tr!(ShowInFolder),
+                        crate::tr!(SaveAs),
                         metrics.icon_button(),
                     )
                     .cursor_pointer()
                     .on_click(move |_, _, cx| {
                         let id = id.clone();
-                        entity.update(cx, |app, cx| app.reveal_saved_document(&id, cx));
+                        entity.update(cx, |app, cx| app.save_media_as(&id, cx));
                     });
                     row.child(open).child(reveal)
                 } else {

@@ -65,6 +65,18 @@ pub enum Action {
         limit: u32,
         answer_to: Outbox,
     },
+    /// Which stored chat is the one with `jid`, answered on `answer_to`.
+    FindChat {
+        id: RequestId,
+        jid: String,
+        answer_to: Outbox,
+    },
+    /// A sent message's receipts, answered on `answer_to`.
+    MessageInfo {
+        id: RequestId,
+        request: velo_ipc::MessageInfoRequest,
+        answer_to: Outbox,
+    },
     SaveContact {
         id: RequestId,
         jid: String,
@@ -286,6 +298,8 @@ impl Action {
                     | Self::LoadCallHistory { refresh: false, .. }
                     | Self::SearchEverywhere { .. }
                     | Self::ListContacts { .. }
+                    | Self::MessageInfo { .. }
+                    | Self::FindChat { .. }
                     | Self::SearchFiles { .. }
                     | Self::LoadChats { .. }
                     | Self::RefreshAvatars

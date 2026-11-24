@@ -38,6 +38,10 @@ formatted_catalog! {
     conversation(value) => ("Conversation: {value}", "Conversa: {value}");
     message_preview(value) => ("Message: {value}", "Mensagem: {value}");
     message_time(value) => ("Time: {value}", "Horário: {value}");
+    message_info_failed(detail) => ("Message info could not be read: {detail}", "Não foi possível ler os dados da mensagem: {detail}");
+    saved_as(name) => ("Saved {name}", "{name} salvo");
+    could_not_save_file(detail) => ("The file could not be saved: {detail}", "Não foi possível salvar o arquivo: {detail}");
+    remaining_count(count) => ("{count} remaining", "{count} restantes");
     file_empty(file_name) => ("{file_name} is empty.", "{file_name} está vazio.");
     file_too_big(file_name, size, maximum) => ("{file_name} is {size} and the most that can be sent is {maximum}.", "{file_name} tem {size}, mas o limite de envio é {maximum}.");
     selection_full(file_name, maximum) => ("{file_name} did not fit: one trip to the file chooser can carry {maximum} in total. Send it on its own.", "{file_name} excede o limite total de {maximum} por seleção. Envie o arquivo separadamente.");

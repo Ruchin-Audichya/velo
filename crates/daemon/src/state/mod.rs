@@ -51,6 +51,9 @@ pub struct StateHub {
     id: u64,
     state: StateStore,
     out: Fanout,
+    /// A chat a clicked notification asked for while no window was up: the
+    /// window started for it is told when it attaches.
+    pending_open: std::sync::Mutex<Option<String>>,
 }
 
 /// One attached client that owns a window, counted while it is connected.
@@ -75,6 +78,7 @@ impl StateHub {
             id: NEXT.fetch_add(1, Ordering::Relaxed),
             state: StateStore::new(),
             out: Fanout::new(),
+            pending_open: std::sync::Mutex::new(None),
         })
     }
 
@@ -304,6 +308,30 @@ impl StateHub {
     /// Publish a frame that is not state.
     pub fn signal(&self, message: &DaemonMessage) {
         self.out.signal(message);
+    }
+
+    /// Open `jid` in a window, starting one if none is attached.
+    ///
+    /// A running window is told at once. A window that has to be started
+    /// cannot be, so the request waits here and the window that attaches
+    /// next takes it: see [`take_pending_open`](Self::take_pending_open).
+    pub fn open_chat(&self, jid: String) {
+        if self.windows_attached() {
+            self.signal(&DaemonMessage::OpenChat { jid });
+        } else {
+            *self
+                .pending_open
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(jid);
+        }
+    }
+
+    /// The chat a notification asked for before this window existed, once.
+    pub fn take_pending_open(&self) -> Option<String> {
+        self.pending_open
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .take()
     }
 
     /// Count this connection as owning a window until the guard drops.

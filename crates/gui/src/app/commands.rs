@@ -139,7 +139,7 @@ impl WhatsAppApp {
     ///
     /// Into memory only: the viewer is the preview, and nothing reaches the
     /// disk until the reader presses Save.
-    fn fetch_viewer_picture(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn fetch_viewer_picture(&mut self, cx: &mut Context<Self>) {
         let Some(jid) = self.viewer.read(cx).jid().map(str::to_string) else {
             return;
         };
@@ -373,6 +373,7 @@ impl WhatsAppApp {
             return;
         }
         if self.cancel_message_delete(cx)
+            || self.close_message_info(cx)
             || self.cancel_chat_confirmation(cx)
             || self.cancel_forward_picker(cx)
         {

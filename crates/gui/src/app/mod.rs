@@ -26,6 +26,7 @@ mod media;
 mod media_ctl;
 mod media_materialization;
 mod message_actions;
+pub(crate) mod message_info;
 mod messages;
 pub mod notices;
 mod paging;
@@ -1020,6 +1021,9 @@ pub struct WhatsAppApp {
     saved_documents: HashMap<(String, String, String), std::path::PathBuf>,
     /// Document saves use the same account/chat/message identity as results.
     document_downloads_in_flight: std::collections::HashSet<(String, String, String)>,
+    /// Downloads that were started by "Save as…": once in the cache, the
+    /// save dialog opens for them.
+    save_as_after_download: std::collections::HashSet<(String, String, String)>,
     /// Invalidates detached saves when the active account/session is reset.
     document_state_generation: u64,
     /// What call is happening, where this window draws it, and what it has
@@ -1063,6 +1067,12 @@ pub struct WhatsAppApp {
     /// Uses IndexMap to maintain insertion order for deterministic FIFO eviction.
     decoded_images: RefCell<IndexMap<String, (Cached, RetainedImage)>>,
     sticker_validation: RefCell<IndexMap<String, StickerValidation>>,
+    /// Stickers whose validation is running off the UI thread, and the
+    /// verdicts those runs left for the next frame to pick up. Validating
+    /// an animated sticker decodes up to 256 frames, which on the render
+    /// path stalled scrolling through a sticker-heavy chat.
+    sticker_checks_running: RefCell<std::collections::HashSet<String>>,
+    sticker_checks_done: Arc<std::sync::Mutex<Vec<(String, MediaContent, bool)>>>,
     /// Cache of message list data per chat to avoid expensive recomputation on every render.
     /// Key is the chat JID, value is the cached data.
     message_list_cache: RefCell<HashMap<String, MessageListCache>>,
@@ -1089,6 +1099,10 @@ pub struct WhatsAppApp {
     /// each move the timeline the other measured against.
     reaction_picker_for: Option<String>,
     delete_confirmation: Option<message_actions::DeleteConfirmation>,
+    /// When this window last lost focus, for the refresh on coming back.
+    unfocused_at: Option<wacore::time::Instant>,
+    /// The "Message info" panel, while it is up.
+    message_info: Option<message_info::MessageInfoPanel>,
     /// A chat clear or delete waiting on the user's word.
     chat_confirmation: Option<chat_actions::ChatConfirmation>,
     /// The forward picker, while one message waits for a destination.
@@ -1495,6 +1509,28 @@ impl WhatsAppApp {
                     FromDaemon::Ended(fault) => entity.update(cx, |app, cx| {
                         app.connection_ended(fault, cx);
                     }),
+                    // A clicked notification, posted by the daemon: the same
+                    // opening a click on one of this window's own does.
+                    FromDaemon::OpenChat(jid) => {
+                        cx.update(|cx| {
+                            let target = entity
+                                .update(cx, |app, _| app.notification_window)
+                                .ok()
+                                .flatten()
+                                .or_else(|| cx.windows().first().copied());
+                            let Some(target) = target else {
+                                return;
+                            };
+                            let tag = notification_tag(&jid);
+                            let _ = target.update(cx, |_, window, cx| {
+                                window.activate_window();
+                                let _ = entity.update(cx, |app, cx| {
+                                    app.open_system_notification(&tag, window, cx);
+                                });
+                            });
+                        });
+                        Ok(())
+                    }
                     FromDaemon::ShowWindow => {
                         cx.update(|cx| {
                             // Every window on its own: one that closed
@@ -1533,6 +1569,11 @@ impl WhatsAppApp {
 
     /// Create a new WhatsApp application
     pub fn new(cx: &mut Context<Self>) -> Self {
+        // Downloads older than the cache keeps, cleared off the UI thread.
+        if crate::platform::download::SAVES_OFF_THREAD {
+            cx.background_spawn(async { crate::platform::download::prune_cache() })
+                .detach();
+        }
         Self {
             calls_open: false,
             call_history_view: None,
@@ -1639,6 +1680,7 @@ impl WhatsAppApp {
             image_downloads_in_flight: std::collections::HashSet::new(),
             saved_documents: HashMap::new(),
             document_downloads_in_flight: std::collections::HashSet::new(),
+            save_as_after_download: std::collections::HashSet::new(),
             document_state_generation: 0,
             calls: cx.new(|cx| {
                 cx.on_release(|calls: &mut calls_ctl::Calls, cx| calls.silence_alerts(cx))
@@ -1655,6 +1697,8 @@ impl WhatsAppApp {
             video_update_task: None,
             decoded_images: RefCell::new(IndexMap::new()),
             sticker_validation: RefCell::new(IndexMap::new()),
+            sticker_checks_running: RefCell::new(std::collections::HashSet::new()),
+            sticker_checks_done: Arc::new(std::sync::Mutex::new(Vec::new())),
             message_list_cache: RefCell::new(HashMap::new()),
             chat_list_cache: RefCell::new(None),
             chat_cache_version: std::cell::Cell::new(0),
@@ -1672,6 +1716,8 @@ impl WhatsAppApp {
             pending_edits: std::collections::HashSet::new(),
             reaction_picker_for: None,
             delete_confirmation: None,
+            message_info: None,
+            unfocused_at: None,
             chat_confirmation: None,
             forward_picker: None,
             pending_message_actions: HashSet::new(),
@@ -2289,9 +2335,19 @@ impl WhatsAppApp {
                 // message, which is further from where they were than gpui's
                 // own answer. Nothing here can say where they went, so
                 // nothing here overrides it.
+                //
+                // And the reader at the very top, on the conversation's
+                // opening notice above where a page goes in: that row is
+                // before the stretch, so gpui leaves the scroll top on it and
+                // the whole new page appears beneath the reader — the view
+                // jumped to the oldest message just loaded, which is near the
+                // start again and asks for yet another page. The message
+                // they had at the top is where they belong.
                 let scrolled_to = self.message_list.logical_scroll_top();
                 let survivor = (at + added < count).then_some(at + added);
-                let anchor = survivor.filter(|_| (at..at + removed).contains(&scrolled_to.item_ix));
+                let inside = (at..at + removed).contains(&scrolled_to.item_ix);
+                let above_a_page = at == 1 && scrolled_to.item_ix == 0 && added > removed;
+                let anchor = survivor.filter(|_| inside || above_a_page);
                 self.message_list.splice(at..at + removed, added);
                 if let Some(item_ix) = anchor {
                     self.message_list.scroll_to(gpui::ListOffset {
@@ -2456,9 +2512,27 @@ impl WhatsAppApp {
             app.window_focused = focused;
             if focused {
                 app.resume_visible_read(cx);
+                app.refresh_after_away();
+            } else {
+                app.unfocused_at = Some(wacore::time::Instant::now());
             }
             cx.notify();
         }));
+    }
+
+    /// Back after a while away: reload the chat list, as WhatsApp's does when
+    /// it comes forward. The daemon kept the account live meanwhile, so this
+    /// is a store read rather than a sync, and a quick glance away (under
+    /// five minutes) does not cost even that.
+    fn refresh_after_away(&mut self) {
+        const AWAY: std::time::Duration = std::time::Duration::from_secs(5 * 60);
+        let away = self
+            .unfocused_at
+            .take()
+            .is_some_and(|at| at.elapsed() >= AWAY);
+        if away && let Some(client) = self.client.as_ref() {
+            client.reload_history();
+        }
     }
 
     fn resume_visible_read(&mut self, cx: &mut Context<Self>) {
@@ -2754,6 +2828,86 @@ impl WhatsAppApp {
             self.app_state,
             AppState::Offline | AppState::OfflineLoggedOut { .. }
         )
+    }
+
+    /// Stickers and GIFs already in this window's chats, newest first and
+    /// each picture once: what the composer's panel offers to send again.
+    fn picker_media(&self) -> Vec<crate::components::PickerMedia> {
+        let mut found: Vec<(
+            chrono::DateTime<chrono::Utc>,
+            crate::components::PickerMedia,
+        )> = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+        for chat in &self.chats {
+            for message in chat.messages.iter().rev() {
+                let Some(media) = message.media.as_ref().filter(|_| !message.revoked) else {
+                    continue;
+                };
+                let sticker = media.media_type == velo_core::MediaType::Sticker;
+                let gif = media.media_type == velo_core::MediaType::Video && media.is_animated;
+                if !(sticker || gif) || media.data.is_empty() {
+                    continue;
+                }
+                let identity = media
+                    .downloadable
+                    .as_ref()
+                    .map(|d| d.file_sha256.clone())
+                    .unwrap_or_else(|| message.id.as_bytes().to_vec());
+                if !seen.insert(identity) {
+                    continue;
+                }
+                let format = if sticker {
+                    gpui::ImageFormat::Webp
+                } else {
+                    gpui::ImageFormat::Jpeg
+                };
+                let label = message
+                    .sender_name
+                    .clone()
+                    .filter(|_| !message.is_from_me)
+                    .unwrap_or_else(|| chat.name.clone());
+                found.push((
+                    message.timestamp,
+                    crate::components::PickerMedia {
+                        chat_jid: chat.jid.clone(),
+                        message_id: message.id.clone(),
+                        sticker,
+                        label,
+                        image: std::sync::Arc::new(gpui::Image::from_bytes(
+                            format,
+                            media.data.to_vec(),
+                        )),
+                    },
+                ));
+            }
+        }
+        found.sort_by_key(|(at, _)| std::cmp::Reverse(*at));
+        found.into_iter().take(120).map(|(_, item)| item).collect()
+    }
+
+    /// Send a sticker or GIF from the panel to the open chat, as WhatsApp's
+    /// tray does: the same file again, by the daemon, from the message it
+    /// came in.
+    fn send_existing(&mut self, chat_jid: String, message_id: String, cx: &mut Context<Self>) {
+        let Some(target) = self.selected_chat.clone() else {
+            return;
+        };
+        let Some(client) = self.client.as_ref() else {
+            return;
+        };
+        let answer = client.forward_message(chat_jid, message_id, target);
+        cx.spawn(async move |entity: WeakEntity<Self>, cx| {
+            if let Ok(Err(failure)) = answer.await {
+                let _ = entity.update(cx, |app, cx| {
+                    app.notify_user(
+                        format!("Couldn't send that. {failure}"),
+                        notices::Tone::Problem,
+                        cx,
+                    );
+                });
+            }
+        })
+        .detach();
     }
 
     /// Get the selected chat JID
@@ -3336,7 +3490,10 @@ impl WhatsAppApp {
     /// daemon's connection keeps the list because sending needs one. What is
     /// already known stays on screen until the new answer lands.
     fn request_group_members(&mut self, jid: &str) {
-        if !jid.contains("@g.us") || self.rosters_in_flight.contains(jid) {
+        // Channels too: they have no members to list, but the same answer
+        // says whether this account may post in one.
+        let asks = jid.contains("@g.us") || jid.contains("@newsletter");
+        if !asks || self.rosters_in_flight.contains(jid) {
             return;
         }
         let Some(client) = &self.client else {
@@ -3524,6 +3681,16 @@ impl WhatsAppApp {
             InputAreaEvent::AttachFiles(category) => {
                 self.attach_category(*category, cx);
             }
+            InputAreaEvent::PickerOpened => {
+                let media = self.picker_media();
+                if let Some(input) = self.input_area.clone() {
+                    input.update(cx, |view, cx| view.set_recent_media(media, cx));
+                }
+            }
+            InputAreaEvent::SendExisting {
+                chat_jid,
+                message_id,
+            } => self.send_existing(chat_jid.clone(), message_id.clone(), cx),
             InputAreaEvent::PasteMedia => self.paste_media(cx),
             InputAreaEvent::StartRecording => {
                 self.start_recording(cx);
@@ -4765,6 +4932,11 @@ impl Render for WhatsAppApp {
                     app.open_forward_picker(&forward.jid, &forward.id, window, cx);
                 }),
             )
+            .on_action(
+                cx.listener(|app, show: &message_info::ShowMessageInfo, _window, cx| {
+                    app.open_message_info(&show.jid, &show.id, cx);
+                }),
+            )
             .on_action(cx.listener(|app, delete: &DeleteSentMessage, _window, cx| {
                 app.begin_message_delete(&delete.jid, &delete.id, delete.for_everyone, cx);
             }))
@@ -4817,6 +4989,17 @@ impl Render for WhatsAppApp {
                 self.chat_confirmation.as_ref().map(|confirmation| {
                     chat_actions::render_chat_confirmation(
                         confirmation,
+                        cx.entity().clone(),
+                        &self.message_delete_focus,
+                        cx,
+                    )
+                    .into_any_element()
+                })
+            })
+            .or_else(|| {
+                self.message_info.as_ref().map(|panel| {
+                    message_info::render_message_info(
+                        panel,
                         cx.entity().clone(),
                         &self.message_delete_focus,
                         cx,

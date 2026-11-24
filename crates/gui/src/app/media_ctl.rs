@@ -951,6 +951,13 @@ impl WhatsAppApp {
                             preview,
                             cx,
                         );
+                        // A viewer opened on this picture while its preview
+                        // was still downloading found the slot taken and
+                        // asked for nothing; with the slot free it asks now,
+                        // or it stays on the blurry copy for good.
+                        if preview {
+                            app.fetch_viewer_picture(cx);
+                        }
                     }
                     Err(e) => {
                         error!("Failed to download image: {}", e);
@@ -1056,9 +1063,12 @@ impl WhatsAppApp {
         self.channel_preview_attempts.clear();
         self.saved_documents.clear();
         self.document_downloads_in_flight.clear();
+        self.save_as_after_download.clear();
     }
-    /// Download a document and save it to the user's Downloads directory.
+    /// Download a document into Velo's download cache, from where it opens.
     /// Documents open in external apps, so bytes on disk beat cached bytes.
+    /// Reaching the user's own folders is "Save as…": see
+    /// [`save_file_as`](Self::save_file_as).
     pub fn download_document(
         &mut self,
         message_id: String,
@@ -1123,6 +1133,9 @@ impl WhatsAppApp {
                                             expected_scope.1.clone(),
                                             expected_scope.2.clone(),
                                         );
+                                        if app.save_as_after_download.remove(&scope) {
+                                            app.save_file_as(path.clone(), cx);
+                                        }
                                         app.saved_documents.insert(scope, path);
                                         cx.notify();
                                     }
@@ -1234,7 +1247,75 @@ impl WhatsAppApp {
         }
     }
 
-    /// Save a picture already in hand to the Downloads directory.
+    /// "Save as…" for a message's file: the save dialog, starting in
+    /// Downloads, then a copy of the cached file to wherever was chosen.
+    /// A file not yet in the cache is downloaded first and the dialog opens
+    /// when it lands, as WhatsApp does.
+    pub fn save_media_as(&mut self, message_id: &str, cx: &mut Context<Self>) {
+        if let Some(path) = self
+            .saved_document_path(message_id)
+            .filter(|path| path.is_file())
+        {
+            self.save_file_as(path, cx);
+            return;
+        }
+        if crate::platform::download::SUPPORTS_SAVED_FILE_ACTIONS
+            && let Some(scope) = self.document_scope(message_id)
+        {
+            self.save_as_after_download.insert(scope);
+        }
+        // On a page this hands the file to the browser, which asks where.
+        self.save_media(message_id, cx);
+    }
+
+    /// Ask where to put `source` and copy it there.
+    pub fn save_file_as(&mut self, source: std::path::PathBuf, cx: &mut Context<Self>) {
+        let name = source
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "file".to_string());
+        let Some(directory) = crate::platform::download::save_as_directory()
+            .or_else(|| source.parent().map(std::path::Path::to_path_buf))
+        else {
+            return;
+        };
+        let chosen = cx.prompt_for_new_path(&directory, Some(&name));
+        cx.spawn(async move |entity: WeakEntity<Self>, cx| {
+            let target = match chosen.await {
+                Ok(Ok(Some(target))) => target,
+                // Cancelled, or the dialog went away: nothing to say.
+                Ok(Ok(None)) | Err(_) => return,
+                Ok(Err(error)) => {
+                    warn!("the save dialog failed: {error}");
+                    return;
+                }
+            };
+            let copied = cx
+                .background_spawn(async move {
+                    std::fs::copy(&source, &target)
+                        .map(|_| target)
+                        .map_err(|error| error.to_string())
+                })
+                .await;
+            let _ = entity.update(cx, |app, cx| match copied {
+                Ok(target) => {
+                    let shown = target
+                        .file_name()
+                        .map(|name| name.to_string_lossy().into_owned())
+                        .unwrap_or_default();
+                    app.notify_user(crate::tr!(saved_as, shown), notices::Tone::Info, cx);
+                }
+                Err(error) => app.notify_user(
+                    crate::tr!(could_not_save_file, error),
+                    notices::Tone::Problem,
+                    cx,
+                ),
+            });
+        })
+        .detach();
+    }
+
+    /// Put a picture already in hand into the download cache.
     ///
     /// Distinct from `download_document`, which fetches first: by the time
     /// the viewer can show a picture its bytes are local, and re-fetching
@@ -1297,6 +1378,9 @@ impl WhatsAppApp {
                         if app.document_state_generation == generation
                             && app.account_scope() == scope.0
                         {
+                            if app.save_as_after_download.remove(&scope) {
+                                app.save_file_as(path.clone(), cx);
+                            }
                             app.saved_documents.insert(scope.clone(), path);
                             cx.notify();
                         }
@@ -1407,8 +1491,10 @@ impl WhatsAppApp {
         if media.media_type == velo_core::MediaType::Sticker
             && !media.data_is_preview
             && mime_to_image_format(&media.mime_type) == Some(gpui::ImageFormat::Webp)
-            && !self.sticker_payload_is_valid(message_id, media)
+            && self.sticker_payload_is_valid(message_id, media, cx) != Some(true)
         {
+            // Invalid, or still being checked: the bubble draws its
+            // placeholder until a verdict says the bytes are safe to decode.
             return None;
         }
 
@@ -1451,7 +1537,58 @@ impl WhatsAppApp {
         Some(image)
     }
 
-    fn sticker_payload_is_valid(&self, message_id: &str, media: &MediaContent) -> bool {
+    /// Whether a sticker's bytes are safe to hand to the image decoder:
+    /// `Some` with a verdict, or `None` while one is being reached.
+    ///
+    /// A cache miss starts the check on a background thread and answers
+    /// `None` now. The thread leaves its verdict for the next frame and asks
+    /// for a repaint; the frame folds it into the cache below.
+    fn sticker_payload_is_valid(
+        &self,
+        message_id: &str,
+        media: &MediaContent,
+        cx: &App,
+    ) -> Option<bool> {
+        let finished: Vec<_> = std::mem::take(
+            &mut *self
+                .sticker_checks_done
+                .lock()
+                .unwrap_or_else(|e| e.into_inner()),
+        );
+        for (id, checked, valid) in finished {
+            self.sticker_checks_running.borrow_mut().remove(&id);
+            self.remember_sticker_verdict(&id, &checked, valid);
+        }
+        if let Some(valid) = self.cached_sticker_verdict(message_id, media) {
+            return Some(valid);
+        }
+        if self
+            .sticker_checks_running
+            .borrow_mut()
+            .insert(message_id.to_string())
+        {
+            let id = message_id.to_string();
+            let media = media.clone();
+            let done = Arc::clone(&self.sticker_checks_done);
+            cx.spawn(async move |cx| {
+                let checked = media.clone();
+                let valid = cx
+                    .background_executor()
+                    .spawn(async move {
+                        crate::components::message_bubble::sticker_payload_is_valid(&checked)
+                    })
+                    .await;
+                done.lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .push((id, media, valid));
+                cx.update(|cx| cx.refresh_windows());
+            })
+            .detach();
+        }
+        None
+    }
+
+    fn cached_sticker_verdict(&self, message_id: &str, media: &MediaContent) -> Option<bool> {
         let cached = Cached {
             bytes: media.data.len(),
             format: mime_to_image_format(&media.mime_type).unwrap_or(gpui::ImageFormat::Png),
@@ -1467,13 +1604,22 @@ impl WhatsAppApp {
                 && (seen.identity == cached.identity || bytes.as_slice() == media.data.as_slice())
             {
                 seen.identity = cached.identity;
-                return *valid;
+                return Some(*valid);
             }
         }
-        let valid = crate::components::message_bubble::sticker_payload_is_valid(media);
+        None
+    }
+
+    fn remember_sticker_verdict(&self, message_id: &str, media: &MediaContent, valid: bool) {
+        let cached = Cached {
+            bytes: media.data.len(),
+            format: mime_to_image_format(&media.mime_type).unwrap_or(gpui::ImageFormat::Png),
+            preview: media.data_is_preview,
+            identity: media_identity(&media.data),
+        };
         const STICKER_VALIDATION_CACHE_BYTES: usize = 64 * 1024 * 1024;
         if media.data.len() > STICKER_VALIDATION_CACHE_BYTES {
-            return valid;
+            return;
         }
         let mut validation = self.sticker_validation.borrow_mut();
         let mut held: usize = validation.values().map(|(_, _, bytes)| bytes.len()).sum();
@@ -1489,7 +1635,6 @@ impl WhatsAppApp {
             message_id.to_string(),
             (cached, valid, Arc::clone(&media.data)),
         );
-        valid
     }
 
     /// Toggle video playback for a message

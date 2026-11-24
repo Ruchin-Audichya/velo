@@ -566,6 +566,8 @@ impl WhatsAppClient {
             let jid_str = identity.canonical_jid.clone();
             if let Some(existing) = chats.iter_mut().find(|c| c.jid == jid_str) {
                 let mut page = pages.remove(&entry.jid.to_string()).unwrap_or_default();
+                // Two stored rows, one chat: whole only if both halves are.
+                existing.history_complete &= whole_history(page_for(&entry), page.len());
                 page.reverse();
                 if existing.is_status {
                     status_views.extend(watched_ids(&page));
@@ -636,6 +638,7 @@ impl WhatsAppClient {
             chat.last_message_time = entry.last_message_at;
 
             let mut page = pages.remove(&entry.jid.to_string()).unwrap_or_default();
+            chat.history_complete = whole_history(page_for(&entry), page.len());
             page.reverse(); // store returns newest-first; the UI renders oldest-first
             if chat.is_status {
                 status_views.extend(watched_ids(&page));
@@ -958,6 +961,12 @@ pub(super) fn own_jids(client: &Arc<Client>) -> Vec<String> {
 /// The one chat nobody opens as a conversation.
 fn is_status_broadcast(entry: &ChatEntry) -> bool {
     entry.jid.to_non_ad_string() == velo_core::STATUS_BROADCAST_JID
+}
+
+/// Whether a page is a chat's whole stored history: messages were asked for
+/// and fewer came back. A sidebar row asks for none, and says nothing.
+fn whole_history(asked: i64, got: usize) -> bool {
+    asked > 0 && (got as i64) < asked
 }
 
 pub(super) fn merge_alias_history_messages(

@@ -329,6 +329,15 @@ pub(crate) async fn serve_client_with_registry(
     } else {
         let hello = hub.hello_frame().context("serializing the snapshot")?;
         write_line(&mut writer, &hello).await?;
+        // A notification clicked while no window was up started this one;
+        // it opens on that chat.
+        if attached.owns_window
+            && let Some(jid) = hub.take_pending_open()
+        {
+            let open = serde_json::to_string(&DaemonMessage::OpenChat { jid })
+                .context("serializing a chat to open")?;
+            write_line(&mut writer, &open).await?;
+        }
     }
 
     if attached.session_events {

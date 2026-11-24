@@ -96,7 +96,11 @@ impl BubbleText {
     /// Parse every displayed text field once, when a timeline is rebuilt.
     pub fn of_message(message: &velo_core::ChatMessage) -> Self {
         if message.revoked {
-            return Self::of(crate::tr!(MessageDeleted));
+            return Self::of(if message.is_from_me {
+                crate::tr!(YouDeletedThisMessage)
+            } else {
+                crate::tr!(MessageDeleted)
+            });
         }
         let mut parsed = Self::of(&message.content);
         parsed.business = message.business.as_ref().map(|business| {

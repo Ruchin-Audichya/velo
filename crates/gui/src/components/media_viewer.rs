@@ -295,13 +295,13 @@ fn render_bar(
                 .ghost()
                 .disabled(!can_save)
                 .tooltip(if can_save {
-                    crate::tr!(SaveToDownloads)
+                    crate::tr!(SaveAs)
                 } else {
                     crate::tr!(NothingToSaveThisFileCouldNotBeRead)
                 })
                 .when(can_save, |button| button.cursor_pointer())
                 .on_click(move |_, _window, cx| {
-                    save_entity.update(cx, |app, cx| app.save_media(&message_id, cx));
+                    save_entity.update(cx, |app, cx| app.save_media_as(&message_id, cx));
                 }),
         )
         .child(

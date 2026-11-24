@@ -161,6 +161,8 @@ pub enum FromDaemon {
     Plugins(Vec<velo_core::PluginSurface>),
     /// Somebody asked for a front end to come forward.
     ShowWindow,
+    /// A notification for this chat was clicked.
+    OpenChat(String),
     /// Somebody asked for the front end to go away — the tray's Hide, or
     /// its icon clicked while this window is up.
     HideWindow,
@@ -312,6 +314,8 @@ enum Awaiting {
     SearchResults(oneshot::Sender<Result<Vec<(String, velo_core::ChatMessage)>, String>>),
     ChatActed(oneshot::Sender<Result<(), String>>),
     Contacts(oneshot::Sender<Result<Vec<velo_ipc::ContactSummary>, String>>),
+    MessageInfo(oneshot::Sender<Result<velo_core::MessageInfo, String>>),
+    ChatFound(oneshot::Sender<Result<Option<String>, String>>),
     FileMatches(oneshot::Sender<Result<Vec<velo_ipc::FileMatch>, String>>),
     CallDevices(oneshot::Sender<Result<velo_ipc::CallDeviceReply, String>>),
     /// A message drawn before it was sent. On refusal it has to stop being
@@ -391,6 +395,8 @@ impl Awaiting {
             Self::SearchResults(tx) => tx.is_closed(),
             Self::ChatActed(tx) => tx.is_closed(),
             Self::Contacts(tx) => tx.is_closed(),
+            Self::MessageInfo(tx) => tx.is_closed(),
+            Self::ChatFound(tx) => tx.is_closed(),
             Self::FileMatches(tx) => tx.is_closed(),
             Self::Acted(tx) => tx.is_closed(),
             Self::Installed { tell, .. } => tell.is_closed(),
@@ -435,6 +441,12 @@ impl Awaiting {
                 let _ = tx.send(Err(detail.to_string()));
             }
             Self::Contacts(tx) => {
+                let _ = tx.send(Err(detail.to_string()));
+            }
+            Self::MessageInfo(tx) => {
+                let _ = tx.send(Err(detail.to_string()));
+            }
+            Self::ChatFound(tx) => {
                 let _ = tx.send(Err(detail.to_string()));
             }
             Self::FileMatches(tx) => {
@@ -1810,6 +1822,30 @@ impl SessionHandle {
         self.ask(
             ClientRequest::ListContacts { query, limit },
             Awaiting::Contacts(tx),
+        );
+        rx
+    }
+
+    /// The address the stored chat with this person lives under, if any.
+    pub fn find_chat(&self, jid: String) -> oneshot::Receiver<Result<Option<String>, String>> {
+        let (tx, rx) = oneshot::channel();
+        self.ask(ClientRequest::FindChat { jid }, Awaiting::ChatFound(tx));
+        rx
+    }
+
+    /// Who a sent message was delivered to and read by, and when.
+    pub fn message_info(
+        &self,
+        chat_jid: String,
+        message_id: String,
+    ) -> oneshot::Receiver<Result<velo_core::MessageInfo, String>> {
+        let (tx, rx) = oneshot::channel();
+        self.ask(
+            ClientRequest::MessageInfo(velo_ipc::MessageInfoRequest {
+                chat_jid,
+                message_id,
+            }),
+            Awaiting::MessageInfo(tx),
         );
         rx
     }

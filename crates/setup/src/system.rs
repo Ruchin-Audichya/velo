@@ -107,14 +107,27 @@ pub fn install(options: Options, progress: &dyn Fn(Step)) -> Result<(), String> 
         .map_err(|e| format!("Could not create {}: {e}", dir.display()))?;
     let total: u64 = entries.iter().map(|e| e.size).sum::<u64>().max(1);
     let mut written = 0u64;
+    let names: Vec<&str> = entries.iter().map(|entry| entry.name).collect();
+    // Unpack the whole set first, beside the live files, then swap it in at
+    // once: a window and daemon from different versions cannot talk to each
+    // other, so a half-replaced install is a broken one.
     for entry in &entries {
         let mut tick = |n: u64| {
             written += n;
             progress(Step::Copying(written as f32 / total as f32));
         };
-        payload::extract(entry, &dir, &mut tick)
-            .map_err(|e| format!("Could not write {}: {e}", entry.name))?;
+        if let Err(e) = payload::stage(entry, &dir, &mut tick) {
+            payload::discard(&dir, &names);
+            return Err(format!("Could not write {}: {e}", entry.name));
+        }
     }
+    if velo_is_running() {
+        payload::discard(&dir, &names);
+        return Err("Velo is still running. Quit it from its tray icon and try again.".into());
+    }
+    payload::activate(&dir, &names).map_err(|e| {
+        format!("Could not replace Velo's files, so the previous version was kept: {e}")
+    })?;
     // The uninstaller is this program. A copy launched from the install
     // directory is already in place.
     if let Ok(me) = std::env::current_exe() {
@@ -147,6 +160,57 @@ pub fn install(options: Options, progress: &dyn Fn(Step)) -> Result<(), String> 
     let _ = velo_platform::windows_desktop::register_identity();
     refresh_shell();
     Ok(())
+}
+
+/// Data folders "remove local data" could not delete, for the finish screen
+/// to name instead of saying everything is gone.
+static LEFT_BEHIND: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+pub fn data_left_behind() -> Vec<String> {
+    LEFT_BEHIND
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+}
+
+/// Every folder Velo keeps data in, under both of its names: the main data
+/// folder, each named account profile (`velo-<account>`), and any folder the
+/// rename to Velo set aside (`velo.before-upgrade`). A `velo-…` folder counts
+/// only when it holds a Velo store, so another program's folder that merely
+/// shares the prefix is never touched.
+fn data_folders() -> Vec<PathBuf> {
+    let mut bases = vec![local_app_data()];
+    if let Some(roaming) = std::env::var_os("APPDATA") {
+        bases.push(PathBuf::from(roaming));
+    }
+    let mut found = Vec::new();
+    for base in bases {
+        let Ok(read) = std::fs::read_dir(&base) else {
+            continue;
+        };
+        for entry in read.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy().to_lowercase();
+            if is_velo_data_folder(&name, || path.join("whatsapp.db").is_file()) {
+                found.push(path);
+            }
+        }
+    }
+    found
+}
+
+fn is_velo_data_folder(name: &str, holds_store: impl Fn() -> bool) -> bool {
+    ["velo", "oxidezap"].iter().any(|base| {
+        name == *base
+            || name.starts_with(&format!("{base}.before-upgrade"))
+            || (name
+                .strip_prefix(&format!("{base}-"))
+                .is_some_and(|rest| !rest.is_empty())
+                && holds_store())
+    })
 }
 
 pub fn uninstall(remove_data: bool, progress: &dyn Fn(Step)) -> Result<(), String> {
@@ -190,12 +254,14 @@ pub fn uninstall(remove_data: bool, progress: &dyn Fn(Step)) -> Result<(), Strin
         // preferences and its notification registration.
         // Under 1.0's name as well, for an install never started since the
         // update.
-        for name in ["velo", "oxidezap"] {
-            let _ = std::fs::remove_dir_all(local_app_data().join(name));
-            if let Some(roaming) = std::env::var_os("APPDATA") {
-                let _ = std::fs::remove_dir_all(PathBuf::from(roaming).join(name));
+        let mut left = Vec::new();
+        for folder in data_folders() {
+            let _ = std::fs::remove_dir_all(&folder);
+            if folder.exists() {
+                left.push(folder.display().to_string());
             }
         }
+        *LEFT_BEHIND.lock().unwrap_or_else(|e| e.into_inner()) = left;
         let _ = CURRENT_USER.remove_tree(r"Software\Velo");
         let _ = CURRENT_USER.remove_tree(format!(r"Software\Classes\AppUserModelId\{APP_ID}"));
     }
@@ -257,6 +323,23 @@ fn stop_velo() {
             .output();
     }
     std::thread::sleep(Duration::from_millis(400));
+}
+
+/// Whether a Velo window or daemon is still running, from any copy: the swap
+/// must not start while one can hold a file or answer on the pipe.
+fn velo_is_running() -> bool {
+    let names = [WINDOW_EXE, DAEMON_EXE, LEGACY_EXES[0], LEGACY_EXES[1]];
+    std::process::Command::new("tasklist")
+        .args(["/FO", "CSV", "/NH"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .map(|out| {
+            let listing = String::from_utf8_lossy(&out.stdout).to_lowercase();
+            names
+                .iter()
+                .any(|name| listing.contains(&format!("\"{}\"", name.to_lowercase())))
+        })
+        .unwrap_or(false)
 }
 
 fn set_start_at_sign_in(enabled: bool, daemon: &Path) -> Result<(), String> {
@@ -442,4 +525,23 @@ fn shortcut(link: &Path, target: &Path) -> Result<(), String> {
 fn refresh_shell() {
     use windows::Win32::UI::Shell::{SHCNE_ASSOCCHANGED, SHCNF_IDLIST, SHChangeNotify};
     unsafe { SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, None, None) };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_velo_data_folder;
+
+    #[test]
+    fn only_velos_own_folders_are_data_folders() {
+        assert!(is_velo_data_folder("velo", || false));
+        assert!(is_velo_data_folder("oxidezap", || false));
+        assert!(is_velo_data_folder("velo.before-upgrade-2", || false));
+        assert!(is_velo_data_folder("velo-work", || true), "a named profile");
+        assert!(
+            !is_velo_data_folder("velo-work", || false),
+            "same prefix, not a store"
+        );
+        assert!(!is_velo_data_folder("velocity", || true));
+        assert!(!is_velo_data_folder("velo-", || true));
+    }
 }

@@ -21,6 +21,7 @@ use gpui_component::{
 use crate::components::{ProductIcon, parts};
 use crate::platform::picker::AttachmentCategory;
 use crate::theme::{ActiveProductTheme as _, Metrics};
+use gpui::AnimationExt as _;
 
 /// Events emitted by the input area to communicate with the parent app.
 #[derive(Clone, Debug)]
@@ -48,6 +49,43 @@ pub enum InputAreaEvent {
     /// User dropped the reply they were composing.
     CancelReply,
     CancelEdit,
+    /// The emoji panel opened: the app hands it the stickers and GIFs it has.
+    PickerOpened,
+    /// A sticker or GIF from the panel, sent again to the open chat.
+    SendExisting {
+        chat_jid: String,
+        message_id: String,
+    },
+}
+
+/// A sticker or GIF the panel can send again: one already in a chat.
+#[derive(Clone)]
+pub struct PickerMedia {
+    pub chat_jid: String,
+    pub message_id: String,
+    pub sticker: bool,
+    /// Who sent it, or the chat: what the panel's search matches.
+    pub label: String,
+    pub image: std::sync::Arc<gpui::Image>,
+}
+
+/// Which page of the emoji panel is showing.
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
+enum PickerTab {
+    #[default]
+    Emoji,
+    Stickers,
+    Gifs,
+}
+
+impl PickerTab {
+    fn key(self) -> &'static str {
+        match self {
+            Self::Emoji => "emoji",
+            Self::Stickers => "stickers",
+            Self::Gifs => "gifs",
+        }
+    }
 }
 
 /// Typing indicator state with debouncing.
@@ -124,6 +162,8 @@ pub struct InputAreaView {
     input: Entity<TextareaState>,
     emoji_open: bool,
     emoji_search: Entity<InputState>,
+    picker_tab: PickerTab,
+    recent_media: Vec<PickerMedia>,
     language: crate::i18n::Language,
     /// Whether PTT recording is active
     is_recording: bool,
@@ -192,6 +232,8 @@ impl InputAreaView {
         Self {
             emoji_open: false,
             emoji_search,
+            picker_tab: PickerTab::default(),
+            recent_media: Vec::new(),
             input,
             language: crate::i18n::Language::current(),
             is_recording: false,
@@ -493,7 +535,188 @@ impl Render for InputAreaView {
 }
 
 impl InputAreaView {
+    /// The stickers and GIFs the panel offers, newest first.
+    pub fn set_recent_media(&mut self, media: Vec<PickerMedia>, cx: &mut Context<Self>) {
+        self.recent_media = media;
+        cx.notify();
+    }
+
+    /// The panel: a tab row over whichever page is showing. A page swaps in
+    /// when the tab changes, and its tiles pop and jiggle in whenever the
+    /// tab or the search changes, so a new result set is seen to arrive.
     fn render_emoji_picker(
+        &self,
+        metrics: Metrics,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement + use<> {
+        let tab = self.picker_tab;
+        let query = self.emoji_search.read(cx).value().to_lowercase();
+        let tab_button = |which: PickerTab, label: &'static str, cx: &mut Context<Self>| {
+            let selected = tab == which;
+            let primary = cx.theme().primary;
+            div()
+                .id(("picker-tab", which as usize))
+                .px(metrics.space_lg())
+                .py(metrics.space_xs())
+                .rounded_full()
+                .cursor_pointer()
+                .text_size(metrics.text_small())
+                .when(selected, |el| {
+                    el.bg(primary.opacity(0.18))
+                        .text_color(primary)
+                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                })
+                .when(!selected, |el| {
+                    el.text_color(cx.theme().muted_foreground)
+                        .hover(|style| style.bg(cx.theme().secondary))
+                })
+                .on_click(cx.listener(move |view, _, _, cx| {
+                    view.picker_tab = which;
+                    cx.notify();
+                }))
+                .child(label)
+        };
+        let tabs = div()
+            .flex()
+            .gap(metrics.space_sm())
+            .child(tab_button(PickerTab::Emoji, "Emoji", cx))
+            .child(tab_button(PickerTab::Stickers, "Stickers", cx))
+            .child(tab_button(PickerTab::Gifs, "GIFs", cx));
+        let page = match tab {
+            PickerTab::Emoji => self.render_emoji_page(metrics, cx).into_any_element(),
+            PickerTab::Stickers | PickerTab::Gifs => self
+                .render_media_page(tab == PickerTab::Stickers, &query, metrics, cx)
+                .into_any_element(),
+        };
+        div()
+            .flex()
+            .flex_col()
+            .gap(metrics.space_sm())
+            .child(tabs)
+            .child(crate::motion::swap_in(
+                div().child(page),
+                gpui::ElementId::Name(format!("picker-page-{}", tab.key()).into()),
+            ))
+    }
+
+    /// Stickers or GIFs already in the account's chats, as tiles.
+    fn render_media_page(
+        &self,
+        stickers: bool,
+        query: &str,
+        metrics: Metrics,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement + use<> {
+        let tiles: Vec<&PickerMedia> = self
+            .recent_media
+            .iter()
+            .filter(|item| item.sticker == stickers)
+            .filter(|item| query.is_empty() || item.label.to_lowercase().contains(query))
+            .take(60)
+            .collect();
+        let empty = tiles.is_empty();
+        let tile = metrics.touch_target() * 1.9;
+        // Keyed by what is showing, so a new search replays the arrival.
+        let round = format!("{}-{query}", if stickers { "s" } else { "g" });
+        div()
+            .flex()
+            .flex_col()
+            .gap(metrics.space_sm())
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(metrics.space_sm())
+                    .child(div().flex_1().child(Input::new(&self.emoji_search)))
+                    .child(
+                        Button::new("emoji-close")
+                            .icon(IconName::Close)
+                            .ghost()
+                            .on_click(cx.listener(|view, _, window, cx| {
+                                view.emoji_open = false;
+                                window.focus(&view.focus_handle(cx), cx);
+                                cx.notify();
+                            })),
+                    ),
+            )
+            .child(
+                div()
+                    .id(if stickers { "sticker-grid" } else { "gif-grid" })
+                    .h(metrics.touch_target() * 4.2)
+                    .overflow_y_scroll()
+                    .flex()
+                    .flex_wrap()
+                    .gap(metrics.space_sm())
+                    .children(tiles.into_iter().enumerate().map(|(index, item)| {
+                        let chat_jid = item.chat_jid.clone();
+                        let message_id = item.message_id.clone();
+                        let hover = cx.theme().secondary;
+                        let jiggle = metrics.space_xs();
+                        div()
+                            .id(gpui::ElementId::Name(
+                                format!("picker-{round}-{}", item.message_id).into(),
+                            ))
+                            .size(tile)
+                            .p(metrics.space_xs())
+                            .rounded(metrics.radius_lg())
+                            .cursor_pointer()
+                            .relative()
+                            .hover(move |style| style.bg(hover))
+                            .tooltip({
+                                let label: gpui::SharedString = item.label.clone().into();
+                                move |window, cx| {
+                                    gpui_component::tooltip::Tooltip::new(label.clone())
+                                        .build(window, cx)
+                                }
+                            })
+                            .on_click(cx.listener(move |view, _, window, cx| {
+                                cx.emit(InputAreaEvent::SendExisting {
+                                    chat_jid: chat_jid.clone(),
+                                    message_id: message_id.clone(),
+                                });
+                                view.emoji_open = false;
+                                window.focus(&view.focus_handle(cx), cx);
+                                cx.notify();
+                            }))
+                            .child(
+                                gpui::img(item.image.clone())
+                                    .size_full()
+                                    .object_fit(gpui::ObjectFit::Contain)
+                                    .rounded(metrics.radius_md()),
+                            )
+                            .with_animation(
+                                gpui::ElementId::Name(
+                                    format!("jiggle-{round}-{index}").into(),
+                                ),
+                                gpui::Animation::new(std::time::Duration::from_millis(
+                                    380 + (index as u64 % 8) * 35,
+                                ))
+                                .with_easing(gpui::ease_out_quint()),
+                                move |el, t| {
+                                    // A pop in from small, with a fading
+                                    // side-to-side wiggle on the way.
+                                    let wobble = (t * std::f32::consts::PI * 4.0).sin()
+                                        * (1.0 - t);
+                                    el.opacity(0.2 + 0.8 * t).left(jiggle * wobble)
+                                },
+                            )
+                    })),
+            )
+            .when(empty, |el| {
+                el.child(
+                    div()
+                        .text_size(metrics.text_small())
+                        .text_color(cx.theme().muted_foreground)
+                        .child(if stickers {
+                            "Stickers you send or receive show up here. To make one, use Attach → Sticker from image."
+                        } else {
+                            "GIFs you send or receive show up here. To send one, use Attach → GIF or looping video."
+                        }),
+                )
+            })
+    }
+
+    fn render_emoji_page(
         &self,
         metrics: Metrics,
         cx: &mut Context<Self>,
@@ -697,6 +920,9 @@ impl InputAreaView {
                 .disabled(self.edit_pending)
                 .on_click(cx.listener(|view, _, _, cx| {
                     view.emoji_open = !view.emoji_open;
+                    if view.emoji_open {
+                        cx.emit(InputAreaEvent::PickerOpened);
+                    }
                     cx.notify();
                 })),
             )

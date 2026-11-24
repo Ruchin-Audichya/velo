@@ -25,7 +25,10 @@ use std::sync::{Mutex, PoisonError};
 
 pub use velo_core::LogLevel;
 
+mod scrub;
 mod store;
+
+pub use scrub::scrub;
 
 pub use store::location;
 
@@ -331,6 +334,25 @@ mod imp {
         // answers the other one. The `RUST_LOG` level this was built from is
         // still honoured, as this run's starting value in `activate`.
         builder.filter_level(log::LevelFilter::Trace);
+        // Every line passes through `scrub`: no home folder (named after the
+        // owner on Windows) and no phone number reaches a log file. The
+        // layout is env_logger's own.
+        let home = std::env::var("USERPROFILE")
+            .or_else(|_| std::env::var("HOME"))
+            .ok()
+            .filter(|home| !home.is_empty());
+        builder.format(move |buf, record| {
+            use std::io::Write as _;
+            let line = super::scrub(&record.args().to_string(), home.as_deref());
+            writeln!(
+                buf,
+                "[{} {:<5} {}] {}",
+                buf.timestamp(),
+                record.level(),
+                record.target(),
+                line
+            )
+        });
         let logger = Dynamic {
             inner: builder.build(),
             named,

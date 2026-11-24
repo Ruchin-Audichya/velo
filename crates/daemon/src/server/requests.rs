@@ -210,6 +210,40 @@ pub(super) async fn handle_request(
             )
             .await
         }
+        ClientRequest::FindChat { jid } => {
+            let id = match addressed(id, "finding a chat needs an id to answer under") {
+                Ok(id) => id,
+                Err(answer) => return answer,
+            };
+            out_of_band(
+                hub,
+                commands,
+                id,
+                Action::FindChat {
+                    id,
+                    jid,
+                    answer_to: outbox.clone(),
+                },
+            )
+            .await
+        }
+        ClientRequest::MessageInfo(request) => {
+            let id = match addressed(id, "message info needs an id to answer under") {
+                Ok(id) => id,
+                Err(answer) => return answer,
+            };
+            out_of_band(
+                hub,
+                commands,
+                id,
+                Action::MessageInfo {
+                    id,
+                    request,
+                    answer_to: outbox.clone(),
+                },
+            )
+            .await
+        }
         ClientRequest::SaveContact { jid, full_name } => {
             let id = match addressed(id, "saving a contact needs an id") {
                 Ok(id) => id,

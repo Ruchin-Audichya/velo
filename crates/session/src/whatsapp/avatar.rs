@@ -252,6 +252,9 @@ async fn lookup(
     need_bytes: bool,
 ) -> Lookup {
     let existing_id = if need_bytes { None } else { known_id };
+    if jid.is_newsletter() {
+        return channel_lookup(client, jid, existing_id).await;
+    }
     if jid.is_group() {
         let asked = match client
             .pictures()
@@ -317,6 +320,44 @@ async fn lookup(
             }
         }
     }
+}
+
+/// A channel's picture, from its metadata.
+///
+/// A channel is not a contact: the `w:profile:picture` query a contact takes
+/// is refused for a `@newsletter` address, so channels never had a picture.
+/// Their metadata names one by CDN path instead, on the same host contact
+/// pictures come from. The path without its query string is the picture's
+/// identity, so an unchanged picture is not fetched again.
+async fn channel_lookup(client: &Arc<Client>, jid: &Jid, existing_id: Option<&str>) -> Lookup {
+    match client.newsletter().get_metadata(jid).await {
+        Ok(meta) => match channel_picture(meta.preview_url.or(meta.picture_url)) {
+            Some((picture_id, _)) if existing_id == Some(picture_id.as_str()) => Lookup::Unchanged,
+            Some((picture_id, source)) => Lookup::Found { picture_id, source },
+            None => Lookup::NotFound,
+        },
+        Err(error) => {
+            debug!(
+                "channel picture lookup failed for {}: {error}",
+                jid.observe()
+            );
+            Lookup::Failed
+        }
+    }
+}
+
+/// A channel picture's identity and where to fetch it, from its CDN path.
+fn channel_picture(path: Option<String>) -> Option<(String, String)> {
+    let path = path.filter(|path| !path.is_empty())?;
+    let source = if path.starts_with("https://") {
+        path.clone()
+    } else if path.starts_with('/') {
+        format!("https://pps.whatsapp.net{path}")
+    } else {
+        return None;
+    };
+    let id = path.split('?').next().unwrap_or(&path).to_string();
+    Some((id, source))
 }
 
 /// Resolve avatar demands and publish what was learned, a chunk at a time.
@@ -666,6 +707,19 @@ mod tests {
         assert!(!lookup_is_useless(&group));
         assert!(!lookup_is_useless(&direct));
         assert!(newsletter.is_newsletter());
+    }
+
+    #[test]
+    fn a_channel_picture_path_becomes_a_fetchable_source() {
+        let (id, source) =
+            channel_picture(Some("/v/t61.24694-24/pic.jpg?ccb=1&oh=x&oe=y".into())).unwrap();
+        assert_eq!(id, "/v/t61.24694-24/pic.jpg");
+        assert_eq!(
+            source,
+            "https://pps.whatsapp.net/v/t61.24694-24/pic.jpg?ccb=1&oh=x&oe=y"
+        );
+        assert!(channel_picture(None).is_none());
+        assert!(channel_picture(Some("relative/no-slash".into())).is_none());
     }
 
     /// The dedup is what keeps a repeated page from repeating its traffic.

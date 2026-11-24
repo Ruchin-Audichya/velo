@@ -15,6 +15,7 @@
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
 mod args;
+mod mcp;
 mod output;
 
 use std::path::{Path, PathBuf};
@@ -72,6 +73,7 @@ fn main() -> ExitCode {
             print!("{}", VeloCli::completion_script(shell));
             return ExitCode::SUCCESS;
         }
+        Commands::Mcp(ref mcp) if mcp.serve => return mcp::serve(),
         Commands::Mcp(_mcp) => {
             if !machine_output_allowed(output_mode, "mcp", "a usage spec") {
                 return ExitCode::from(1);

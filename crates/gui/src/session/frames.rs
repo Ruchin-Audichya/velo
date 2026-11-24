@@ -170,6 +170,16 @@ impl<'a> Frames<'a> {
                     let _ = tx.send(result);
                 }
             }
+            DaemonMessage::ChatFound { id, result } => {
+                if let Some(Awaiting::ChatFound(tx)) = take_pending(self.pending, id) {
+                    let _ = tx.send(result);
+                }
+            }
+            DaemonMessage::MessageInfo { id, result } => {
+                if let Some(Awaiting::MessageInfo(tx)) = take_pending(self.pending, id) {
+                    let _ = tx.send(result);
+                }
+            }
             DaemonMessage::FileMatches { id, result } => {
                 if let Some(Awaiting::FileMatches(tx)) = take_pending(self.pending, id) {
                     let _ = tx.send(result);
@@ -383,6 +393,7 @@ impl<'a> Frames<'a> {
                 return ControlFlow::Break(());
             }
             DaemonMessage::ShowWindow => self.publish(FromDaemon::ShowWindow)?,
+            DaemonMessage::OpenChat { jid } => self.publish(FromDaemon::OpenChat(jid))?,
             DaemonMessage::HideWindow => self.publish(FromDaemon::HideWindow)?,
             // The id the module claimed, which is the daemon's answer and not
             // this window's guess at the file name it sent.
