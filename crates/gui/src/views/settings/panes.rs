@@ -33,7 +33,7 @@ pub fn render(
         SettingsSection::AudioVideo => super::devices::render(app, entity.clone(), metrics, cx),
         SettingsSection::Privacy => privacy(entity.clone(), metrics, cx),
         SettingsSection::Storage => storage(app, entity, metrics, cx),
-        SettingsSection::Advanced => advanced(entity, metrics, cx),
+        SettingsSection::Advanced => advanced(app, entity, metrics, cx),
         SettingsSection::Plugins => plugins(app, entity, metrics, cx),
         // Rendered by its own module.
         SettingsSection::Appearance => div().into_any_element(),
@@ -877,7 +877,12 @@ fn files(count: u64) -> String {
 /// a person can only set by restarting the client from a terminal they may
 /// not have, and one a page has never had at all. What is drawn now takes
 /// effect in this window and in the daemon at once, and is remembered.
-fn advanced(entity: Entity<WhatsAppApp>, metrics: Metrics, cx: &App) -> AnyElement {
+fn advanced(
+    app: &WhatsAppApp,
+    entity: Entity<WhatsAppApp>,
+    metrics: Metrics,
+    cx: &App,
+) -> AnyElement {
     let active = velo_logging::current();
     // A level given for this run from outside — `RUST_LOG` on a desktop,
     // `?log=` in a page — is what the process *started* at. Said rather than
@@ -955,7 +960,9 @@ fn advanced(entity: Entity<WhatsAppApp>, metrics: Metrics, cx: &App) -> AnyEleme
             }),
         metrics,
     );
-    let state = entity.read(cx).update.clone();
+    // From the app handed in: reading the entity here would borrow it while
+    // it is being drawn, which panics.
+    let state = app.update.clone();
     let status = match &state {
         crate::updates::UpdateState::Idle => format!("Velo {}", env!("CARGO_PKG_VERSION")),
         crate::updates::UpdateState::Checking => "Checking for updates…".to_string(),
