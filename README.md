@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Ruchin-Audichya/velo/releases/latest/download/Velo-Setup-1.3.0-x64.exe"><b>⬇ Download Velo 1.3 for Windows</b></a>
+  <a href="https://github.com/Ruchin-Audichya/velo/releases/latest/download/Velo-Setup-1.3.1-x64.exe"><b>⬇ Download Velo 1.3 for Windows</b></a>
   &nbsp;·&nbsp; Windows 10 &amp; 11, 64-bit &nbsp;·&nbsp; free
   <br><sub><a href="https://github.com/Ruchin-Audichya/velo/releases/latest">All downloads, portable zip and checksums</a></sub>
 </p>
