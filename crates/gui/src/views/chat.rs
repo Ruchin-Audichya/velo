@@ -539,6 +539,9 @@ pub fn render_rail(
             app.unread_destination_count(Destination::Communities),
         ],
         app.account_summary(),
+        app.update
+            .available()
+            .map(|release| release.version.clone()),
         entity,
         layout,
         cx,

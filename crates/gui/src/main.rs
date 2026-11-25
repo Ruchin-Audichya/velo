@@ -26,6 +26,7 @@ mod responsive;
 mod retained_image;
 mod session;
 mod theme;
+mod updates;
 mod utils;
 mod video;
 mod views;

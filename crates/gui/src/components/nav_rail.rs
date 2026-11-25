@@ -60,11 +60,14 @@ pub fn render_nav_rail(
     // Who is signed in, drawn as the photo at the foot of the strip — the
     // way into your profile and Settings, as in the desktop messengers.
     account: Option<crate::components::AccountSummary>,
+    // A newer Velo, when one is out: drawn above Settings until installed.
+    update: Option<String>,
     entity: Entity<WhatsAppApp>,
     layout: ResponsiveLayout,
     cx: &App,
 ) -> impl IntoElement + use<> {
     let metrics = *layout.metrics();
+    let update_entity = entity.clone();
     let is_mobile = layout.is_mobile();
     let expanded = layout.rail_expanded();
     // A phone's tab bar is sized by the finger; a desktop strip by its own
@@ -230,6 +233,25 @@ pub fn render_nav_rail(
         // Settings and your photo sit at the foot of the strip, apart from the
         // places you go between: they are about you, not about a conversation.
         .when(!is_mobile, |el| el.child(div().flex_1()))
+        .children(update.map(|version| {
+            crate::motion::pop_in(
+                div().child(render_item(
+                    Item {
+                        id: "nav-update".into(),
+                        icon: IconName::ArrowDown.into(),
+                        label: "Update",
+                        selected: true,
+                        badge: 0,
+                    },
+                    target,
+                    expanded,
+                    metrics,
+                    cx,
+                    move |_, cx| update_entity.update(cx, |app, cx| app.install_update(cx)),
+                )),
+                gpui::ElementId::Name(format!("nav-update-{version}").into()),
+            )
+        }))
         .child(render_item(
             Item {
                 id: "nav-settings".into(),

@@ -955,10 +955,73 @@ fn advanced(entity: Entity<WhatsAppApp>, metrics: Metrics, cx: &App) -> AnyEleme
             }),
         metrics,
     );
+    let state = entity.read(cx).update.clone();
+    let status = match &state {
+        crate::updates::UpdateState::Idle => format!("Velo {}", env!("CARGO_PKG_VERSION")),
+        crate::updates::UpdateState::Checking => "Checking for updates…".to_string(),
+        crate::updates::UpdateState::UpToDate => {
+            format!("Velo {} is the latest version.", env!("CARGO_PKG_VERSION"))
+        }
+        crate::updates::UpdateState::Available(release) => {
+            format!("Velo {} is available.", release.version)
+        }
+        crate::updates::UpdateState::Installing(version) => {
+            format!("Downloading Velo {version}…")
+        }
+        crate::updates::UpdateState::Failed(error) => format!("Couldn't check: {error}"),
+    };
+    let busy = matches!(
+        state,
+        crate::updates::UpdateState::Checking | crate::updates::UpdateState::Installing(_)
+    );
+    let check_entity = entity.clone();
+    let install_entity = entity.clone();
+    let updates = crate::updates::SUPPORTED.then(|| {
+        group(
+            label("Updates", metrics, cx),
+            div()
+                .flex()
+                .flex_col()
+                .gap(metrics.space_md())
+                .child(
+                    div()
+                        .text_size(metrics.text_small())
+                        .text_color(cx.theme().muted_foreground)
+                        .child(status),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .gap(metrics.space_md())
+                        .child(
+                            Button::new("check-updates")
+                                .label("Check for updates")
+                                .outline()
+                                .disabled(busy)
+                                .on_click(move |_, _, cx| {
+                                    check_entity
+                                        .update(cx, |app, cx| app.check_for_updates(true, cx));
+                                }),
+                        )
+                        .when(state.available().is_some(), |row| {
+                            row.child(
+                                Button::new("install-update")
+                                    .label("Update now")
+                                    .primary()
+                                    .on_click(move |_, _, cx| {
+                                        install_entity.update(cx, |app, cx| app.install_update(cx));
+                                    }),
+                            )
+                        }),
+                ),
+            metrics,
+        )
+    });
     div()
         .flex()
         .flex_col()
         .gap(metrics.space_xxl())
+        .children(updates)
         .child(diagnostics)
         .child(group(
             label("Keyboard shortcuts", metrics, cx),

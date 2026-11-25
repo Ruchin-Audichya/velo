@@ -10201,6 +10201,7 @@ dependencies = [
  "smol",
  "symphonia",
  "tokio",
+ "ureq",
  "velo-audio",
  "velo-core",
  "velo-daemon",

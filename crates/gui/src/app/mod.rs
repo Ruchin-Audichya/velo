@@ -1105,6 +1105,8 @@ pub struct WhatsAppApp {
     /// each move the timeline the other measured against.
     reaction_picker_for: Option<String>,
     delete_confirmation: Option<message_actions::DeleteConfirmation>,
+    /// Whether a newer Velo is out, and where installing it got to.
+    pub(crate) update: crate::updates::UpdateState,
     /// When this window last lost focus, for the refresh on coming back.
     unfocused_at: Option<wacore::time::Instant>,
     /// The "Message info" panel, while it is up.
@@ -1575,6 +1577,15 @@ impl WhatsAppApp {
 
     /// Create a new WhatsApp application
     pub fn new(cx: &mut Context<Self>) -> Self {
+        // A quiet look for a newer Velo once the window has settled: well
+        // after startup, so it never competes with the first paint or sync.
+        if crate::updates::SUPPORTED {
+            cx.spawn(async move |entity: WeakEntity<Self>, cx| {
+                crate::platform::sleep(std::time::Duration::from_secs(20)).await;
+                let _ = entity.update(cx, |app, cx| app.check_for_updates(false, cx));
+            })
+            .detach();
+        }
         // Downloads older than the cache keeps, cleared off the UI thread.
         if crate::platform::download::SAVES_OFF_THREAD {
             cx.background_spawn(async { crate::platform::download::prune_cache() })
@@ -1725,6 +1736,7 @@ impl WhatsAppApp {
             delete_confirmation: None,
             message_info: None,
             unfocused_at: None,
+            update: crate::updates::UpdateState::default(),
             chat_confirmation: None,
             forward_picker: None,
             pending_message_actions: HashSet::new(),
@@ -2116,6 +2128,99 @@ impl WhatsAppApp {
         if let Some(session) = &self.client {
             self.avatar_manager.flush_demands(session);
         }
+    }
+
+    /// Look for a newer Velo. `asked` is a person pressing the button, who
+    /// hears the answer either way; the startup check speaks only when there
+    /// is something to install.
+    pub fn check_for_updates(&mut self, asked: bool, cx: &mut Context<Self>) {
+        if matches!(
+            self.update,
+            crate::updates::UpdateState::Checking | crate::updates::UpdateState::Installing(_)
+        ) {
+            return;
+        }
+        self.update = crate::updates::UpdateState::Checking;
+        cx.notify();
+        cx.spawn(async move |entity: WeakEntity<Self>, cx| {
+            let answer = cx.background_spawn(async { crate::updates::check() }).await;
+            let _ = entity.update(cx, |app, cx| {
+                app.update = match answer {
+                    Ok(Some(release)) => {
+                        app.notify_user(
+                            format!(
+                                "Velo {} is available. Click Update in the sidebar to install it.",
+                                release.version
+                            ),
+                            notices::Tone::Info,
+                            cx,
+                        );
+                        crate::updates::UpdateState::Available(release)
+                    }
+                    Ok(None) => {
+                        if asked {
+                            app.notify_user("You're on the latest Velo.", notices::Tone::Info, cx);
+                        }
+                        crate::updates::UpdateState::UpToDate
+                    }
+                    Err(error) => {
+                        if asked {
+                            app.notify_user(
+                                format!("Couldn't check for updates: {error}"),
+                                notices::Tone::Problem,
+                                cx,
+                            );
+                        }
+                        crate::updates::UpdateState::Failed(error)
+                    }
+                };
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    /// Download the newer Velo, check it, and open its installer, which
+    /// updates in place and keeps the sign-in.
+    pub fn install_update(&mut self, cx: &mut Context<Self>) {
+        let Some(release) = self.update.available().cloned() else {
+            return;
+        };
+        self.update = crate::updates::UpdateState::Installing(release.version.clone());
+        self.notify_user(
+            format!("Downloading Velo {}…", release.version),
+            notices::Tone::Info,
+            cx,
+        );
+        cx.notify();
+        cx.spawn(async move |entity: WeakEntity<Self>, cx| {
+            let installing = release.clone();
+            let result = cx
+                .background_spawn(async move { crate::updates::install(&installing) })
+                .await;
+            let _ = entity.update(cx, |app, cx| {
+                match result {
+                    Ok(()) => {
+                        app.notify_user(
+                            "The installer is open. Click Update there; you stay signed in.",
+                            notices::Tone::Info,
+                            cx,
+                        );
+                        app.update = crate::updates::UpdateState::Available(release);
+                    }
+                    Err(error) => {
+                        app.notify_user(
+                            format!("The update didn't install: {error}"),
+                            notices::Tone::Problem,
+                            cx,
+                        );
+                        app.update = crate::updates::UpdateState::Available(release);
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     /// Ask for the pictures of these chats, wherever they are drawn.
