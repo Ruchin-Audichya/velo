@@ -48,6 +48,23 @@ It also keeps running in the tray when you close the window, so messages and cal
 
 <sub>Memory is private bytes from Task Manager, measured on the same laptop with the same account and both apps idle on the chat list (Intel i5-11300H, Windows 11). Your numbers will vary.</sub>
 
+## New in 1.3
+
+The biggest update yet, much of it from users' feedback.
+
+- **Message info:** right-click a message you sent to see when it was delivered and read, and in a group, who read it
+- **60 stickers built in:** Hinglish, English and Memes packs, plus *Emoji · Stickers · GIFs* tabs with search
+- **A new sidebar:** bigger icons, a marker on where you are, unread counts that never get cut off, and an expanded mode with labels (**Ctrl+B**)
+- **Clean ringtones:** the incoming-call stutter is fixed, and there are two new original tones, *Velo Signature* and *Glass Chime*
+- **Communities organised like WhatsApp:** each community's header, then its Announcements and groups
+- **A redesigned Calls screen:** photos for everyone, no overlapping rows, and a side panel
+- **Downloads work like WhatsApp:** files go to Velo's own cache, *Save as…* puts a copy where you choose, and old files clear themselves
+- **Pictures everywhere:** Status shows each update's preview, and channel and community pictures load
+- **Motion you control:** quick, light animations, with Off, Minimal, Balanced or Expressive in Settings
+- **Read-only groups and channels** show WhatsApp's own line instead of a message box that can't send
+- **Connect Claude to Velo** with `velo-cli mcp --serve` ([setup](docs/cli.md))
+- **Fixes:** duplicate chats, missing group messages, jumps while scrolling history, notification clicks, the taskbar badge, and a background-service crash. Logs no longer include personal data.
+
 ## New in 1.2
 
 - **Message anyone from a group:** click a name on a message, or a person in the group's member list, to open your private chat with them
