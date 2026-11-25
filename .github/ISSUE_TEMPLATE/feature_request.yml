@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest something Velo should do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: What are you trying to do that Velo makes hard today?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to happen?
+  - type: textarea
+    id: whatsapp
+    attributes:
+      label: How does WhatsApp do it?
+      description: Optional. A screenshot of the official app is very useful.
+  - type: dropdown
+    id: help
+    attributes:
+      label: Would you like to build it?
+      options:
+        - No, just suggesting
+        - Yes, I'd like to open a pull request

@@ -150,7 +150,18 @@ cargo build --release
 
 That builds the window (`velo`), the background service that holds your WhatsApp session (`velod`) and a command-line client (`velo-cli`). To build the Windows installer exactly as releases are made, run `packaging/windows/build-release.ps1`.
 
-How the pieces fit together, and the reasoning behind the less obvious decisions, is in [docs/development.md](docs/development.md), [docs/architecture.md](docs/architecture.md) and [docs/gotchas.md](docs/gotchas.md). Contributions are welcome: open an issue first for anything big.
+How the pieces fit together, and the reasoning behind the less obvious decisions, is in [docs/development.md](docs/development.md), [docs/architecture.md](docs/architecture.md) and [docs/gotchas.md](docs/gotchas.md).
+
+## Contributing
+
+Velo is open source, and contributions are very welcome: bug reports, ideas, translations, fixes and features.
+
+1. **Find something to work on:** browse [issues labelled `good first issue`](https://github.com/Ruchin-Audichya/velo/labels/good%20first%20issue), report a [bug](https://github.com/Ruchin-Audichya/velo/issues/new/choose), or share an idea in [Discussions](https://github.com/Ruchin-Audichya/velo/discussions).
+2. **Fork the repository** and create a branch for your change.
+3. **Build and test** with `cargo build` and `cargo test --workspace --all-features` (see [Build it yourself](#build-it-yourself)).
+4. **Open a pull request** that explains what it changes and why, with a screenshot for anything visible.
+
+For anything big, open an issue first to talk it through. Everything you need to get started is in **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 
 ## FAQ
 
