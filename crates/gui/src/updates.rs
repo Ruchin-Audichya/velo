@@ -10,7 +10,9 @@
 //! the ordinary one: it shows its Update screen, replaces Velo as one set and
 //! keeps the sign-in, exactly as when run by hand.
 //!
-//! Desktop only. A page is updated by its server.
+//! Windows only for now. A page is updated by its server, and a Linux
+//! install by its package manager, so there the helpers below go unused.
+#![cfg_attr(not(windows), allow(dead_code))]
 
 /// Where releases are published.
 pub const RELEASES_API: &str = "https://api.github.com/repos/Ruchin-Audichya/velo/releases/latest";
