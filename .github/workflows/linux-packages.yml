@@ -124,13 +124,14 @@ jobs:
 
       - name: The window starts and stays up
         run: |
-          set -u
+          set -u +e
+          export RUST_BACKTRACE=1 RUST_LOG=info
           export HOME=$(mktemp -d)
           export XDG_RUNTIME_DIR=$(mktemp -d)
           chmod 700 "$XDG_RUNTIME_DIR"
           timeout 20 xvfb-run -a velo > velo.log 2>&1
           status=$?
-          tail -n 40 velo.log
+          tail -n 80 velo.log
           # 124 is timeout ending a window that was still running.
           if [ "$status" -ne 124 ]; then
             echo "velo exited on its own with status $status" >&2
