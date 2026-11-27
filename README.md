@@ -154,14 +154,56 @@ How the pieces fit together, and the reasoning behind the less obvious decisions
 
 ## Contributing
 
-Velo is open source, and contributions are very welcome: bug reports, ideas, translations, fixes and features.
+Velo is built in the open, and it gets better every time someone brings an idea. You don't need to know Rust to help.
 
-1. **Find something to work on:** browse [issues labelled `good first issue`](https://github.com/Ruchin-Audichya/velo/labels/good%20first%20issue), report a [bug](https://github.com/Ruchin-Audichya/velo/issues/new/choose), or share an idea in [Discussions](https://github.com/Ruchin-Audichya/velo/discussions).
-2. **Fork the repository** and create a branch for your change.
-3. **Build and test** with `cargo build` and `cargo test --workspace --all-features` (see [Build it yourself](#build-it-yourself)).
-4. **Open a pull request** that explains what it changes and why, with a screenshot for anything visible.
+### Got an idea for a feature?
 
-For anything big, open an issue first to talk it through. Everything you need to get started is in **[CONTRIBUTING.md](CONTRIBUTING.md)**.
+1. **Check it isn't already there.** Search the [issues](https://github.com/Ruchin-Audichya/velo/issues?q=label%3Aenhancement) and the [Ideas board](https://github.com/Ruchin-Audichya/velo/discussions/categories/ideas). If someone beat you to it, add a 👍 and your own reason for wanting it. That's how we tell what matters most.
+2. **Share it.** Post in [Discussions → Ideas](https://github.com/Ruchin-Audichya/velo/discussions/new?category=ideas) to talk it through, or fill in the [feature request form](https://github.com/Ruchin-Audichya/velo/issues/new?template=feature_request.yml) if it's already clear. A good idea says:
+   - **the problem:** what you were trying to do, and what got in the way
+   - **what you'd like Velo to do** about it
+   - **how other apps handle it**, if they do. Screenshots help, but blur any private chats.
+3. **We shape it together.** An idea that fits Velo becomes an issue labelled `enhancement`. When it's ready for someone to pick up, it gets [`help wanted`](https://github.com/Ruchin-Audichya/velo/labels/help%20wanted).
+4. **Want to build it yourself?** Comment on the issue so nobody else starts the same thing, then follow [Sending a change](#sending-a-change).
+
+### Ideas we'd love help with
+
+| Idea | Where to start |
+|-|-|
+| **Scheduled messages:** write now, send later | `crates/daemon`, which holds the session and could send at the right time |
+| **A command palette** (Ctrl+Shift+P) for every action | `crates/gui/src/app/` |
+| **Split view:** two chats side by side | `crates/gui/src/views/` |
+| **Voice-note transcription**, on your PC | `crates/audio` |
+| **More sticker packs** (original art only) | `crates/gui/assets/stickers/` and `scripts/make-stickers.py` |
+| **Translations** into your language | [docs/localization.md](docs/localization.md) and `crates/gui/src/i18n/` |
+| **Mac and Linux builds** | [docs/building.md](docs/building.md) |
+| **Plugins:** auto-replies, reminders, bots | [examples/template](examples/template) and [docs/plugin-abi.md](docs/plugin-abi.md) |
+
+Plugins are the easiest way to add a feature without touching Velo's core. They're small WebAssembly modules that run inside the background service, and each one asks for exactly the permissions it needs. Copy `examples/template`, then build it with `cargo xtask plugin build examples/<name>`.
+
+### Sending a change
+
+1. **Fork the repository** and create a branch for your change.
+2. **Build and test** with `cargo build` and `cargo test --workspace --all-features` (see [Build it yourself](#build-it-yourself)).
+3. **Open a pull request** that says what it changes and why, with a before-and-after screenshot for anything visible.
+
+A pull request is easy to merge when it:
+
+- does **one thing**, so it's quick to review
+- passes `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets --all-features -- -D warnings` and the tests, the same checks CI runs
+- follows the house rules in [AGENTS.md](AGENTS.md): colours come from the theme, sizes from the rem, never hard-coded
+- uses **no real phone numbers, names or chats** in tests or screenshots
+
+For anything big, open an issue first so we can agree on the approach before you spend a weekend on it.
+
+### Other ways to help
+
+- **Report bugs** with the [bug form](https://github.com/Ruchin-Audichya/velo/issues/new?template=bug_report.yml): what you did, what you expected, what happened
+- **Try new releases** and say what feels off
+- **Answer questions** in [Q&A](https://github.com/Ruchin-Audichya/velo/discussions/categories/q-a)
+- **Star the repository** and tell a friend who's tired of WhatsApp Desktop
+
+The full guide is in **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 
 ## FAQ
 
