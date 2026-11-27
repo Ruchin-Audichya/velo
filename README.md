@@ -12,6 +12,7 @@
 <p align="center">
   <a href="https://github.com/Ruchin-Audichya/velo/releases/latest/download/Velo-Setup-1.3.1-x64.exe"><b>⬇ Download Velo 1.3 for Windows</b></a>
   &nbsp;·&nbsp; Windows 10 &amp; 11, 64-bit &nbsp;·&nbsp; free
+  <br><b>New:</b> <a href="#linux">Linux</a> for Ubuntu, Debian and Fedora
   <br><sub><a href="https://github.com/Ruchin-Audichya/velo/releases/latest">All downloads, portable zip and checksums</a></sub>
 </p>
 
@@ -105,6 +106,8 @@ The biggest update yet, much of it from users' feedback.
 
 ## Install
 
+### Windows
+
 1. Download the **`Velo-Setup-…-x64.exe`** installer from the [latest release](https://github.com/Ruchin-Audichya/velo/releases/latest).
 2. Run it and press **Install**. It installs just for you, with no administrator prompt.
 3. Open Velo, then on your phone go to **WhatsApp → Settings → Linked devices → Link a device** and scan the QR code.
@@ -118,6 +121,31 @@ Prefer no installer? Grab the **portable zip**, unzip it anywhere, and run `velo
 **To remove Velo:** Windows Settings → Apps → Installed apps → Velo → Uninstall. You choose whether to keep your chats on this PC for next time.
 
 > **A note on Windows warnings.** Velo isn't code-signed yet (signing certificates cost money, and this is a free app). Until it is, Windows SmartScreen may show a notice the first time you run the installer, and PCs with **Smart App Control** switched on won't run it at all. Signing is on the roadmap. Every release lists SHA-256 checksums so you can check the file you downloaded is the one published here.
+
+### Linux
+
+64-bit Linux, tested on **Ubuntu 22.04 and 24.04, Debian 12 and Fedora**. Anything at least as new as Ubuntu 22.04 should work.
+
+**Ubuntu, Debian, Linux Mint, Pop!_OS:**
+
+```bash
+wget https://github.com/Ruchin-Audichya/velo/releases/latest/download/velo_1.3.1_amd64.deb
+sudo apt install ./velo_1.3.1_amd64.deb
+```
+
+**Fedora:**
+
+```bash
+sudo dnf install https://github.com/Ruchin-Audichya/velo/releases/latest/download/velo-1.3.1-1.x86_64.rpm
+```
+
+Then open **Velo** from your app menu (or run `velo`) and scan the QR code, the same as on Windows.
+
+**Other distributions:** download `velo-1.3.1-linux-x86_64.tar.gz`, extract it somewhere it can stay, and run `./velo`. Run `./install-desktop.sh` once to add Velo to your app menu.
+
+To remove it: `sudo apt remove velo` or `sudo dnf remove velo`. Your chats stay in `~/.local/share/velo` until you delete that folder.
+
+Velo doesn't update itself on Linux yet. Install the new package over the old one when a release comes out.
 
 ## Is it safe?
 
@@ -214,7 +242,7 @@ No. Velo is an independent project and isn't affiliated with, endorsed by or spo
 No. Like WhatsApp Web, Velo keeps working when your phone is off, for up to about two weeks.
 
 **Mac or Linux?**
-Velo is Windows-first. The code underneath runs elsewhere too, so maybe one day.
+Linux, yes: see [Install → Linux](#linux). Mac isn't packaged yet. The code builds there, so if you'd like to help, see [Contributing](#contributing).
 
 **Why "Velo"?**
 It's short for *velocity*. Also all the good names were taken by companies with lawyers.
