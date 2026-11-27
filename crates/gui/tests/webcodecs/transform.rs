@@ -1,7 +1,7 @@
 #![cfg(target_family = "wasm")]
 
-use velo_webcodecs_tests::{decoder, feed};
 use std::rc::Rc;
+use velo_webcodecs_tests::{decoder, feed};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::*;
 

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.RuchinAudichya.Velo</id>
+  <name>Velo</name>
+  <summary>Fast, native WhatsApp client</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>
+      Velo is an unofficial WhatsApp client written in Rust and drawn on the
+      GPU, with no embedded browser. It links to your phone as a linked device,
+      like WhatsApp Web, and keeps your chats on this computer.
+    </p>
+    <p>Velo is not affiliated with WhatsApp or Meta.</p>
+  </description>
+  <launchable type="desktop-id">io.github.RuchinAudichya.Velo.desktop</launchable>
+  <url type="homepage">https://github.com/Ruchin-Audichya/velo</url>
+  <url type="bugtracker">https://github.com/Ruchin-Audichya/velo/issues</url>
+  <categories>
+    <category>Network</category>
+    <category>InstantMessaging</category>
+  </categories>
+</component>

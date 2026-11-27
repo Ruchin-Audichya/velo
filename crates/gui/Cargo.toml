@@ -100,9 +100,10 @@ gpui_platform = { package = "gpui-fast-platform", version = "0.1.13", features =
 openh264 = "0.9.9" # H.264 software decoder
 # In-app updates: ask GitHub for the latest release and fetch its installer.
 ureq = "3.5.0"
+# Moving data across from the names Velo had before, on every desktop.
+velo-platform = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
-velo-platform = { workspace = true }
 raw-window-handle = "0.6.2"
 # The taskbar badge: `ITaskbarList3` is COM, which `windows-sys` leaves out.
 windows = { version = "0.62.2", features = [

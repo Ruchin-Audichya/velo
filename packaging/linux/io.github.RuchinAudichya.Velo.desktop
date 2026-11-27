@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Velo
+GenericName=WhatsApp client
+Comment=Fast, native WhatsApp client
+Exec=velo
+Icon=io.github.RuchinAudichya.Velo
+StartupWMClass=io.github.RuchinAudichya.Velo
+Terminal=false
+Categories=Network;InstantMessaging;Chat;
+Keywords=whatsapp;chat;messages;messenger;
+StartupNotify=true
