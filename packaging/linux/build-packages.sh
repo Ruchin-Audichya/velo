@@ -55,8 +55,10 @@ summary="Fast, native WhatsApp client for the desktop"
 description="Velo is an unofficial WhatsApp client written in Rust and drawn on the GPU, with no embedded browser. It links to your phone as a linked device, like WhatsApp Web. Not affiliated with WhatsApp or Meta."
 # Loaded at run time rather than linked, so no tool can find them: the GPU
 # (Vulkan), and the Wayland and X11 keyboard libraries.
-deb_runtime="libvulkan1, libwayland-client0, libxkbcommon0, libxkbcommon-x11-0"
-rpm_runtime="vulkan-loader libwayland-client libxkbcommon libxkbcommon-x11"
+# And a font: with none installed the window cannot draw text and stops.
+# DejaVu is one Velo falls back to by name; the others are any one of them.
+deb_runtime="libvulkan1, libwayland-client0, libxkbcommon0, libxkbcommon-x11-0, fonts-dejavu-core | fonts-noto-core | fonts-ubuntu"
+rpm_runtime="vulkan-loader libwayland-client libxkbcommon libxkbcommon-x11 (dejavu-sans-fonts or google-noto-sans-fonts or adwaita-sans-fonts)"
 
 # --- .deb -------------------------------------------------------------------
 deb="$work/deb"
